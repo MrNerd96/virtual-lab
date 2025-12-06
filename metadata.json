@@ -1,0 +1,5 @@
+{
+  "name": "Frog Muscle Physiology Lab",
+  "description": "A 3D virtual laboratory simulating a muscle twitch physiology experiment. Includes 3D muscle visualization, an oscilloscope graph, and an AI Lab Assistant for educational insights.",
+  "requestFramePermissions": []
+}
