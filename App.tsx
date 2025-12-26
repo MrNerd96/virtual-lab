@@ -1081,7 +1081,7 @@ const App: React.FC = () => {
                 <FlaskConical className="w-10 h-10 text-blue-400" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
-                BioSim <span className="text-blue-500">Laboratory</span>
+                Virtual Physiology <span className="text-blue-500">Lab</span>
               </h1>
               <p className="text-slate-400 text-lg max-w-2xl mx-auto">
                 Virtual Physiology & Hematology Suite.
@@ -1112,7 +1112,7 @@ const App: React.FC = () => {
                 disabled={true}
               />
             </div>
-            <div className="text-center text-slate-600 text-sm mt-12">© 2024 BioSim Interactive</div>
+            <div className="text-center text-slate-600 text-sm mt-12">© 2026 Virtual Physiology Lab </div>
           </div>
         </div>
       );
