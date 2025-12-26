@@ -126,7 +126,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
   if (step === 'intro') {
     return (
-      <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans">
+      <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
         <header className="flex items-center gap-4 px-6 py-4 bg-slate-900 border-b border-slate-800">
           <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
             <ArrowLeft className="w-5 h-5" />
@@ -152,7 +152,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans">
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
       <header className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 shrink-0 z-10">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
@@ -169,7 +169,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+        <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden touch-none">
           {/* Zoom Indicators */}
           <div className="absolute top-4 left-4 z-30 flex gap-2">
             {[4, 10, 40, 100].map((z) => (
@@ -956,7 +956,7 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans">
+    <div className="flex flex-col min-h-screen bg-slate-900 text-slate-100 font-sans">
       <header className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 z-10 shadow-md shrink-0">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white">
