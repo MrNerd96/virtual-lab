@@ -503,18 +503,55 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </svg>
 
             {/* Cells */}
-            {cells.map(c => (
-              <div
-                key={c.id}
-                className="absolute rounded-full bg-indigo-700 shadow-sm border border-indigo-900"
-                style={{
-                  left: `${(c.x / GRID_SIZE) * 100}%`,
-                  top: `${(c.y / GRID_SIZE) * 100}%`,
-                  width: zoom === 4 ? 2 : zoom === 10 ? 4 : zoom === 40 ? 6 : 8,
-                  height: zoom === 4 ? 2 : zoom === 10 ? 4 : zoom === 40 ? 6 : 8,
-                }}
-              />
-            ))}
+            {cells.map(c => {
+              const baseSize = zoom === 4 ? 0.5 : zoom === 10 ? 1 : zoom === 40 ? 3 : 6;
+
+              if (zoom <= 10) {
+                // 10x and 4x: Simple blue dots
+                return (
+                  <div
+                    key={c.id}
+                    className="absolute rounded-full bg-[#1e3a8a] shadow-sm"
+                    style={{
+                      left: `${(c.x / GRID_SIZE) * 100}%`,
+                      top: `${(c.y / GRID_SIZE) * 100}%`,
+                      width: baseSize,
+                      height: baseSize,
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  />
+                );
+              } else {
+                // 40x and 100x: Stained nucleus, transparent cytoplasm
+                // We use a container (cytoplasm) and a nested div (nucleus)
+                return (
+                  <div
+                    key={c.id}
+                    className="absolute rounded-full border border-blue-200/30 bg-blue-50/10"
+                    style={{
+                      left: `${(c.x / GRID_SIZE) * 100}%`,
+                      top: `${(c.y / GRID_SIZE) * 100}%`,
+                      width: baseSize,
+                      height: baseSize,
+                      transform: 'translate(-50%, -50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {/* Nucleus: Dark purple/blue, slightly irregular */}
+                    <div
+                      className="bg-[#4c1d95] opacity-80"
+                      style={{
+                        width: '70%',
+                        height: '70%',
+                        borderRadius: '45% 55% 50% 50% / 50% 45% 55% 50%', // Slightly irregular shape
+                      }}
+                    />
+                  </div>
+                );
+              }
+            })}
           </div>
         );
       }}
@@ -534,8 +571,8 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const centerSize = squareSize;
 
     let id = 0;
-    // RBCs are very dense. Generate 470 randomly distributed in the center grid.
-    for (let i = 0; i < 470; i++) {
+    // RBCs are very dense. Generate 2500 randomly distributed in the center grid.
+    for (let i = 0; i < 2500; i++) {
       newCells.push({
         id: id++,
         x: centerX + Math.random() * (centerSize - 10) + 5,
@@ -611,8 +648,8 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 style={{
                   left: `${(c.x / GRID_SIZE) * 100}%`,
                   top: `${(c.y / GRID_SIZE) * 100}%`,
-                  width: zoom === 100 ? 6 : zoom === 40 ? 5 : zoom === 10 ? 4 : 2,
-                  height: zoom === 100 ? 6 : zoom === 40 ? 5 : zoom === 10 ? 4 : 2,
+                  width: zoom === 4 ? 0.25 : zoom === 10 ? 0.5 : zoom === 40 ? 1.5 : 3,
+                  height: zoom === 4 ? 0.25 : zoom === 10 ? 0.5 : zoom === 40 ? 1.5 : 3,
                   boxShadow: '0 0 2px rgba(239, 68, 68, 0.4)'
                 }}
               />
@@ -1084,7 +1121,7 @@ const App: React.FC = () => {
                 Virtual Physiology <span className="text-blue-500">Lab</span>
               </h1>
               <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-                Virtual Physiology & Hematology Suite.
+                Practice physiology experiments anytime, anywhere.
               </p>
             </div>
 
