@@ -4,7 +4,7 @@ import { Environment, OrbitControls, Stage } from '@react-three/drei';
 import { Muscle3D } from './components/Muscle3D';
 import { Oscilloscope } from './components/Oscilloscope';
 import { Controls } from './components/Controls';
-import { LabAssistant } from './components/LabAssistant';
+
 import { DataPoint } from './types';
 import {
   ArrowLeft,
@@ -25,7 +25,10 @@ import {
   ListChecks,
   Timer,
   RefreshCw,
-  Dna
+  Dna,
+  Info,
+  History,
+  X
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -124,6 +127,50 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
     }));
   };
 
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragStart.current) return;
+
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+
+    // Movement logic:
+    // Dragging screen RIGHT (positive dx) means looking LEFT into the slide.
+    // So we want to move the "Camera" LEFT.
+    // Position x implies the center point of the view relative to the slide origin.
+    // If I drag right, I want to see what is to the LEFT.
+    // So position.x should DECREASE.
+    // However, let's look at the transform logic:
+    // translate(calc(-50% + ${-position.x * currentScale}px)...
+    // If position.x increases, the slide moves LEFT (negative translate).
+    // If I drag MOUSE RIGHT (positive dx), I expect the slide to move RIGHT (dragging the slide).
+    // So positive dx should result in positive translation.
+    // -position.x * scale = translation.
+    // So -delta_pos * scale = dx
+    // delta_pos = -dx / scale.
+
+    const deltaX = -dx / currentScale;
+    const deltaY = -dy / currentScale;
+
+    setPosition(prev => ({
+      x: Math.max(-MAX_PAN, Math.min(MAX_PAN, prev.x + deltaX)),
+      y: Math.max(-MAX_PAN, Math.min(MAX_PAN, prev.y + deltaY))
+    }));
+
+    dragStart.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    dragStart.current = null;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
   if (step === 'intro') {
     return (
       <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
@@ -169,19 +216,26 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden touch-none">
+        <div
+          className="flex-1 bg-black relative flex items-center justify-center overflow-hidden touch-none cursor-move"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
           {/* Zoom Indicators */}
-          <div className="absolute top-4 left-4 z-30 flex gap-2">
+          <div className="absolute top-4 left-4 z-30 flex gap-2 pointer-events-none">
             {[4, 10, 40, 100].map((z) => (
               <button
                 key={z}
-                onClick={() => setZoom(z as 4 | 10 | 40 | 100)}
+                onPointerDown={(e) => e.stopPropagation()}
                 className={`
-                    w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all
+                    w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all pointer-events-auto
                     ${zoom === z
                     ? 'bg-indigo-600 border-indigo-400 text-white scale-110 shadow-[0_0_15px_rgba(99,102,241,0.5)]'
                     : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:bg-slate-800'}
                   `}
+                onClick={() => setZoom(z as 4 | 10 | 40 | 100)}
               >
                 {z}x
               </button>
@@ -189,7 +243,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
           </div>
 
           {/* Eyepiece */}
-          <div className="relative w-[300px] h-[300px] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#eef2ff]">
+          <div className="relative w-[300px] h-[300px] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#eef2ff] pointer-events-none">
             <div className="absolute inset-0 z-20 pointer-events-none rounded-full bg-[radial-gradient(circle,transparent_50%,rgba(0,0,0,0.3)_80%,rgba(0,0,0,0.9)_100%)]"></div>
 
             {/* SLIDE CONTENT CONTAINER */}
@@ -206,7 +260,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
           </div>
 
           {/* Mini-map */}
-          <div className="absolute bottom-4 right-4 bg-slate-900/80 p-2 rounded border border-slate-700 z-30">
+          <div className="absolute bottom-4 right-4 bg-slate-900/80 p-2 rounded border border-slate-700 z-30 pointer-events-none">
             <div className="w-20 h-20 bg-slate-800 relative border border-slate-600 overflow-hidden">
               <div
                 className="absolute w-4 h-4 border-2 border-red-500 bg-transparent shadow-[0_0_5px_red]"
@@ -1093,9 +1147,7 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
               <Oscilloscope data={data} currentVoltage={voltage} />
             </div>
           </div>
-          <div className="h-[350px] lg:h-auto lg:flex-1 p-4 bg-slate-900 flex flex-col min-h-0">
-            <LabAssistant voltage={voltage} lastPeakForce={lastPeakForce} />
-          </div>
+
         </section>
       </main>
     </div>
@@ -1107,13 +1159,31 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
+  const [showAbout, setShowAbout] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   switch (currentView) {
     case 'home':
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans">
           <div className="max-w-5xl w-full space-y-12">
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-4 relative">
+              <div className="absolute top-0 right-0 flex gap-2">
+                <button
+                  onClick={() => setShowAbout(true)}
+                  className="p-2 text-slate-400 hover:text-white transition-colors"
+                  title="About"
+                >
+                  <Info className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="p-2 text-slate-400 hover:text-white transition-colors"
+                  title="Version History"
+                >
+                  <History className="w-6 h-6" />
+                </button>
+              </div>
               <div className="inline-flex items-center justify-center p-3 bg-blue-500/10 rounded-2xl mb-4">
                 <FlaskConical className="w-10 h-10 text-blue-400" />
               </div>
@@ -1151,7 +1221,85 @@ const App: React.FC = () => {
             </div>
             <div className="text-center text-slate-600 text-sm mt-12">© 2026 Virtual Physiology Lab </div>
           </div>
-        </div>
+
+
+          {/* About Modal */}
+          {
+            showAbout && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <div className="bg-slate-900 p-8 rounded-2xl max-w-2xl w-full border border-slate-800 relative max-h-[90vh] overflow-y-auto">
+                  <button
+                    onClick={() => setShowAbout(false)}
+                    className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <Info className="w-6 h-6 text-blue-500" /> About Virtual Physiology Lab
+                  </h2>
+                  <div className="space-y-4 text-slate-300 leading-relaxed">
+                    <p>
+                      Virtual Physiology Lab is an interactive educational tool designed to simulate physiological experiments.
+                      It allows students and professionals to practice various experiments in Hematology and Amphibian/Muscle physiology in a virtual environment.
+                    </p>
+                    <p>
+                      <strong>Key Features:</strong>
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Virtual Microscopy for Hematology (WBC, RBC, DLC).</li>
+                      <li>Simulated Neubauer Chamber for cell counting.</li>
+                      <li>Amphibian Muscle sim for Twitch, Load, and Fatigue analysis.</li>
+                      <li>Real-time data visualization with Oscilloscope.</li>
+                    </ul>
+                    <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800">
+                      Developed by Dr. B. I Mario Raja using React, Three.js, and Capacitor.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          {/* Version History Modal */}
+          {
+            showHistory && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <div className="bg-slate-900 p-8 rounded-2xl max-w-2xl w-full border border-slate-800 relative max-h-[90vh] overflow-y-auto">
+                  <button
+                    onClick={() => setShowHistory(false)}
+                    className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <History className="w-6 h-6 text-green-500" /> Version History
+                  </h2>
+                  <div className="space-y-6">
+                    <div className="border-l-2 border-green-500 pl-4">
+                      <h3 className="text-lg font-semibold text-white">v1.1.0 (Current)</h3>
+                      <p className="text-slate-500 text-sm mb-2">December 2025</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Added About and Version History features.</li>
+                        <li>Removed legacy Lab Assistant.</li>
+                        <li>Improved mobile scrolling on Android.</li>
+                        <li>Optimized Hematology experiments.</li>
+                      </ul>
+                    </div>
+                    <div className="border-l-2 border-slate-700 pl-4 opacity-70">
+                      <h3 className="text-lg font-semibold text-white">v1.0.0</h3>
+                      <p className="text-slate-500 text-sm mb-2">November 2025</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Initial release.</li>
+                        <li>Included Amphibian (Twitch, Load, Fatigue) and Hematology modules.</li>
+                        <li>Basic Virtual Microscope functionality.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+        </div >
       );
 
     // Sub-Menus
