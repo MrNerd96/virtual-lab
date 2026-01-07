@@ -28,7 +28,11 @@ import {
   Dna,
   Info,
   History,
-  X
+  X,
+  MessageCircle,
+  Star,
+  Send,
+  ExternalLink
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -40,7 +44,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'wbc-count' | 'rbc-count' | 'dlc-count';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'genesis-tetanus';
 
 // --- Shared Components ---
 
@@ -248,11 +252,13 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
             {/* SLIDE CONTENT CONTAINER */}
             <div
-              className="absolute w-[800px] h-[800px] origin-center transition-transform duration-300 ease-out will-change-transform"
+              key={zoom}
+              className="absolute w-[800px] h-[800px] origin-center"
               style={{
                 transform: `translate(calc(-50% + ${-position.x * currentScale}px), calc(-50% + ${-position.y * currentScale}px)) scale(${currentScale})`,
                 left: '50%',
-                top: '50%'
+                top: '50%',
+                willChange: 'transform'
               }}
             >
               {renderSlide(zoom)}
@@ -728,7 +734,28 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const increment = (type: CellType) => setCounts(prev => ({ ...prev, [type]: prev[type] + 1 }));
   const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
 
-  // Generate random cells on a "smear"
+  // Generate random RBCs (many RBCs for dense coverage)
+  const [rbcs] = useState(() => {
+    const newRbcs = [];
+    // Simple seeded random for consistency
+    let seed = 12345;
+    const seededRandom = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+
+    // 5000 RBCs for dense coverage (keeping performance reasonable)
+    for (let i = 0; i < 5000; i++) {
+      newRbcs.push({
+        id: i,
+        x: seededRandom() * 780 + 10,
+        y: seededRandom() * 780 + 10
+      });
+    }
+    return newRbcs;
+  });
+
+  // Generate random WBC cells on a "smear"
   const [cells] = useState(() => {
     const newCells = [];
     let id = 0;
@@ -769,81 +796,79 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   });
 
   const renderCell = (type: CellType, zoom: number) => {
-    const size = zoom === 100 ? 50 : zoom === 40 ? 25 : zoom === 10 ? 8 : 4; // Slightly larger for better detail
+    // Render at appropriate size for each zoom - 10x smaller than original
+    const size = zoom === 100 ? 5 : zoom === 40 ? 2.5 : zoom === 10 ? 0.8 : 0.4;
+    const displaySize = Math.max(size, 4); // Minimum 4px for visibility
+    const monocyteMultiplier = type === 'Monocyte' ? 1.3 : 1;
+    const finalSize = displaySize * monocyteMultiplier;
 
-    // Dynamic sizing for internals
-    const granuleRadius = Math.max(0.5, size / 15);
-    const granuleSpacing = Math.max(2, size / 6);
+    const cellColors: Record<CellType, { bg: string; nucleus: string; accent?: string }> = {
+      Neutrophil: { bg: '#fce7f3', nucleus: '#581c87' },
+      Lymphocyte: { bg: '#fce7f3', nucleus: '#4c1d95' },
+      Monocyte: { bg: '#fce7f3', nucleus: '#6b21a8' },
+      Eosinophil: { bg: '#fdf2f8', nucleus: '#7c3aed', accent: '#ef4444' },
+      Basophil: { bg: '#eff6ff', nucleus: '#1e3a8a', accent: '#1e40af' }
+    };
 
-    switch (type) {
-      case 'Neutrophil': // Multi-lobed nucleus (3-5 lobes)
-        return (
-          <div className="rounded-full bg-pink-100 flex items-center justify-center relative overflow-hidden border border-pink-300 shadow-sm"
-            style={{ width: size, height: size }}>
-            {/* Lobes connected by invisible strands */}
-            <div className="absolute bg-purple-800 rounded-full" style={{ width: '35%', height: '35%', top: '15%', left: '20%' }}></div>
-            <div className="absolute bg-purple-800 rounded-full" style={{ width: '30%', height: '30%', bottom: '20%', right: '15%' }}></div>
-            <div className="absolute bg-purple-800 rounded-full" style={{ width: '35%', height: '35%', bottom: '15%', left: '25%' }}></div>
-            {/* Thin connecting strand */}
-            <div className="absolute bg-purple-800 opacity-80" style={{ width: '40%', height: '4%', top: '45%', left: '30%', transform: 'rotate(45deg)' }}></div>
-          </div>
-        );
+    const colors = cellColors[type];
 
-      case 'Lymphocyte': // Large round nucleus, fills most of cell
-        return (
-          <div className="rounded-full bg-pink-100 flex items-center justify-center border border-pink-300 shadow-sm"
-            style={{ width: size, height: size }}>
-            <div className="bg-purple-900 rounded-full" style={{ width: '85%', height: '85%' }}></div>
-          </div>
-        );
+    return (
+      <svg
+        key={`${type}-${zoom}`}
+        width={finalSize}
+        height={finalSize}
+        viewBox="0 0 40 40"
+        style={{ display: 'block' }}
+      >
+        <circle cx="20" cy="20" r="18" fill={colors.bg} stroke="#f9a8d4" strokeWidth="1" />
 
-      case 'Monocyte': // Kidney bean / Horseshoe nucleus - Largest cell
-        return (
-          <div className="rounded-full bg-pink-100 flex items-center justify-center border border-pink-300 shadow-sm"
-            style={{ width: size * 1.3, height: size * 1.3 }}>
-            <div className="bg-purple-800"
-              style={{
-                width: '65%',
-                height: '65%',
-                borderRadius: '40% 60% 60% 40% / 40% 50% 50% 40%'
-              }}></div>
-          </div>
-        );
+        {type === 'Neutrophil' && (
+          <>
+            <circle cx="12" cy="14" r="6" fill={colors.nucleus} />
+            <circle cx="24" cy="16" r="5" fill={colors.nucleus} />
+            <circle cx="16" cy="26" r="6" fill={colors.nucleus} />
+            <rect x="12" y="16" width="10" height="3" fill={colors.nucleus} transform="rotate(30 16 18)" />
+          </>
+        )}
 
-      case 'Eosinophil': // Bilobed nucleus + Red/Orange granules
-        return (
-          <div className="rounded-full bg-pink-50 flex items-center justify-center border border-pink-300 relative overflow-hidden shadow-sm"
-            style={{ width: size, height: size }}>
-            {/* Bilobed Nucleus */}
-            <div className="absolute bg-purple-800 rounded-full opacity-50" style={{ width: '40%', height: '40%', left: '10%', top: '30%' }}></div>
-            <div className="absolute bg-purple-800 rounded-full opacity-50" style={{ width: '40%', height: '40%', right: '10%', top: '30%' }}></div>
-            <div className="absolute bg-purple-800 opacity-50" style={{ width: '30%', height: '10%', top: '45%', left: '35%' }}></div>
+        {type === 'Lymphocyte' && (
+          <circle cx="20" cy="20" r="15" fill={colors.nucleus} />
+        )}
 
-            {/* Red Granules */}
-            <div className="absolute inset-0"
-              style={{
-                backgroundImage: `radial-gradient(circle, rgba(239, 68, 68, 0.7) ${granuleRadius}px, transparent ${granuleRadius}px)`,
-                backgroundSize: `${granuleSpacing}px ${granuleSpacing}px`
-              }}></div>
-          </div>
-        );
+        {type === 'Monocyte' && (
+          <ellipse cx="20" cy="20" rx="12" ry="10" fill={colors.nucleus} transform="rotate(-20 20 20)" />
+        )}
 
-      case 'Basophil': // Obscured nucleus + Blue/Black granules
-        return (
-          <div className="rounded-full bg-blue-50 flex items-center justify-center border border-pink-300 relative overflow-hidden shadow-sm"
-            style={{ width: size, height: size }}>
-            {/* Nucleus (barely visible) */}
-            <div className="absolute bg-purple-900 rounded-full opacity-30" style={{ width: '60%', height: '60%' }}></div>
+        {type === 'Eosinophil' && (
+          <>
+            <circle cx="12" cy="20" r="6" fill={colors.nucleus} opacity="0.7" />
+            <circle cx="28" cy="20" r="6" fill={colors.nucleus} opacity="0.7" />
+            <rect x="14" y="18" width="12" height="4" fill={colors.nucleus} opacity="0.7" />
+            <circle cx="10" cy="10" r="2" fill={colors.accent} />
+            <circle cx="30" cy="10" r="2" fill={colors.accent} />
+            <circle cx="10" cy="30" r="2" fill={colors.accent} />
+            <circle cx="30" cy="30" r="2" fill={colors.accent} />
+            <circle cx="20" cy="8" r="1.6" fill={colors.accent} />
+            <circle cx="20" cy="32" r="1.6" fill={colors.accent} />
+          </>
+        )}
 
-            {/* Dark Blue Granules */}
-            <div className="absolute inset-0"
-              style={{
-                backgroundImage: `radial-gradient(circle, rgba(30, 58, 138, 0.9) ${granuleRadius * 1.2}px, transparent ${granuleRadius * 1.2}px)`,
-                backgroundSize: `${granuleSpacing}px ${granuleSpacing}px`
-              }}></div>
-          </div>
-        );
-    }
+        {type === 'Basophil' && (
+          <>
+            <circle cx="20" cy="20" r="10" fill={colors.nucleus} opacity="0.4" />
+            <circle cx="8" cy="12" r="3" fill={colors.accent} />
+            <circle cx="16" cy="8" r="3" fill={colors.accent} />
+            <circle cx="26" cy="10" r="3" fill={colors.accent} />
+            <circle cx="32" cy="18" r="3" fill={colors.accent} />
+            <circle cx="30" cy="28" r="3" fill={colors.accent} />
+            <circle cx="20" cy="32" r="3" fill={colors.accent} />
+            <circle cx="10" cy="28" r="3" fill={colors.accent} />
+            <circle cx="8" cy="20" r="3" fill={colors.accent} />
+            <circle cx="20" cy="20" r="2.4" fill={colors.accent} />
+          </>
+        )}
+      </svg>
+    );
   };
 
   return (
@@ -869,12 +894,19 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </button>
             ))}
           </div>
+          {/* Real Cells Button */}
+          <button
+            onClick={() => window.open('https://biolucida.net:443/image?c=MTk4Ny1jb2wtOTEtMC0wLTEtMA%3D%3D', '_blank')}
+            className="mt-4 w-full py-3 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:via-purple-500 hover:to-fuchsia-500 rounded-xl font-bold text-white border border-purple-400/50 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center gap-2 animate-pulse hover:animate-none"
+          >
+            <Microscope className="w-5 h-5" />
+            Practice on Real Slide (Web)
+            <ExternalLink className="w-4 h-4 opacity-70" />
+          </button>
         </div>
       }
       renderSlide={(zoom) => (
         <div className="relative w-full h-full bg-[#ffeef2]">
-          {/* Smear Texture */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle,#ec4899_1px,transparent_1px)] bg-[size:20px_20px]"></div>
 
           {/* Cells */}
           {cells.map(c => (
@@ -882,19 +914,24 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {renderCell(c.type, zoom)}
             </div>
           ))}
-          {/* Some random RBCs for background noise */}
-          {Array.from({ length: 100 }).map((_, i) => (
-            <div
-              key={`rbc-${i}`}
-              className="absolute rounded-full bg-red-300/40"
-              style={{
-                left: Math.random() * 800,
-                top: Math.random() * 800,
-                width: zoom === 100 ? 6 : 3,
-                height: zoom === 100 ? 6 : 3
-              }}
-            />
-          ))}
+          {/* RBCs - half the size of WBCs, 700:1 ratio */}
+          {rbcs.map(rbc => {
+            // WBC displaySize is 4px, so RBC is 2px (half)
+            const rbcSize = zoom === 100 ? 2 : zoom === 40 ? 1.5 : zoom === 10 ? 0.6 : 0.3;
+            return (
+              <div
+                key={`rbc-${rbc.id}`}
+                className="absolute rounded-full"
+                style={{
+                  left: rbc.x,
+                  top: rbc.y,
+                  width: rbcSize,
+                  height: rbcSize,
+                  backgroundColor: 'rgba(239, 68, 68, 0.7)'
+                }}
+              />
+            );
+          })}
         </div>
       )}
     />
@@ -918,84 +955,155 @@ interface MuscleLabProps {
 const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) => {
   const [voltage, setVoltage] = useState(3.5);
   const [load, setLoad] = useState(0); // For Load Experiment (grams)
-  const [fatigueLevel, setFatigueLevel] = useState(0); // For Fatigue (0 to 1)
-  const [stimulusCount, setStimulusCount] = useState(0);
 
   const [data, setData] = useState<DataPoint[]>([]);
+  const dataRef = useRef<DataPoint[]>([]); // Ref to track data for closure access
+
   const [isStimulating, setIsStimulating] = useState(false);
   const [contractionLevel, setContractionLevel] = useState(0);
   const [lastPeakForce, setLastPeakForce] = useState(0);
 
   // Auto-stimulate for fatigue
   const [autoStimulate, setAutoStimulate] = useState(false);
+  const autoStimulateRef = useRef(false); // Ref for loop access
 
+  const [stimulusCount, setStimulusCount] = useState(0);
+  const stimulusCountRef = useRef(0); // Ref for loop access
+
+  const [fatigueLevel, setFatigueLevel] = useState(0);
+  const fatigueLevelRef = useRef(0); // Ref for loop access
+
+  // History for Fatigue Graph (superimposed)
+  const [historyData, setHistoryData] = useState<{ data: DataPoint[], label?: string }[]>([]);
+
+  // We no longer track continuous time offset, we want them to overlay from 0.
   const animationRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
 
   // Physics Logic
-  const calculateParameters = (v: number, l: number, f: number) => {
+  // Physics Logic
+  const calculateParameters = (v: number, l: number, f: number, sc: number) => {
     // Base contraction (Hill's-ish)
     let maxForce = v < THRESHOLD_VOLTAGE ? 0 : (v >= MAX_VOLTAGE ? 10 : 10 * ((v - THRESHOLD_VOLTAGE) / (MAX_VOLTAGE - THRESHOLD_VOLTAGE)));
 
-    // Effect of Load: Force (Height) decreases as Load increases
-    // Work = Force * Distance. Here we simulate Height.
-    // If Load > MaxForce, height is 0 (Isometric).
-    // Simplified: Height decreases linearly with load.
+    // Effect of Load: Force decreases with load
     if (mode === 'load') {
       maxForce = Math.max(0, maxForce - (l * 0.1));
     }
 
-    // Effect of Fatigue: Force decreases, Relaxation time increases
+    // FATIGUE & TREPPE LOGIC
+    let contracture = 0;
+    let undershoot = 0;
+
     if (mode === 'fatigue') {
-      maxForce = maxForce * (1 - (f * 0.8)); // Can drop to 20%
+      // 1. TREPPE (Beneficial Effect)
+      // First 5-8 stimuli show increasing peak height.
+      // Textbook: Sharp rise initially.
+      if (sc <= 8) {
+        // Start at 60% strength, reach 125% at peak
+        const treppeFactor = 0.6 + ((sc - 1) * 0.09);
+        maxForce = maxForce * treppeFactor;
+      } else {
+        // 2. FATIGUE (Linear Decay)
+        // After peak, force drops linearly.
+        // Drop to ~20% by stimulus 70.
+        const fatigueFactor = Math.max(0.2, 1.25 - ((sc - 8) * 0.017));
+        maxForce = maxForce * fatigueFactor;
+      }
+
+      // 3. CONTRACTURE (Plateauing Baseline)
+      // Rises early, then CLAMPS to become parallel lines.
+      // Rise for first ~40 stimuli, then flat.
+      // Cap at 3.0g.
+      contracture = Math.min(3.0, (sc * 0.08));
+
+      // 4. NO UNDERSHOOT - Textbook diagrams don't show it.
+      undershoot = 0;
     }
 
     return {
       force: maxForce,
-      latent: LATENT_PERIOD_BASE + (l * 0.5), // Load increases latent period slightly
+      latent: LATENT_PERIOD_BASE + (l * 0.5),
       contraction: CONTRACTION_TIME_BASE,
-      relaxation: RELAXATION_TIME_BASE + (f * 100) // Fatigue increases relaxation time
+      relaxation: RELAXATION_TIME_BASE + (f * 200), // Moderate extension
+      contracture,
+      undershoot
     };
   };
 
-  const runSimulation = (timestamp: number, params: { force: number, latent: number, contraction: number, relaxation: number }) => {
+  const runSimulation = (timestamp: number, params: { force: number, latent: number, contraction: number, relaxation: number, contracture: number, undershoot: number }) => {
     const elapsed = timestamp - startTimeRef.current;
     const totalDuration = params.latent + params.contraction + params.relaxation;
 
     if (elapsed > totalDuration + 50) {
       setIsStimulating(false);
-      setContractionLevel(0);
+      // Don't reset contraction level to 0 immediately if we have contracture? 
+      // Actually, for visual smoothness, better to let it restart or stay at contracture level?
+      // Since we clear data[] on next click, it doesn't matter much for the graph, 
+      // but for the 3D model (Muscle3D), we might want it to stay contracted.
+      setContractionLevel(params.contracture / 10);
 
-      // Fatigue Loop Logic
-      if (mode === 'fatigue' && autoStimulate && fatigueLevel < 1) {
-        // Trigger next immediately
-        handleStimulate();
+      // ... (Fatigue Loop Logic continues below) ...
+
+      if (mode === 'fatigue') {
+        const currentCount = stimulusCountRef.current;
+
+        // Save history every 5 stimuli for dense graph
+        const shouldSave = currentCount <= 5 || currentCount % 5 === 0;
+
+        if (shouldSave) {
+          // Use dataRef.current to get the FULL accumulated data
+          const capturedData = [...dataRef.current];
+          setHistoryData(prev => [...prev, { data: capturedData, label: currentCount.toString() }]);
+        }
+
+        // Auto-stimulate until 70
+        if (autoStimulateRef.current && fatigueLevelRef.current < 1 && currentCount < 70) {
+          handleStimulate(); // Next stimulus
+        } else {
+          setAutoStimulate(false);
+          autoStimulateRef.current = false;
+        }
       }
       return;
     }
 
-    let currentForce = 0;
+    let currentForce = params.contracture; // Start at baseline (contracture)
 
     if (elapsed < params.latent) {
-      currentForce = 0;
+      currentForce = params.contracture;
     } else if (elapsed < params.latent + params.contraction) {
       const progress = (elapsed - params.latent) / params.contraction;
-      currentForce = params.force * Math.sin(progress * (Math.PI / 2));
+      // Force adds ON TOP of contracture
+      currentForce = params.contracture + params.force * Math.sin(progress * (Math.PI / 2));
     } else if (elapsed < params.latent + params.contraction + params.relaxation) {
       const progress = (elapsed - (params.latent + params.contraction)) / params.relaxation;
-      currentForce = params.force * (1 - Math.sin(progress * (Math.PI / 2)));
+
+      // 5. MONOTONIC RELAXATION
+      // No undershoot. Smooth decay to baseline (params.contracture).
+      // Using cosine decay for a smooth "S" shape down, or simple exponential?
+      // "Single smooth envelope" -> usually implies a consistent shape.
+      // Cosine drop:
+      const relaxationComponent = params.force * (1 - Math.sin(progress * (Math.PI / 2)));
+
+      // Add to baseline
+      currentForce = params.contracture + relaxationComponent;
     }
 
     // Add noise
-    const displayForce = Math.max(0, currentForce + (Math.random() - 0.5) * 0.1);
+    const displayForce = currentForce + (Math.random() - 0.5) * 0.1;
 
     setData(prev => {
-      // Optimizing data points: only add if time changed enough
+      // Optimizing data points
       const lastTime = prev.length > 0 ? prev[prev.length - 1].time : -1;
-      if (elapsed - lastTime >= 5) {
-        return [...prev, { time: Math.floor(elapsed), force: displayForce, voltage }];
-      }
-      return prev;
+      const plotTime = Math.floor(elapsed);
+
+      // Check for duplicate time points
+      if (prev.length > 0 && plotTime === prev[prev.length - 1].time) return prev;
+
+      const newData = [...prev, { time: plotTime, force: displayForce, voltage }];
+      dataRef.current = newData; // Sync ref
+      return newData;
     });
 
     setContractionLevel(currentForce / 10);
@@ -1003,46 +1111,53 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
   };
 
   const handleStimulate = () => {
-    // If already stimulating, ignore unless in fatigue mode (summation/tetanus potential, but keeping simple for now)
     if (isStimulating && mode !== 'fatigue') return;
 
-    // Fatigue logic: increase fatigue level
-    let currentFatigue = fatigueLevel;
-    if (mode === 'fatigue') {
-      setStimulusCount(c => c + 1);
-      // Treppe first (negative fatigue?), then fatigue
-      // Simplifying: Fatigue starts adding up after 5 stimuli
-      if (stimulusCount > 5) {
-        currentFatigue = Math.min(1, fatigueLevel + 0.05);
-        setFatigueLevel(currentFatigue);
-      }
+    // Use Refs for logic to ensure up-to-date values in loop
+    stimulusCountRef.current += 1;
+    const currentCount = stimulusCountRef.current;
+    setStimulusCount(currentCount); // Sync to UI
+
+    // Fatigue logic
+    let currentFatigue = fatigueLevelRef.current;
+    if (mode === 'fatigue' && currentCount > 5) {
+      // Start fatigue after stimulus 5 (after Treppe peak)
+      // Slow down fatigue to reach max around 70 stimuli (65 steps * 0.015 approx 0.975)
+      currentFatigue = Math.min(1, currentFatigue + 0.015);
+      fatigueLevelRef.current = currentFatigue;
+      setFatigueLevel(currentFatigue); // Updates state for UI
     }
 
-    const params = calculateParameters(voltage, load, currentFatigue);
+    // Calculate parameters using current Ref values
+    const params = calculateParameters(voltage, load, currentFatigue, currentCount);
+
     setLastPeakForce(params.force);
 
-    // Clear data only if simple twitch
-    if (mode === 'twitch' || mode === 'load') {
-      setData([]);
-    } else if (mode === 'fatigue') {
-      // Keep data, shift x-axis maybe? Or just clear if it gets too full?
-      // For simple visualization, let's clear if > 1000 pts
-      if (data.length > 500) setData([]);
-    }
+    // Always clear CURRENT data to start drawing the new line from X=0
+    setData([]);
+    dataRef.current = []; // Clear Ref
 
     setIsStimulating(true);
     startTimeRef.current = performance.now();
-    cancelAnimationFrame(animationRef.current); // Cancel previous
+    cancelAnimationFrame(animationRef.current);
     animationRef.current = requestAnimationFrame((t) => runSimulation(t, params));
   };
 
   const handleReset = () => {
     setData([]);
+    dataRef.current = []; // Clear Ref
+    setHistoryData([]); // Clear history
     setContractionLevel(0);
     setIsStimulating(false);
+
     setFatigueLevel(0);
+    fatigueLevelRef.current = 0;
+
     setStimulusCount(0);
+    stimulusCountRef.current = 0;
+
     setAutoStimulate(false);
+    autoStimulateRef.current = false;
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
   };
 
@@ -1110,9 +1225,12 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
               <div className="mt-4 flex gap-4">
                 <button
                   onClick={() => {
-                    if (autoStimulate) {
+                    // Toggle logic using Ref for immediate truth
+                    if (autoStimulateRef.current) {
+                      autoStimulateRef.current = false;
                       setAutoStimulate(false);
                     } else {
+                      autoStimulateRef.current = true;
                       setAutoStimulate(true);
                       handleStimulate();
                     }
@@ -1144,12 +1262,723 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
               )}
             </div>
             <div className="flex-1 min-h-0 w-full">
-              <Oscilloscope data={data} currentVoltage={voltage} />
+              <Oscilloscope
+                data={data}
+                currentVoltage={voltage}
+                historyTraces={mode === 'fatigue' ? historyData : undefined}
+              />
             </div>
           </div>
 
         </section>
       </main>
+    </div>
+  );
+};
+
+
+// 5. Genesis of Tetanus Experiment
+const GenesisOfTetanusExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const [frequency, setFrequency] = useState(5); // stimuli per second
+  const [drumSpeed, setDrumSpeed] = useState(12.5); // mm/sec
+  const [isStimulating, setIsStimulating] = useState(false);
+  const [data, setData] = useState<DataPoint[]>([]);
+  const [markerData, setMarkerData] = useState<{ time: number, active: boolean }[]>([]);
+
+  const animationRef = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
+  const lastStimulusTimeRef = useRef<number>(0);
+  const forcesRef = useRef<{ startTime: number, peakForce: number, decayRate: number }[]>([]);
+
+  const DURATION = 5000; // 5 seconds of experiment
+
+  const frequencies = [
+    { label: '(A) Treppe', value: 5 },
+    { label: '(B) Clonus', value: 10 },
+    { label: '(C) Incomplete tetanus', value: 30 },
+    { label: '(D) Complete tetanus', value: 40 }
+  ];
+
+  const runSimulation = (timestamp: number) => {
+    if (!startTimeRef.current) startTimeRef.current = timestamp;
+    const elapsed = timestamp - startTimeRef.current;
+
+    if (elapsed > DURATION) {
+      setIsStimulating(false);
+      return;
+    }
+
+    // Stimulation Interval
+    const interval = 1000 / frequency;
+    if (timestamp - lastStimulusTimeRef.current >= interval) {
+      lastStimulusTimeRef.current = timestamp;
+
+      // Calculate peak force with Treppe effect
+      const stimulusIndex = Math.floor(elapsed / interval);
+      let peakForce = 10;
+      if (stimulusIndex < 10) {
+        peakForce = 5 + (stimulusIndex * 0.5); // Treppe rise
+      }
+
+      forcesRef.current.push({
+        startTime: elapsed,
+        peakForce: peakForce,
+        decayRate: 0.01 // Slow decay for summation
+      });
+
+      setMarkerData(prev => [...prev.slice(-100), { time: elapsed, active: true }]);
+    }
+
+    // Calculate sum of active contractions
+    let totalForce = 0;
+
+    // For clonus (10/sec), use discrete spikes with triangular envelope
+    // For other frequencies, use summation for tetanus
+    const isClonus = frequency === 10;
+
+    if (isClonus) {
+      // Clonus: Explicit wave heights as specified
+      // Peak heights and trough heights for each wave
+
+      // Define exact peak and trough values for each wave
+      // Wave 1: ascend 20, descend 2 (to 18)
+      // Wave 2: rise 2.5 (to 20.5), descend 2.5 (to 18)
+      // Wave 3: rise 3 (to 21), descend 3 (to 18)  
+      // Wave 4: rise 4.5 (to 22.5), descend to baseline progressively
+      const waveData = [
+        { peak: 40, trough: 20 },     // Wave 1: ascend 20, descend 2
+        { peak: 42, trough: 22 },   // Wave 2: rise 2.5, descend 2.5
+        { peak: 44, trough: 23 },     // Wave 3: rise 3, descend 3
+        { peak: 46, trough: 24 },   // Wave 4: rise 4.5
+        { peak: 48, trough: 26 },     // Wave 5: declining
+        { peak: 50, trough: 28 },     // Wave 6: declining
+        { peak: 52, trough: 29 },      // Wave 7: declining
+        { peak: 54, trough: 33 },      // Wave 8: declining
+        { peak: 56, trough: 35 },       // Wave 9: declining
+        { peak: 58, trough: 40 },       // Wave 10: return to baseline
+      ];
+
+      // Keep stimulus for longer than interval to avoid gaps
+      forcesRef.current = forcesRef.current.filter(f => elapsed - f.startTime < 110);
+
+      const totalStimuli = waveData.length;
+      const interval = 1000 / frequency; // 100ms between stimuli
+      const clonusDuration = totalStimuli * interval;
+
+      // Calculate current wave index from elapsed time
+      const currentWaveIndex = Math.min(Math.floor(elapsed / interval), totalStimuli - 1);
+
+      // After all waves, maintain baseline
+      if (elapsed > clonusDuration + 50) {
+        totalForce = 0;
+      } else if (forcesRef.current.length > 0) {
+        const f = forcesRef.current[forcesRef.current.length - 1];
+        const dt = elapsed - f.startTime;
+
+        // Get wave index
+        const waveIndex = Math.min(Math.floor(f.startTime / interval), totalStimuli - 1);
+        const wave = waveData[waveIndex];
+
+        // Get previous wave's trough as starting point (or 0 for first wave)
+        const prevTrough = waveIndex > 0 ? waveData[waveIndex - 1].trough : 0;
+
+        // Spike shape within wave
+        const spikeDuration = 95; // Almost full interval
+        const riseTime = 25; // Time to reach peak
+        const fallTime = spikeDuration - riseTime; // Time to fall to trough
+
+        if (dt < spikeDuration) {
+          if (dt < riseTime) {
+            // Rise from previous trough to this peak
+            const progress = dt / riseTime;
+            totalForce = prevTrough + (wave.peak - prevTrough) * Math.pow(progress, 0.7);
+          } else {
+            // Fall from peak to this wave's trough (only a small drop!)
+            const decayProgress = (dt - riseTime) / fallTime;
+            totalForce = wave.peak - (wave.peak - wave.trough) * Math.pow(decayProgress, 0.8);
+          }
+        } else {
+          // At trough level between spikes
+          totalForce = wave.trough;
+        }
+      } else {
+        // Between stimuli - stay at current wave's trough (not 0!)
+        if (currentWaveIndex > 0 && elapsed < clonusDuration) {
+          totalForce = waveData[Math.max(0, currentWaveIndex - 1)].trough;
+        } else {
+          totalForce = 0;
+        }
+      }
+    } else if (frequency === 5) {
+      // TREPPE (5/sec): Staircase effect - gradual increase in force
+      // Individual twitches with increasing amplitude
+      const waveData = [
+        { peak: 15, trough: 0 },      // Wave 1: small
+        { peak: 20, trough: 0 },      // Wave 2: slightly bigger
+        { peak: 25, trough: 0 },      // Wave 3: bigger
+        { peak: 30, trough: 0 },      // Wave 4: bigger
+        { peak: 35, trough: 0 },      // Wave 5: bigger
+        { peak: 38, trough: 0 },      // Wave 6: near max
+        { peak: 40, trough: 0 },      // Wave 7: max
+        { peak: 40, trough: 0 },      // Wave 8: max
+        { peak: 38, trough: 0 },      // Wave 9: slight decline
+        { peak: 35, trough: 0 },      // Wave 10: declining
+      ];
+
+      forcesRef.current = forcesRef.current.filter(f => elapsed - f.startTime < 250);
+
+      const totalStimuli = waveData.length;
+      const interval = 1000 / frequency; // 200ms between stimuli
+      const treppeDuration = totalStimuli * interval;
+      const currentWaveIndex = Math.min(Math.floor(elapsed / interval), totalStimuli - 1);
+
+      if (elapsed > treppeDuration + 100) {
+        totalForce = 0;
+      } else if (forcesRef.current.length > 0) {
+        const f = forcesRef.current[forcesRef.current.length - 1];
+        const dt = elapsed - f.startTime;
+        const waveIndex = Math.min(Math.floor(f.startTime / interval), totalStimuli - 1);
+        const wave = waveData[waveIndex];
+
+        const spikeDuration = 180;
+        const riseTime = 40;
+
+        if (dt < spikeDuration) {
+          if (dt < riseTime) {
+            const progress = dt / riseTime;
+            totalForce = wave.peak * Math.pow(progress, 0.7);
+          } else {
+            const decayProgress = (dt - riseTime) / (spikeDuration - riseTime);
+            totalForce = wave.peak * Math.pow(1 - decayProgress, 1.2);
+          }
+        } else {
+          totalForce = 0;
+        }
+      } else {
+        totalForce = 0;
+      }
+
+    } else if (frequency === 30) {
+      // INCOMPLETE TETANUS (30/sec): Partially fused contractions
+      // Waves don't fully relax between stimuli
+      const waveData = [
+        { peak: 25, trough: 5 },
+        { peak: 35, trough: 15 },
+        { peak: 45, trough: 25 },
+        { peak: 55, trough: 35 },
+        { peak: 60, trough: 40 },
+        { peak: 65, trough: 45 },
+        { peak: 68, trough: 48 },
+        { peak: 70, trough: 50 },
+        { peak: 70, trough: 50 },
+        { peak: 68, trough: 48 },
+        { peak: 65, trough: 45 },
+        { peak: 60, trough: 40 },
+        { peak: 55, trough: 35 },
+        { peak: 50, trough: 30 },
+        { peak: 45, trough: 25 },
+      ];
+
+      forcesRef.current = forcesRef.current.filter(f => elapsed - f.startTime < 50);
+
+      const totalStimuli = waveData.length;
+      const interval = 1000 / frequency; // ~33ms between stimuli
+      const tetanusDuration = totalStimuli * interval;
+      const currentWaveIndex = Math.min(Math.floor(elapsed / interval), totalStimuli - 1);
+
+      if (elapsed > tetanusDuration + 50) {
+        totalForce = 0;
+      } else if (forcesRef.current.length > 0) {
+        const f = forcesRef.current[forcesRef.current.length - 1];
+        const dt = elapsed - f.startTime;
+        const waveIndex = Math.min(Math.floor(f.startTime / interval), totalStimuli - 1);
+        const wave = waveData[waveIndex];
+        const prevTrough = waveIndex > 0 ? waveData[waveIndex - 1].trough : 0;
+
+        const spikeDuration = 30;
+        const riseTime = 10;
+
+        if (dt < spikeDuration) {
+          if (dt < riseTime) {
+            const progress = dt / riseTime;
+            totalForce = prevTrough + (wave.peak - prevTrough) * Math.pow(progress, 0.7);
+          } else {
+            const decayProgress = (dt - riseTime) / (spikeDuration - riseTime);
+            totalForce = wave.peak - (wave.peak - wave.trough) * Math.pow(decayProgress, 0.8);
+          }
+        } else {
+          totalForce = wave.trough;
+        }
+      } else if (currentWaveIndex > 0 && elapsed < tetanusDuration) {
+        totalForce = waveData[Math.max(0, currentWaveIndex - 1)].trough;
+      } else {
+        totalForce = 0;
+      }
+
+    } else if (frequency === 40) {
+      // COMPLETE TETANUS (40/sec): Fully fused contractions
+      // Smooth sustained contraction with minimal oscillation
+      const waveData = [
+        { peak: 50, trough: 38 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+        { peak: 40, trough: 40 },
+      ];
+
+      forcesRef.current = forcesRef.current.filter(f => elapsed - f.startTime < 40);
+
+      const totalStimuli = waveData.length;
+      const interval = 1000 / frequency; // 25ms between stimuli
+      const tetanusDuration = totalStimuli * interval;
+      const currentWaveIndex = Math.min(Math.floor(elapsed / interval), totalStimuli - 1);
+
+      if (elapsed > tetanusDuration + 50) {
+        totalForce = 0;
+      } else if (forcesRef.current.length > 0) {
+        const f = forcesRef.current[forcesRef.current.length - 1];
+        const dt = elapsed - f.startTime;
+        const waveIndex = Math.min(Math.floor(f.startTime / interval), totalStimuli - 1);
+        const wave = waveData[waveIndex];
+        const prevTrough = waveIndex > 0 ? waveData[waveIndex - 1].trough : 0;
+
+        const spikeDuration = 22;
+        const riseTime = 8;
+
+        if (dt < spikeDuration) {
+          if (dt < riseTime) {
+            const progress = dt / riseTime;
+            totalForce = prevTrough + (wave.peak - prevTrough) * Math.pow(progress, 0.7);
+          } else {
+            const decayProgress = (dt - riseTime) / (spikeDuration - riseTime);
+            totalForce = wave.peak - (wave.peak - wave.trough) * Math.pow(decayProgress, 0.8);
+          }
+        } else {
+          totalForce = wave.trough;
+        }
+      } else if (currentWaveIndex > 0 && elapsed < tetanusDuration) {
+        totalForce = waveData[Math.max(0, currentWaveIndex - 1)].trough;
+      } else {
+        totalForce = 0;
+      }
+    }
+
+    // Add noise
+    const displayForce = totalForce + (Math.random() - 0.5) * 0.1;
+
+    setData(prev => {
+      const plotTime = Math.floor(elapsed);
+      if (prev.length > 0 && plotTime === prev[prev.length - 1].time) return prev;
+      return [...prev.slice(-1000), { time: plotTime, force: displayForce, voltage: 5 }];
+    });
+
+    animationRef.current = requestAnimationFrame(runSimulation);
+  };
+
+  const handleStart = () => {
+    setData([]);
+    setMarkerData([]);
+    forcesRef.current = [];
+    startTimeRef.current = 0;
+    lastStimulusTimeRef.current = 0;
+    setIsStimulating(true);
+    cancelAnimationFrame(animationRef.current);
+    animationRef.current = requestAnimationFrame(runSimulation);
+  };
+
+  const handleReset = () => {
+    setData([]);
+    setMarkerData([]);
+    forcesRef.current = [];
+    setIsStimulating(false);
+    cancelAnimationFrame(animationRef.current);
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
+      <header className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
+              Genesis of Tetanus
+            </h1>
+            <p className="text-slate-400 text-xs text-left">Amphibian / Gastrocnemius-Sciatic Preparation</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col p-6 gap-6 overflow-hidden">
+        <div className="flex-1 bg-slate-900 rounded-2xl border border-slate-800 relative overflow-hidden flex flex-col">
+          {/* Drawing Area */}
+          <div className="flex-1 relative bg-white m-4 rounded-lg shadow-inner overflow-hidden">
+            <svg width="100%" height="100%" viewBox="0 0 1000 400" preserveAspectRatio="none">
+              {/* Horizontal Baseline */}
+              <line x1="0" y1="320" x2="1000" y2="320" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
+
+              {/* Contraction Curve */}
+              <path
+                d={`M ${data.map(d => `${(d.time / DURATION) * 1000},${320 - d.force * 6}`).join(' L ')}`}
+                fill="none"
+                stroke="#1e293b"
+                strokeWidth="2"
+                className="transition-all duration-100"
+              />
+
+              {/* Signal Marker Area */}
+              <line x1="0" y1="360" x2="1000" y2="360" stroke="#94a3b8" strokeWidth="1" />
+              <text x="10" y="350" fontSize="10" fill="#64748b" className="font-bold">SIGNAL MARKER</text>
+
+              {markerData.map((m, i) => (
+                <line
+                  key={i}
+                  x1={(m.time / DURATION) * 1000} y1="360"
+                  x2={(m.time / DURATION) * 1000} y2="380"
+                  stroke="#1e293b" strokeWidth="1"
+                />
+              ))}
+            </svg>
+
+            {/* Labels based on frequency */}
+            <div className="absolute bottom-12 left-0 right-0 flex justify-center text-[#1e293b] text-sm font-bold">
+              {frequencies.find(f => f.value === frequency)?.label} ({frequency}/sec)
+            </div>
+          </div>
+
+          {/* Controls Overlay */}
+          <div className="p-6 bg-slate-800 border-t border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
+                <Activity className="w-4 h-4 text-indigo-400" /> Stimulation Frequency
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {frequencies.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => { setFrequency(f.value); handleReset(); }}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border
+                      ${frequency === f.value
+                        ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                  >
+                    {f.value}/sec
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
+                <Timer className="w-4 h-4 text-emerald-400" /> Drum Speed
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range" min="5" max="50" step="2.5"
+                  value={drumSpeed}
+                  onChange={(e) => setDrumSpeed(Number(e.target.value))}
+                  className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <span className="text-emerald-400 font-mono text-sm min-w-[60px]">{drumSpeed} mm/s</span>
+              </div>
+            </div>
+
+            <div className="flex items-end gap-3">
+              <button
+                onClick={handleStart}
+                disabled={isStimulating}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Zap className="w-5 h-5" /> Start Recording
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-all"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+
+// --- FEEDBACK MODAL ---
+
+// ⚠️ GOOGLE FORMS SETUP INSTRUCTIONS:
+// 1. Create a Google Form with these fields:
+//    - Name (Short answer)
+//    - Email (Short answer)
+//    - Rating (Short answer - will receive 1-5)
+//    - Feedback (Paragraph)
+// 2. Get the form's pre-filled link by:
+//    a. Click 3 dots menu > Get pre-filled link
+//    b. Fill sample data and click "Get link"
+//    c. Copy the URL and replace GOOGLE_FORM_ACTION_URL below
+// 3. The URL looks like: https://docs.google.com/forms/d/e/FORM_ID/formResponse
+// 4. Find entry IDs from the prefilled URL (entry.XXXXXX) and update below
+
+const GOOGLE_FORM_CONFIG = {
+  // Virtual Physiology Lab Feedback Form
+  actionUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSdPY6VdSmNIAQ-6xvhhm1F-FrbzF0lbxpJL-m8YScMRBCfREg/formResponse',
+  fields: {
+    name: 'entry.150282487',
+    email: 'entry.797040518',
+    rating: 'entry.612197493',
+    feedback: 'entry.1421853862'
+  }
+};
+
+interface FeedbackModalProps {
+  onClose: () => void;
+}
+
+const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!feedback.trim()) {
+      setError('Please enter your feedback');
+      return;
+    }
+
+    if (rating === 0) {
+      setError('Please select a rating');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    // Check if Google Form is configured
+    if (GOOGLE_FORM_CONFIG.actionUrl === 'YOUR_GOOGLE_FORM_ACTION_URL_HERE') {
+      // Demo mode - just show success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setSubmitted(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      // Submit to Google Form using iframe method (avoids CORS)
+      const formData = new URLSearchParams();
+      formData.append(GOOGLE_FORM_CONFIG.fields.name, name);
+      formData.append(GOOGLE_FORM_CONFIG.fields.email, email);
+      formData.append(GOOGLE_FORM_CONFIG.fields.rating, rating.toString());
+      formData.append(GOOGLE_FORM_CONFIG.fields.feedback, feedback);
+
+      // Create hidden iframe for submission
+      const iframe = document.createElement('iframe');
+      iframe.name = 'feedback-iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = GOOGLE_FORM_CONFIG.actionUrl;
+      form.target = 'feedback-iframe';
+
+      for (const [key, value] of formData.entries()) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+
+      // Cleanup after submission
+      setTimeout(() => {
+        document.body.removeChild(form);
+        document.body.removeChild(iframe);
+      }, 1000);
+
+      setSubmitted(true);
+    } catch (err) {
+      setError('Failed to submit feedback. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-900 p-8 rounded-2xl max-w-md w-full border border-slate-800 text-center">
+          <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Star className="w-8 h-8 text-green-400 fill-green-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Thank You!</h2>
+          <p className="text-slate-400 mb-6">Your feedback has been submitted successfully.</p>
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 p-8 rounded-2xl max-w-lg w-full border border-slate-800 relative max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+          <MessageCircle className="w-6 h-6 text-yellow-500" /> Send Feedback
+        </h2>
+        <p className="text-slate-400 text-sm mb-6">We'd love to hear your thoughts on Virtual Physiology Lab!</p>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Name Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              Name <span className="text-slate-500">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all"
+              placeholder="Your name"
+            />
+          </div>
+
+          {/* Email Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              Email <span className="text-slate-500">(optional)</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all"
+              placeholder="your.email@example.com"
+            />
+          </div>
+
+          {/* Star Rating */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Rating <span className="text-red-400">*</span>
+            </label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  className="p-1 transition-transform hover:scale-110"
+                >
+                  <Star
+                    className={`w-8 h-8 transition-colors ${star <= (hoverRating || rating)
+                      ? 'text-yellow-400 fill-yellow-400'
+                      : 'text-slate-600'
+                      }`}
+                  />
+                </button>
+              ))}
+              {rating > 0 && (
+                <span className="ml-2 text-slate-400 self-center text-sm">
+                  {rating === 1 && 'Poor'}
+                  {rating === 2 && 'Fair'}
+                  {rating === 3 && 'Good'}
+                  {rating === 4 && 'Very Good'}
+                  {rating === 5 && 'Excellent'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Feedback Text */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              Your Feedback <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              rows={4}
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all resize-none"
+              placeholder="Tell us what you think, suggestions for improvement, or any bugs you found..."
+            />
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+              {error}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${isSubmitting
+              ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/30'
+              }`}
+          >
+            {isSubmitting ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                Submit Feedback
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Google Form Config Note */}
+        {GOOGLE_FORM_CONFIG.actionUrl === 'YOUR_GOOGLE_FORM_ACTION_URL_HERE' && (
+          <p className="text-slate-500 text-xs mt-4 text-center">
+            ℹ️ Demo mode - Configure Google Form URL to enable data storage
+          </p>
+        )}
+      </div>
     </div>
   );
 };
@@ -1161,6 +1990,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [showAbout, setShowAbout] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   switch (currentView) {
     case 'home':
@@ -1182,6 +2012,13 @@ const App: React.FC = () => {
                   title="Version History"
                 >
                   <History className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={() => setShowFeedback(true)}
+                  className="p-2 text-slate-400 hover:text-yellow-400 transition-colors"
+                  title="Send Feedback"
+                >
+                  <MessageCircle className="w-6 h-6" />
                 </button>
               </div>
               <div className="inline-flex items-center justify-center p-3 bg-blue-500/10 rounded-2xl mb-4">
@@ -1299,6 +2136,13 @@ const App: React.FC = () => {
               </div>
             )
           }
+
+          {/* Feedback Modal */}
+          {
+            showFeedback && (
+              <FeedbackModal onClose={() => setShowFeedback(false)} />
+            )
+          }
         </div >
       );
 
@@ -1332,6 +2176,13 @@ const App: React.FC = () => {
                 icon={<Timer className="w-8 h-8" />}
                 colorClass="orange"
                 onClick={() => setCurrentView('fatigue')}
+              />
+              <MenuCard
+                title="Genesis of Tetanus"
+                description="Frequency of stimulation, Summation, and Tetanus."
+                icon={<Activity className="w-8 h-8" />}
+                colorClass="indigo"
+                onClick={() => setCurrentView('genesis-tetanus')}
               />
             </div>
           </div>
@@ -1380,6 +2231,7 @@ const App: React.FC = () => {
     case 'wbc-count': return <WBCExperiment onBack={() => setCurrentView('hematology')} />;
     case 'rbc-count': return <RBCExperiment onBack={() => setCurrentView('hematology')} />;
     case 'dlc-count': return <DLCExperiment onBack={() => setCurrentView('hematology')} />;
+    case 'genesis-tetanus': return <GenesisOfTetanusExperiment onBack={() => setCurrentView('amphibian')} />;
 
     default: return null;
   }
