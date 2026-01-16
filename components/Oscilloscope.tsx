@@ -37,6 +37,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({ data, currentVoltage
                         />
                         <YAxis
                             domain={[-3, 12]}
+                            ticks={[-3, 0, 5, 12]}
                             stroke="#475569"
                             tick={{ fill: '#64748b', fontSize: 10 }}
                             label={{ value: 'Force (g)', angle: -90, position: 'insideLeft', fill: '#64748b' }}
@@ -51,19 +52,34 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({ data, currentVoltage
                             isAnimationActive={false}
                         />
 
-                        {/* Render History Traces first (behind) */}
-                        {historyTraces?.map((trace, i) => (
-                            <Line
-                                key={`history - ${i} `}
-                                data={trace.data}
-                                type="monotone"
-                                dataKey="force"
-                                stroke="#64748b" // Lighter gray for better visibility
-                                strokeWidth={2}
-                                dot={false}
-                                isAnimationActive={false}
-                            />
-                        ))}
+                        {/* Render History Traces - sorted by peak force (lowest first, so highest peaks render on top) */}
+                        {(() => {
+                            const sorted = historyTraces
+                                ?.map((trace, i) => ({
+                                    ...trace,
+                                    originalIndex: i,
+                                    maxForce: Math.max(...trace.data.map(d => d.force))
+                                }))
+                                .sort((a, b) => a.maxForce - b.maxForce) || [];
+
+                            // Debug log
+                            if (sorted.length > 0) {
+                                console.log('[OSCILLOSCOPE] Sorted traces:', sorted.map(t => ({ label: t.label, maxForce: t.maxForce.toFixed(1) })));
+                            }
+
+                            return sorted.map((trace) => (
+                                <Line
+                                    key={`history-${trace.originalIndex}`}
+                                    data={trace.data}
+                                    type="monotone"
+                                    dataKey="force"
+                                    stroke="#94a3b8"
+                                    strokeWidth={1.5}
+                                    dot={false}
+                                    isAnimationActive={false}
+                                />
+                            ));
+                        })()}
                         {/* History Labels - rendered as ReferenceLines or custom dots if needed, but for now simplistic approach */}
 
                         {/* Active Line (Live) */}

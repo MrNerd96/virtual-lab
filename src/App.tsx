@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Activity,
   Droplet,
-  Brain,
   Zap,
   Scale,
   ChevronRight,
@@ -854,16 +853,11 @@ const App: React.FC = () => {
                 colorClass="green"
                 onClick={() => setCurrentView('amphibian')}
               />
-              <MenuCard
-                title="Mammalian"
-                description="Advanced cardiovascular dynamics."
-                icon={<Brain className="w-8 h-8" />}
-                colorClass="indigo"
-                onClick={() => { }}
-                disabled={true}
-              />
             </div>
-            <div className="text-center text-slate-600 text-sm mt-12">© 2024 BioSim Interactive</div>
+            <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
+              <span>© 2026 Virtual Physiology Lab</span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Jan 09, 2026</span>
+            </div>
           </div>
         </div>
       );

@@ -1,16 +1,20 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls, Stage } from '@react-three/drei';
-import { Muscle3D } from './components/Muscle3D';
-import { Oscilloscope } from './components/Oscilloscope';
 import { Controls } from './components/Controls';
-
 import { DataPoint } from './types';
+
+// Lazy load heavy components
+const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })));
+const Microscope3D = lazy(() => import('./components/Microscope3D').then(m => ({ default: m.Microscope3D })));
+const Oscilloscope = lazy(() => import('./components/Oscilloscope').then(m => ({ default: m.Oscilloscope })));
+const TwoSuccessiveStimuli = lazy(() => import('./components/TwoSuccessiveStimuli').then(m => ({ default: m.TwoSuccessiveStimuli })));
+const EffectOfLoad = lazy(() => import('./components/EffectOfLoad').then(m => ({ default: m.EffectOfLoad })));
+
 import {
   ArrowLeft,
   Activity,
   Droplet,
-  Brain,
   Zap,
   Scale,
   ChevronRight,
@@ -32,7 +36,9 @@ import {
   MessageCircle,
   Star,
   Send,
-  ExternalLink
+  ExternalLink,
+  Library,
+  Loader
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -44,7 +50,18 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'genesis-tetanus';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'genesis-tetanus' | 'microscope';
+
+// --- Loading Component ---
+const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Loading...' }) => (
+  <div className="flex flex-col items-center justify-center w-full h-full min-h-[200px] bg-slate-900/50">
+    <div className="relative">
+      <Loader className="w-12 h-12 text-blue-500 animate-spin" />
+      <div className="absolute inset-0 w-12 h-12 rounded-full bg-blue-500/20 animate-ping" />
+    </div>
+    <p className="mt-4 text-slate-400 text-sm font-medium animate-pulse">{message}</p>
+  </div>
+);
 
 // --- Shared Components ---
 
@@ -903,6 +920,14 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             Practice on Real Slide (Web)
             <ExternalLink className="w-4 h-4 opacity-70" />
           </button>
+          <button
+            onClick={() => window.open('https://www.cellavision.com/node/1162', '_blank')}
+            className="mt-3 w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded-xl font-bold text-white border border-blue-400/50 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center gap-2"
+          >
+            <Library className="w-5 h-5" />
+            Cell Atlas
+            <ExternalLink className="w-4 h-4 opacity-70" />
+          </button>
         </div>
       }
       renderSlide={(zoom) => (
@@ -980,7 +1005,92 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
   const animationRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
 
-  // Physics Logic
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FATIGUE WAVE CONFIGURATION - EDIT THIS ARRAY TO CUSTOMIZE WAVE SHAPES!
+  // 
+  // Each entry has these parameters:
+  //   peak: Maximum height the wave reaches (in g)
+  //   trough: Level wave decays towards after peak (in g, can be negative for undershoot)
+  //   duration: Wave duration multiplier (1.0 = normal, 2.0 = twice as long)
+  //   secondPeak: Height of secondary peak/undershoot (in g, negative = below baseline)
+  //
+  // Wave 1 = first stimulus, Wave 70 = last stimulus
+  // ═══════════════════════════════════════════════════════════════════════════
+  const FATIGUE_WAVE_CONFIG = [
+    // secondPeak increases from 0.5 to 2.0 over 70 waves (contracture remainder)
+    { peak: 8, trough: -2, duration: 2, secondPeak: 0.5 },   // Wave 1
+    { peak: 10, trough: -1.6, duration: 2, secondPeak: 0.52 }, // Wave 2
+    { peak: 11, trough: -1.2, duration: 2, secondPeak: 0.54 }, // Wave 3 (max)
+    { peak: 11, trough: -0.8, duration: 2, secondPeak: 0.57 }, // Wave 4
+    { peak: 11, trough: -0.4, duration: 2, secondPeak: 0.59 }, // Wave 5
+    { peak: 10, trough: -0.2, duration: 2, secondPeak: 0.61 }, // Wave 6
+    { peak: 10, trough: -0.1, duration: 2, secondPeak: 0.63 }, // Wave 7
+    { peak: 10, trough: -0.05, duration: 2, secondPeak: 0.65 }, // Wave 8
+    { peak: 10, trough: 0, duration: 2, secondPeak: 0.67 }, // Wave 9
+    { peak: 9, trough: -0.05, duration: 2, secondPeak: 0.70 },  // Wave 10
+    { peak: 9, trough: -0.1, duration: 2, secondPeak: 0.72 },  // Wave 11
+    { peak: 9, trough: -0.2, duration: 2, secondPeak: 0.74 },  // Wave 12
+    { peak: 9, trough: -0.3, duration: 2, secondPeak: 0.76 },  // Wave 13
+    { peak: 8, trough: -0.4, duration: 2, secondPeak: 0.78 },  // Wave 14
+    { peak: 8, trough: -0.5, duration: 2, secondPeak: 0.80 },  // Wave 15
+    { peak: 8, trough: -0.6, duration: 2, secondPeak: 0.83 },  // Wave 16
+    { peak: 8, trough: -0.7, duration: 2, secondPeak: 0.85 },  // Wave 17
+    { peak: 7, trough: 0.8, duration: 2, secondPeak: 0.87 },  // Wave 18
+    { peak: 7, trough: 0.9, duration: 2, secondPeak: 0.89 },  // Wave 19
+    { peak: 7, trough: 1.00, duration: 2, secondPeak: 0.91 },  // Wave 20
+    { peak: 7, trough: 1.00, duration: 2, secondPeak: 0.93 },  // Wave 21
+    { peak: 6, trough: 1.02, duration: 2, secondPeak: 0.96 },  // Wave 22
+    { peak: 6, trough: 1.04, duration: 2, secondPeak: 0.98 },  // Wave 23
+    { peak: 6, trough: 1.06, duration: 2, secondPeak: 1.00 },  // Wave 24
+    { peak: 6, trough: 1.08, duration: 2, secondPeak: 1.02 },  // Wave 25
+    { peak: 5, trough: 1.10, duration: 2, secondPeak: 1.04 },  // Wave 26
+    { peak: 5, trough: 1.12, duration: 2, secondPeak: 1.07 },  // Wave 27
+    { peak: 5, trough: 1.14, duration: 2, secondPeak: 1.09 },  // Wave 28
+    { peak: 5, trough: 1.16, duration: 2, secondPeak: 1.11 },  // Wave 29
+    { peak: 5, trough: 1.18, duration: 2, secondPeak: 1.13 },  // Wave 30
+    { peak: 4, trough: 1.20, duration: 2, secondPeak: 1.15 },  // Wave 31
+    { peak: 4, trough: 1.22, duration: 2, secondPeak: 1.17 },  // Wave 32
+    { peak: 4, trough: 1.24, duration: 2, secondPeak: 1.20 },  // Wave 33
+    { peak: 4, trough: 1.26, duration: 2, secondPeak: 1.22 },  // Wave 34
+    { peak: 4, trough: 1.28, duration: 2, secondPeak: 1.24 },  // Wave 35
+    { peak: 3, trough: 1.30, duration: 2, secondPeak: 1.26 },  // Wave 36
+    { peak: 3, trough: 1.32, duration: 2, secondPeak: 1.28 },  // Wave 37
+    { peak: 3, trough: 1.34, duration: 2, secondPeak: 1.30 },  // Wave 38
+    { peak: 3, trough: 1.36, duration: 2, secondPeak: 1.33 },  // Wave 39
+    { peak: 3, trough: 1.38, duration: 2, secondPeak: 1.35 },  // Wave 40
+    { peak: 3, trough: 1.40, duration: 2, secondPeak: 1.37 },  // Wave 41
+    { peak: 2, trough: 1.42, duration: 2, secondPeak: 1.39 },  // Wave 42
+    { peak: 2, trough: 1.44, duration: 2, secondPeak: 1.41 },  // Wave 43
+    { peak: 2, trough: 1.46, duration: 2, secondPeak: 1.43 },  // Wave 44
+    { peak: 2, trough: 1.48, duration: 2, secondPeak: 1.46 },  // Wave 45
+    { peak: 2, trough: 1.50, duration: 2, secondPeak: 1.48 },  // Wave 46
+    { peak: 2, trough: 1.52, duration: 2, secondPeak: 1.50 },  // Wave 47
+    { peak: 2, trough: 1.54, duration: 2, secondPeak: 1.52 },  // Wave 48
+    { peak: 2, trough: 1.56, duration: 2, secondPeak: 1.54 },  // Wave 49
+    { peak: 2, trough: 1.58, duration: 2, secondPeak: 1.57 },  // Wave 50
+    { peak: 2, trough: 1.60, duration: 2, secondPeak: 1.59 },  // Wave 51
+    { peak: 2, trough: 1.62, duration: 2, secondPeak: 1.61 },  // Wave 52
+    { peak: 2, trough: 1.64, duration: 2, secondPeak: 1.63 },  // Wave 53
+    { peak: 2, trough: 1.66, duration: 2, secondPeak: 1.65 },  // Wave 54
+    { peak: 2, trough: 1.68, duration: 2, secondPeak: 1.67 },  // Wave 55
+    { peak: 2, trough: 1.70, duration: 2, secondPeak: 1.70 },  // Wave 56
+    { peak: 2, trough: 1.72, duration: 2, secondPeak: 1.72 },  // Wave 57
+    { peak: 2, trough: 1.74, duration: 2, secondPeak: 1.74 },  // Wave 58
+    { peak: 2, trough: 1.76, duration: 2, secondPeak: 1.76 },  // Wave 59
+    { peak: 2, trough: 1.78, duration: 2, secondPeak: 1.78 },  // Wave 60
+    { peak: 2, trough: 1.80, duration: 2, secondPeak: 1.80 },  // Wave 61
+    { peak: 2, trough: 1.82, duration: 2, secondPeak: 1.83 },  // Wave 62
+    { peak: 2, trough: 1.84, duration: 2, secondPeak: 1.85 },  // Wave 63
+    { peak: 2, trough: 1.86, duration: 2, secondPeak: 1.87 },  // Wave 64
+    { peak: 2, trough: 1.88, duration: 2, secondPeak: 1.89 },  // Wave 65
+    { peak: 2, trough: 1.90, duration: 2, secondPeak: 1.91 },  // Wave 66
+    { peak: 2, trough: 1.92, duration: 2, secondPeak: 1.93 },  // Wave 67
+    { peak: 2, trough: 1.94, duration: 2, secondPeak: 1.96 },  // Wave 68
+    { peak: 2, trough: 1.96, duration: 2, secondPeak: 1.98 },  // Wave 69
+    { peak: 2, trough: 2.00, duration: 2, secondPeak: 2.00 },  // Wave 70
+  ];
+  // ═══════════════════════════════════════════════════════════════════════════
+
   // Physics Logic
   const calculateParameters = (v: number, l: number, f: number, sc: number) => {
     // Base contraction (Hill's-ish)
@@ -991,75 +1101,57 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
       maxForce = Math.max(0, maxForce - (l * 0.1));
     }
 
-    // FATIGUE & TREPPE LOGIC
     let contracture = 0;
-    let undershoot = 0;
+    let secondPeak = 0;
+    let durationMultiplier = 1.0;
 
     if (mode === 'fatigue') {
-      // 1. TREPPE (Beneficial Effect)
-      // First 5-8 stimuli show increasing peak height.
-      // Textbook: Sharp rise initially.
-      if (sc <= 8) {
-        // Start at 60% strength, reach 125% at peak
-        const treppeFactor = 0.6 + ((sc - 1) * 0.09);
-        maxForce = maxForce * treppeFactor;
-      } else {
-        // 2. FATIGUE (Linear Decay)
-        // After peak, force drops linearly.
-        // Drop to ~20% by stimulus 70.
-        const fatigueFactor = Math.max(0.2, 1.25 - ((sc - 8) * 0.017));
-        maxForce = maxForce * fatigueFactor;
-      }
+      // USE MANUAL CONFIGURATION - Get values from FATIGUE_WAVE_CONFIG array
+      const waveIndex = Math.min(sc - 1, FATIGUE_WAVE_CONFIG.length - 1);
+      const waveConfig = FATIGUE_WAVE_CONFIG[Math.max(0, waveIndex)];
 
-      // 3. CONTRACTURE (Plateauing Baseline)
-      // Rises early, then CLAMPS to become parallel lines.
-      // Rise for first ~40 stimuli, then flat.
-      // Cap at 3.0g.
-      contracture = Math.min(3.0, (sc * 0.08));
+      // DEBUG: Trace config access
+      console.log(`[CONFIG] sc=${sc}, waveIndex=${waveIndex}, config peak=${waveConfig.peak}`);
 
-      // 4. NO UNDERSHOOT - Textbook diagrams don't show it.
-      undershoot = 0;
+      // Extract all configured values (with defaults for backwards compatibility)
+      maxForce = waveConfig.peak;
+      contracture = waveConfig.trough;
+      durationMultiplier = waveConfig.duration ?? 1.0;
+      secondPeak = waveConfig.secondPeak ?? 0;
     }
 
     return {
       force: maxForce,
       latent: LATENT_PERIOD_BASE + (l * 0.5),
-      contraction: CONTRACTION_TIME_BASE,
-      relaxation: RELAXATION_TIME_BASE + (f * 200), // Moderate extension
+      contraction: CONTRACTION_TIME_BASE * durationMultiplier,
+      relaxation: (RELAXATION_TIME_BASE + (f * 200)) * durationMultiplier,
       contracture,
-      undershoot
+      secondPeak
     };
   };
 
-  const runSimulation = (timestamp: number, params: { force: number, latent: number, contraction: number, relaxation: number, contracture: number, undershoot: number }) => {
+  const runSimulation = (timestamp: number, params: { force: number, latent: number, contraction: number, relaxation: number, contracture: number, secondPeak: number }) => {
     const elapsed = timestamp - startTimeRef.current;
     const totalDuration = params.latent + params.contraction + params.relaxation;
 
     if (elapsed > totalDuration + 50) {
       setIsStimulating(false);
-      // Don't reset contraction level to 0 immediately if we have contracture? 
-      // Actually, for visual smoothness, better to let it restart or stay at contracture level?
-      // Since we clear data[] on next click, it doesn't matter much for the graph, 
-      // but for the 3D model (Muscle3D), we might want it to stay contracted.
       setContractionLevel(params.contracture / 10);
-
-      // ... (Fatigue Loop Logic continues below) ...
 
       if (mode === 'fatigue') {
         const currentCount = stimulusCountRef.current;
 
-        // Save history every 5 stimuli for dense graph
-        const shouldSave = currentCount <= 5 || currentCount % 5 === 0;
+        // Save history: waves 1-10 individually, then every 10th wave (20, 30, 40...)
+        const shouldSave = currentCount <= 10 || currentCount % 10 === 0;
 
         if (shouldSave) {
-          // Use dataRef.current to get the FULL accumulated data
           const capturedData = [...dataRef.current];
           setHistoryData(prev => [...prev, { data: capturedData, label: currentCount.toString() }]);
         }
 
         // Auto-stimulate until 70
         if (autoStimulateRef.current && fatigueLevelRef.current < 1 && currentCount < 70) {
-          handleStimulate(); // Next stimulus
+          handleStimulate();
         } else {
           setAutoStimulate(false);
           autoStimulateRef.current = false;
@@ -1068,41 +1160,63 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
       return;
     }
 
-    let currentForce = params.contracture; // Start at baseline (contracture)
+    let currentForce = 0; // Start at baseline
 
     if (elapsed < params.latent) {
-      currentForce = params.contracture;
+      currentForce = 0; // Latent period - at baseline
     } else if (elapsed < params.latent + params.contraction) {
       const progress = (elapsed - params.latent) / params.contraction;
-      // Force adds ON TOP of contracture
-      currentForce = params.contracture + params.force * Math.sin(progress * (Math.PI / 2));
-    } else if (elapsed < params.latent + params.contraction + params.relaxation) {
-      const progress = (elapsed - (params.latent + params.contraction)) / params.relaxation;
 
-      // 5. MONOTONIC RELAXATION
-      // No undershoot. Smooth decay to baseline (params.contracture).
-      // Using cosine decay for a smooth "S" shape down, or simple exponential?
-      // "Single smooth envelope" -> usually implies a consistent shape.
-      // Cosine drop:
-      const relaxationComponent = params.force * (1 - Math.sin(progress * (Math.PI / 2)));
+      // Wave shape: 5% rise, 15% hold at peak, 40% decay, 20% undershoot dip, 20% recovery
+      const risePhase = 0.05;      // 0-5%: rise to peak
+      const peakPhase = 0.15;      // 5-15%: hold at peak
+      const troughPhase = 0.70;    // 15-70%: smooth decay past 0 to trough
 
-      // Add to baseline
-      currentForce = params.contracture + relaxationComponent;
+      if (progress < risePhase) {
+        // Rise from 0 to peak
+        const riseProgress = progress / risePhase;
+        currentForce = params.force * riseProgress;
+      } else if (progress < peakPhase) {
+        // Hold at peak
+        currentForce = params.force;
+      } else if (progress < troughPhase) {
+        // Smooth exponential decay from peak, overshooting to trough
+        const decayProgress = (progress - peakPhase) / (troughPhase - peakPhase);
+        // Decay from peak toward trough (can go negative if trough < 0)
+        const decayFactor = 1 - decayProgress;
+        // At start: peak, at end: trough
+        currentForce = params.force * decayFactor + params.contracture * (1 - decayFactor);
+      } else {
+        // Recovery from trough back to secondPeak
+        const recoveryProgress = (progress - troughPhase) / (1 - troughPhase);
+        currentForce = params.contracture + (params.secondPeak - params.contracture) * recoveryProgress;
+      }
+    } else {
+      // Relaxation - stay at secondPeak (contracture remainder)
+      currentForce = params.secondPeak;
     }
 
-    // Add noise
-    const displayForce = currentForce + (Math.random() - 0.5) * 0.1;
+    // Minimal noise for cleaner waves
+    const displayForce = currentForce + (Math.random() - 0.5) * 0.02;
 
     setData(prev => {
-      // Optimizing data points
-      const lastTime = prev.length > 0 ? prev[prev.length - 1].time : -1;
       const plotTime = Math.floor(elapsed);
 
-      // Check for duplicate time points
+      // Ensure first points show baseline before rise
+      if (prev.length === 0) {
+        // Add initial point at baseline (0)
+        const initialData = [
+          { time: 0, force: 0, voltage },
+          { time: Math.max(1, plotTime), force: displayForce, voltage }
+        ];
+        dataRef.current = initialData;
+        return initialData;
+      }
+
       if (prev.length > 0 && plotTime === prev[prev.length - 1].time) return prev;
 
       const newData = [...prev, { time: plotTime, force: displayForce, voltage }];
-      dataRef.current = newData; // Sync ref
+      dataRef.current = newData;
       return newData;
     });
 
@@ -1130,6 +1244,9 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
 
     // Calculate parameters using current Ref values
     const params = calculateParameters(voltage, load, currentFatigue, currentCount);
+
+    // DEBUG: Log wave parameters
+    console.log(`Wave ${currentCount}: peak=${params.force.toFixed(1)}, secondPeak=${params.secondPeak}, duration=${(params.contraction / 80).toFixed(1)}x`);
 
     setLastPeakForce(params.force);
 
@@ -1178,16 +1295,18 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
       <main className="flex-1 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
         <section className="flex-none lg:flex-1 flex flex-col min-w-0 border-r border-slate-800">
           <div className="relative h-[250px] lg:h-auto lg:flex-1 bg-gradient-to-b from-slate-800 to-slate-900 shrink-0">
-            <Canvas shadows camera={{ position: [4, 2, 5], fov: 45 }}>
-              <Environment preset="city" />
-              <ambientLight intensity={0.5} />
-              <pointLight position={[10, 10, 10]} intensity={1} castShadow />
-              <Stage intensity={0.5} environment="city" adjustCamera={false}>
-                <Muscle3D contraction={contractionLevel} />
-              </Stage>
-              <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} />
-              <gridHelper args={[10, 10, 0x444444, 0x222222]} position={[0, -2.5, 0]} />
-            </Canvas>
+            <Suspense fallback={<LoadingSpinner message="Loading 3D model..." />}>
+              <Canvas shadows camera={{ position: [4, 2, 5], fov: 45 }}>
+                <Environment preset="city" />
+                <ambientLight intensity={0.5} />
+                <pointLight position={[10, 10, 10]} intensity={1} castShadow />
+                <Stage intensity={0.5} environment="city" adjustCamera={false}>
+                  <Muscle3D contraction={contractionLevel} />
+                </Stage>
+                <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} />
+                <gridHelper args={[10, 10, 0x444444, 0x222222]} position={[0, -2.5, 0]} />
+              </Canvas>
+            </Suspense>
           </div>
 
           {/* Enhanced Controls */}
@@ -1262,11 +1381,13 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
               )}
             </div>
             <div className="flex-1 min-h-0 w-full">
-              <Oscilloscope
-                data={data}
-                currentVoltage={voltage}
-                historyTraces={mode === 'fatigue' ? historyData : undefined}
-              />
+              <Suspense fallback={<LoadingSpinner message="Loading oscilloscope..." />}>
+                <Oscilloscope
+                  data={data}
+                  currentVoltage={voltage}
+                  historyTraces={mode === 'fatigue' ? historyData : undefined}
+                />
+              </Suspense>
             </div>
           </div>
 
@@ -1992,6 +2113,34 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
 
+  // Sync state with History API
+  useEffect(() => {
+    // Initial state setup
+    if (!window.history.state) {
+      window.history.replaceState('home', '', '');
+    } else if (window.history.state !== currentView) {
+      setCurrentView(window.history.state as ViewState);
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state) {
+        setCurrentView(event.state as ViewState);
+      } else {
+        setCurrentView('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (view: ViewState) => {
+    if (view !== currentView) {
+      window.history.pushState(view, '', '');
+      setCurrentView(view);
+    }
+  };
+
   switch (currentView) {
     case 'home':
       return (
@@ -2038,25 +2187,27 @@ const App: React.FC = () => {
                 description="WBC, RBC, and Differential Counts using Virtual Microscopy."
                 icon={<Droplet className="w-8 h-8" />}
                 colorClass="red"
-                onClick={() => setCurrentView('hematology')}
+                onClick={() => navigateTo('hematology')}
               />
               <MenuCard
                 title="Amphibian"
                 description="Skeletal muscle properties: Twitch, Load, Fatigue."
                 icon={<Activity className="w-8 h-8" />}
                 colorClass="green"
-                onClick={() => setCurrentView('amphibian')}
+                onClick={() => navigateTo('amphibian')}
               />
               <MenuCard
-                title="Mammalian"
-                description="Advanced cardiovascular dynamics."
-                icon={<Brain className="w-8 h-8" />}
-                colorClass="indigo"
-                onClick={() => { }}
-                disabled={true}
+                title="Microscope Master"
+                description="Learn the parts and operation of a Compound Microscope."
+                icon={<Microscope className="w-8 h-8" />}
+                colorClass="blue"
+                onClick={() => navigateTo('microscope')}
               />
             </div>
-            <div className="text-center text-slate-600 text-sm mt-12">© 2026 Virtual Physiology Lab </div>
+            <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
+              <span>© 2026 Virtual Physiology Lab</span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Jan 16, 2026</span>
+            </div>
           </div>
 
 
@@ -2088,8 +2239,9 @@ const App: React.FC = () => {
                       <li>Amphibian Muscle sim for Twitch, Load, and Fatigue analysis.</li>
                       <li>Real-time data visualization with Oscilloscope.</li>
                     </ul>
-                    <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800">
-                      Developed by Dr. B. I Mario Raja using React, Three.js, and Capacitor.
+                    <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-2">
+                      <span>Developed by Dr. B. I Mario Raja using React, Three.js, and Capacitor.</span>
+                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.3.0 • Jan 16, 2026</span>
                     </p>
                   </div>
                 </div>
@@ -2113,7 +2265,25 @@ const App: React.FC = () => {
                   </h2>
                   <div className="space-y-6">
                     <div className="border-l-2 border-green-500 pl-4">
-                      <h3 className="text-lg font-semibold text-white">v1.1.0 (Current)</h3>
+                      <h3 className="text-lg font-semibold text-white">v1.3.0 (Current)</h3>
+                      <p className="text-slate-500 text-sm mb-2">January 16, 2026</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Added "Effect of Two Successive Stimuli" experiment.</li>
+                        <li>Added "Genesis of Tetanus" experiment.</li>
+                        <li>Enhanced 3D Microscope with interactive labels and optics.</li>
+                        <li>Refined Muscle Twitch 3D models and graph visualizations.</li>
+                      </ul>
+                    </div>
+                    <div className="border-l-2 border-slate-700 pl-4 opacity-70">
+                      <h3 className="text-lg font-semibold text-white">v1.2.0</h3>
+                      <p className="text-slate-500 text-sm mb-2">January 2026</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Removed Mammalian module placeholder.</li>
+                        <li>Added "Last Updated" date to home screen and About modal.</li>
+                      </ul>
+                    </div>
+                    <div className="border-l-2 border-slate-700 pl-4 opacity-70">
+                      <h3 className="text-lg font-semibold text-white">v1.1.0</h3>
                       <p className="text-slate-500 text-sm mb-2">December 2025</p>
                       <ul className="list-disc list-inside text-slate-300 space-y-1">
                         <li>Added About and Version History features.</li>
@@ -2150,7 +2320,7 @@ const App: React.FC = () => {
     case 'amphibian':
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans relative">
-          <button onClick={() => setCurrentView('home')} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
+          <button onClick={() => window.history.back()} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" /> <span>Back</span>
           </button>
           <div className="max-w-4xl w-full space-y-8">
@@ -2161,28 +2331,35 @@ const App: React.FC = () => {
                 description="Threshold, Latent Period, and Contraction Kinetics."
                 icon={<Zap className="w-8 h-8" />}
                 colorClass="yellow"
-                onClick={() => setCurrentView('twitch')}
+                onClick={() => navigateTo('twitch')}
               />
               <MenuCard
                 title="Effect of Load"
                 description="Afterload's effect on Work Done and Velocity."
                 icon={<Scale className="w-8 h-8" />}
                 colorClass="cyan"
-                onClick={() => setCurrentView('load')}
+                onClick={() => navigateTo('load')}
               />
               <MenuCard
                 title="Genesis of Fatigue"
                 description="Repeated stimulation, Treppe, and Muscle Fatigue."
                 icon={<Timer className="w-8 h-8" />}
                 colorClass="orange"
-                onClick={() => setCurrentView('fatigue')}
+                onClick={() => navigateTo('fatigue')}
+              />
+              <MenuCard
+                title="Effect of Two Successive Stimuli"
+                description="Observe summation of contractions and refractory period by applying two stimuli."
+                icon={<Activity className="w-8 h-8" />}
+                colorClass="purple"
+                onClick={() => navigateTo('two-stimuli')}
               />
               <MenuCard
                 title="Genesis of Tetanus"
                 description="Frequency of stimulation, Summation, and Tetanus."
                 icon={<Activity className="w-8 h-8" />}
                 colorClass="indigo"
-                onClick={() => setCurrentView('genesis-tetanus')}
+                onClick={() => navigateTo('genesis-tetanus')}
               />
             </div>
           </div>
@@ -2192,7 +2369,7 @@ const App: React.FC = () => {
     case 'hematology':
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans relative">
-          <button onClick={() => setCurrentView('home')} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
+          <button onClick={() => window.history.back()} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" /> <span>Back</span>
           </button>
           <div className="max-w-4xl w-full space-y-8">
@@ -2200,24 +2377,24 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="WBC Count (TLC)"
-                description="Total Leukocyte Count with Neubauer Chamber."
+                description="Determine Total Leukocyte Count using a Neubauer chamber grid."
                 icon={<Grid3X3 className="w-8 h-8" />}
                 colorClass="red"
-                onClick={() => setCurrentView('wbc-count')}
+                onClick={() => navigateTo('wbc-count')}
               />
               <MenuCard
                 title="RBC Count"
                 description="Total Erythrocyte Count (Center Square)."
                 icon={<Dna className="w-8 h-8" />}
                 colorClass="pink"
-                onClick={() => setCurrentView('rbc-count')}
+                onClick={() => navigateTo('rbc-count')}
               />
               <MenuCard
                 title="DLC Count"
                 description="Differential Leucocyte Count on Blood Smear."
                 icon={<ListChecks className="w-8 h-8" />}
                 colorClass="purple"
-                onClick={() => setCurrentView('dlc-count')}
+                onClick={() => navigateTo('dlc-count')}
               />
             </div>
           </div>
@@ -2225,13 +2402,34 @@ const App: React.FC = () => {
       );
 
     // Experiments
-    case 'twitch': return <MuscleLab mode="twitch" title="Simple Muscle Twitch" subtitle="Amphibian / Gastrocnemius" onBack={() => setCurrentView('amphibian')} />;
-    case 'load': return <MuscleLab mode="load" title="Effect of Load" subtitle="Amphibian / Gastrocnemius" onBack={() => setCurrentView('amphibian')} />;
-    case 'fatigue': return <MuscleLab mode="fatigue" title="Genesis of Fatigue" subtitle="Amphibian / Gastrocnemius" onBack={() => setCurrentView('amphibian')} />;
-    case 'wbc-count': return <WBCExperiment onBack={() => setCurrentView('hematology')} />;
-    case 'rbc-count': return <RBCExperiment onBack={() => setCurrentView('hematology')} />;
-    case 'dlc-count': return <DLCExperiment onBack={() => setCurrentView('hematology')} />;
-    case 'genesis-tetanus': return <GenesisOfTetanusExperiment onBack={() => setCurrentView('amphibian')} />;
+    case 'twitch': return <MuscleLab mode="twitch" title="Simple Muscle Twitch" subtitle="Amphibian / Gastrocnemius" onBack={() => window.history.back()} />;
+    case 'load':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Effect of Load Experiment..." />}>
+          <EffectOfLoad onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'fatigue': return <MuscleLab mode="fatigue" title="Genesis of Fatigue" subtitle="Amphibian / Gastrocnemius" onBack={() => window.history.back()} />;
+    case 'wbc-count': return <WBCExperiment onBack={() => window.history.back()} />;
+    case 'rbc-count': return <RBCExperiment onBack={() => window.history.back()} />;
+    case 'dlc-count': return <DLCExperiment onBack={() => window.history.back()} />;
+
+    case 'two-stimuli':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Two Stimuli Experiment..." />}>
+          <TwoSuccessiveStimuli onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'genesis-tetanus': return <GenesisOfTetanusExperiment onBack={() => window.history.back()} />;
+    case 'microscope': return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <LoadingSpinner message="Loading Microscope..." />
+        </div>
+      }>
+        <Microscope3D onBack={() => window.history.back()} />
+      </Suspense>
+    );
 
     default: return null;
   }
