@@ -263,7 +263,7 @@ const StarlingLever = ({ angle, onHoverChange }: { angle: number, onHoverChange:
                 <InteractiveObject label="Writing Point (Stylus)" onHoverChange={onHoverChange}>
                     <group position={[0, -1.1, -1]}>
                         {/* Thin writing arm extends downward (vertical) */}
-                        <Cylinder args={[0.012, 0.005, 0.6]} rotation={[0, 0, 0]} position={[0, -0.3, 0]}>
+                        <Cylinder args={[0.012, 0.005, 2.8]} rotation={[0, 0, 0]} position={[0, -0.6, 0]}>
                             <meshStandardMaterial color="#1a1a1a" />
                         </Cylinder>
                     </group>
@@ -295,8 +295,10 @@ const Kymograph = ({
     // Position Update:
     // Lever Tip is now pointing in a different direction after rotation changes.
     // Moving kymograph to align with the new writing lever position.
-    const DRUM_X = -2.5;
-    const DRUM_Z = 2; // Move to align with lever tip
+    // Moving kymograph to align with the new writing lever position.
+    // Position is now hardcoded in the group below to match SimpleMuscleTwitch
+    // const DRUM_X = -2.5;
+    // const DRUM_Z = 2;
 
     const WIDTH = 1024;
     const HEIGHT = 512;
@@ -441,7 +443,7 @@ const Kymograph = ({
             {/* 
                Kymograph positioned to align with writing lever tip.
             */}
-            <group position={[DRUM_X, 1.5, DRUM_Z]}>
+            <group position={[-2.07, 1.7, 4.1]}>
                 <group ref={drumMesh} rotation={[0, INITIAL_ROTATION, 0]}>
                     <Cylinder args={[1.2, 1.2, 3, 64]}>
                         {/* Material 0: Side (with texture) - BasicMaterial shows texture at full brightness, no lighting */}
@@ -897,9 +899,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
 
                         <OrbitControls
                             target={[1.5, 0, 0]} /* Shift focus slightly right to encompass new drum pos */
-                            minPolarAngle={0}
-                            maxPolarAngle={Math.PI / 2.1}
-                            minDistance={4}
+                            minDistance={1}
                             maxDistance={15}
                         />
                     </Canvas>

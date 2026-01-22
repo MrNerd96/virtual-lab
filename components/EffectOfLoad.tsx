@@ -8,7 +8,7 @@ import * as THREE from 'three';
 const LATENT_DURATION = 10;
 const CONTRACTION_DURATION = 40;
 const RELAXATION_DURATION = 50;
-const TOTAL_WINDOW_MS = 200;
+const TOTAL_WINDOW_MS = 130;
 const MAX_LOAD_G = 110;
 
 interface DataPoint {
@@ -184,64 +184,196 @@ const LucasChamber = ({ muscleShortening, onHoverChange }: { muscleShortening: n
     );
 };
 
-const StarlingLever = ({
-    angle,
-    load,
-    onHoverChange
-}: {
-    angle: number,
-    load: number,
-    onHoverChange?: (l: string | null) => void
-}) => {
-    const brassColor = "#b8860b";
-    const darkBrassColor = "#8b6914";
+const AnimatedThumbScrew = ({ mode }: { mode: 'After-Loaded' | 'Free-Loaded' }) => {
+    const groupRef = useRef<THREE.Group>(null);
     const metalColor = "#c0c0c0";
 
-    return (
-        <group position={[0, 1.5, 0]}>
-            <InteractiveObject label="Stand" onHoverChange={onHoverChange}>
-                <group position={[0, -1.5, 0]}>
-                    <Box args={[0.6, 0.1, 0.4]} position={[0, -0.05, 0]}><meshStandardMaterial color={darkBrassColor} /></Box>
-                    <Cylinder args={[0.08, 0.1, 2.8]} position={[0, 1.35, 0]}><meshStandardMaterial color={metalColor} /></Cylinder>
-                </group>
-            </InteractiveObject>
+    // Target Y position (along the screw axis)
+    // "Moved away" (Free-Loaded) -> Higher Y
+    // "Inside" (After-Loaded) -> Lower Y (touching)
+    // Note: Original position was Y=0 relative to the rotated group.
+    // If Free-Loaded, move OUT (positive Y local).
+    const targetY = mode === 'Free-Loaded' ? 0.20 : 0.05;
 
-            <group position={[-0.4, -0.8, 0]} rotation={[0, 0, -Math.PI / 2 - angle]}>
-                <InteractiveObject label="Lever Support" onHoverChange={onHoverChange}>
-                    <Box args={[0.12, 0.6, 0.08]} position={[0, -0.1, -1.11]}><meshStandardMaterial color={brassColor} /></Box>
-                    <group position={[0, 0, 0.25]} rotation={[0, 0, 0.7]}>
-                        <Box args={[0.12, 0.6, 0.08]} position={[0, -0.1, -0.14]}><meshStandardMaterial color={brassColor} /></Box>
+    useFrame((state, delta) => {
+        if (groupRef.current) {
+            // Smooth lerp
+            groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, delta * 5);
+        }
+    });
+
+    return (
+        <group position={[0.1, 0, -0.15]} rotation={[0, 0, Math.PI / 4]}>
+            <group ref={groupRef}>
+                {/* Threaded shaft - longer */}
+                <Cylinder args={[0.025, 0.025, 0.25]} position={[0, 0.125, 0]}>
+                    <meshStandardMaterial color={metalColor} metalness={0.9} roughness={0.15} />
+                </Cylinder>
+                {/* Knurled head */}
+                <Cylinder args={[0.05, 0.05, 0.06]} position={[0, 0.28, 0]}>
+                    <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.25} />
+                </Cylinder>
+                {/* Slot on top of screw head */}
+                <Box args={[0.07, 0.01, 0.015]} position={[0, 0.311, 0]}>
+                    <meshStandardMaterial color="#1a1a1a" />
+                </Box>
+            </group>
+        </group>
+    );
+};
+
+const StarlingLever = ({ angle, load, onHoverChange, mode }: { angle: number, load: number, onHoverChange?: (l: string | null) => void, mode: 'After-Loaded' | 'Free-Loaded' }) => {
+    const brassColor = "#b8860b"; // Dark goldenrod - brass color
+    const darkBrassColor = "#8b6914";
+    const metalColor = "#c0c0c0"; // Silver metal
+
+    return (
+        <group position={[-0.5, 1.5, 0.1]}>
+            {/* Stand and Adjustment Screw Group - move together by changing this position */}
+            <group position={[0.3, -1.9, 0]}>
+                {/* Upright Stand with base */}
+                <InteractiveObject label="Stand (Upright Post)" onHoverChange={onHoverChange}>
+                    <group position={[0, -1.5, 0]}>
+                        {/* Base plate */}
+                        <Box args={[0.6, 0.1, 0.4]} position={[0, -0.05, 0]}>
+                            <meshStandardMaterial color={darkBrassColor} metalness={0.7} roughness={0.3} />
+                        </Box>
+                        {/* Upright post */}
+                        <Cylinder args={[0.08, 0.1, 2.8]} position={[0, 1.35, 0]}>
+                            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+                        </Cylinder>
                     </group>
-                    <Box args={[0.12, 0.1, 1.3]} position={[0, 0.15, -0.5]}><meshStandardMaterial color={brassColor} /></Box>
                 </InteractiveObject>
 
-                <InteractiveObject label="Writing Lever" onHoverChange={onHoverChange}>
-                    <group rotation={[0, Math.PI, -Math.PI / 2]}>
-                        <Box args={[4.5, 0.08, 0.05]} position={[2.2, 0, 1.1]}>
-                            <meshStandardMaterial color={brassColor} />
-                        </Box>
-                        {/* Weight Attachment Point - approx 1.5 units from pivot */}
-                        {load > 0 && (
-                            <group position={[1.5, -0.1, 1.1]} rotation={[0, 0, Math.PI / 2]}>
-                                <Cylinder args={[0.01, 0.01, 0.4]} position={[0, -0.2, 0]}><meshStandardMaterial color="#000" /></Cylinder>
-                                <group position={[0, -0.4, 0]}>
-                                    {/* Weights */}
-                                    {Array.from({ length: Math.ceil(load / 10) }).map((_, i) => (
-                                        <Cylinder key={i} args={[0.15, 0.15, 0.05, 16]} position={[0, -i * 0.06, 0]}>
-                                            <meshStandardMaterial color="#475569" metalness={0.8} />
-                                        </Cylinder>
-                                    ))}
-                                </group>
+                {/* Threaded adjustment screw at top */}
+                <InteractiveObject label="Adjustment Screw (Height Control)" onHoverChange={onHoverChange}>
+                    <group position={[0, 1.35, 0]}>
+                        {/* Screw threads */}
+                        <Cylinder args={[0.06, 0.06, 0.3]}>
+                            <meshStandardMaterial color={metalColor} metalness={0.9} roughness={0.1} />
+                        </Cylinder>
+                        {/* Knurled knob */}
+                        <Cylinder args={[0.1, 0.1, 0.15]} position={[0, 0.22, 0]}>
+                            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.3} />
+                        </Cylinder>
+                    </group>
+                </InteractiveObject>
+            </group>
+
+            {/* Square U-shaped Fulcrum/Support Bracket (brass) - Fixed Orientation */}
+            <group position={[-0.4, -0.8, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                {/* STATIONARY FRAME PARTS */}
+
+                {/* Left vertical arm of U */}
+                <InteractiveObject label="Frame Support" onHoverChange={onHoverChange}>
+                    <Box args={[0.12, 0.3, 0.08]} position={[0, 0.05, -1.11]}>
+                        <meshStandardMaterial color={brassColor} metalness={0.7} roughness={0.3} />
+                    </Box>
+                </InteractiveObject>
+                {/* Right vertical arm of U - matches left limb */}
+                <InteractiveObject label="Frame Support" onHoverChange={onHoverChange}>
+                    <Box args={[0.12, 0.3, 0.08]} position={[0, 0.05, 0.11]}>
+                        <meshStandardMaterial color={brassColor} metalness={0.7} roughness={0.3} />
+                    </Box>
+                </InteractiveObject>
+                {/* Horizontal top piece connecting the two arms */}
+                <InteractiveObject label="Frame Support" onHoverChange={onHoverChange}>
+                    <Box args={[0.12, 0.1, 1.3]} position={[0, 0.15, -0.5]}>
+                        <meshStandardMaterial color={brassColor} metalness={0.7} roughness={0.3} />
+                    </Box>
+                </InteractiveObject>
+                {/* Thumb Screw on top of connecting bar for lever arm attachment */}
+                <InteractiveObject label="After Load Screw" onHoverChange={onHoverChange}>
+                    <AnimatedThumbScrew mode={mode} />
+                </InteractiveObject>
+                {/* Pivot bolt going through both arms */}
+                <InteractiveObject label="Pivot Bolt (Fulcrum Axis)" onHoverChange={onHoverChange}>
+                    <group>
+                        <Cylinder args={[0.04, 0.04, 1.4]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -0.5]}>
+                            <meshStandardMaterial color={metalColor} metalness={0.9} roughness={0.1} />
+                        </Cylinder>
+                        {/* Bolt head (front) */}
+                        <Cylinder args={[0.06, 0.06, 0.03]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.21]}>
+                            <meshStandardMaterial color={metalColor} metalness={0.9} roughness={0.1} />
+                        </Cylinder>
+                    </group>
+                </InteractiveObject>
+                {/* Bolt nut (back) */}
+                <InteractiveObject label="Nut (Pivot Bolt)" onHoverChange={onHoverChange}>
+                    <Cylinder args={[0.06, 0.06, 0.03]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -1.21]}>
+                        <meshStandardMaterial color={metalColor} metalness={0.9} roughness={0.1} />
+                    </Cylinder>
+                </InteractiveObject>
+
+                {/* ROTATING LEVER GROUP */}
+                {/* This group rotates relative to the fixed frame */}
+                <group rotation={[0, 0, -angle]}>
+
+                    {/* Main lever arm - Long Arm */}
+                    <InteractiveObject label="Long Arm (Writing Lever)" onHoverChange={onHoverChange}>
+                        <group rotation={[0, Math.PI, -Math.PI / 2]}>
+                            {/* Position this group to move both arm and holes together */}
+                            <group position={[0.55, 0, 1]}>
+                                <Box args={[1.125, 0.08, 0.05]} position={[0, 0, 0]}>
+                                    <meshStandardMaterial color={brassColor} metalness={0.6} roughness={0.4} />
+                                </Box>
+                                {/* Holes along the lever arm - positions relative to arm center */}
+                                {[-0.3, -0.05, 0.2, 0.45].map((x, i) => (
+                                    <Cylinder key={i} args={[0.02, 0.02, 0.052]} rotation={[Math.PI / 2, 0, 0]} position={[x, 0, 0]}>
+                                        <meshStandardMaterial color="#1a1a1a" />
+                                    </Cylinder>
+                                ))}
+
+                                {/* Attach Weights to the furthest hole (0.45) */}
+                                {load > 0 && (
+                                    <group position={[0.45, 0, 0]}> {/* At hole position */}
+                                        {/* Wire/Hook for weights - rotates with lever naturally as it's child */}
+                                        <group rotation={[0, Math.PI / 2, 0]} position={[0, 0, 0]}>
+                                            <Cylinder args={[0.005, 0.005, 0.3]} position={[0, -0.15, 0]}>
+                                                <meshStandardMaterial color="#333" />
+                                            </Cylinder>
+                                            {/* Weight Stack */}
+                                            <group position={[0, -0.3, 0]}>
+                                                {Array.from({ length: Math.ceil(load / 10) }).map((_, i) => (
+                                                    <Cylinder key={i} args={[0.12, 0.12, 0.04, 16]} position={[0, -i * 0.045, 0]}>
+                                                        <meshStandardMaterial color="#475569" metalness={0.8} />
+                                                    </Cylinder>
+                                                ))}
+                                                <group position={[0, -(Math.ceil(load / 10) * 0.045) - 0.02, 0]}>
+                                                    <Sphere args={[0.02]}><meshStandardMaterial color="#333" /></Sphere>
+                                                </group>
+                                            </group>
+                                        </group>
+                                    </group>
+                                )}
                             </group>
-                        )}
-                        {/* Tip */}
-                        <group position={[3.45, 0, -0.5]}>
-                            <Cylinder args={[0.012, 0.005, 0.6]} rotation={[0, 0, -Math.PI / 2]} position={[0.3, 0, 0]}>
+                        </group>
+                    </InteractiveObject>
+
+                    {/* Muscle Hook - curved wire going down */}
+                    <InteractiveObject label="Muscle Hook (S-shaped)" onHoverChange={onHoverChange}>
+                        <group position={[0, 0, -0.15]} rotation={[0, 0, 1.7]}> {/* Adjust rotation here [x, y, z] */}
+                            {/* Vertical part of hook */}
+                            <Cylinder args={[0.015, 0.015, 0.6]} position={[0, -0.3, 0]}>
+                                <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+                            </Cylinder>
+                            {/* Curved hook end */}
+                            <Cylinder args={[0.015, 0.015, 0.15]} position={[0.05, -0.6, 0]} rotation={[0, 0, 0.8]}>
+                                <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+                            </Cylinder>
+                        </group>
+                    </InteractiveObject>
+
+                    {/* Writing stylus/pointer tip */}
+                    <InteractiveObject label="Writing Point (Stylus)" onHoverChange={onHoverChange}>
+                        <group position={[0, -1.1, -1]}>
+                            {/* Thin writing arm extends downward (vertical) */}
+                            <Cylinder args={[0.012, 0.005, 2.8]} rotation={[0, 0, 0]} position={[0, -0.6, 0]}>
                                 <meshStandardMaterial color="#1a1a1a" />
                             </Cylinder>
                         </group>
-                    </group>
-                </InteractiveObject>
+                    </InteractiveObject>
+                </group>
             </group>
         </group>
     );
@@ -295,7 +427,7 @@ const Kymograph = ({
                 if (ctx) {
                     const prevX = 50 + (prevOffsetRef.current * 30);
                     const currX = 50 + (drumOffset * 30);
-                    const y = (512 * 0.5) - (tension * 80);
+                    const y = (512 * 0.5) - (tension * 40);
 
                     // Stop slightly short of the next bar position to create a gap
                     const gap = 5;
@@ -318,24 +450,22 @@ const Kymograph = ({
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
 
-        const MAX_ROTATION = Math.PI / 4;
-        const PIXELS = 1024 * (MAX_ROTATION / (2 * Math.PI)); // ~128px for 45 deg
+        const MAX_ROTATION = Math.PI / 1.5; // Broader trace (120 degrees)
+        const PIXELS = 1024 * (MAX_ROTATION / (2 * Math.PI));
 
         let x = 50;
 
         if (drumMode === 'Moving') {
-            // Normal moving trace
-            x = 50 + (simTime / TOTAL_WINDOW_MS) * PIXELS;
+            // Normal moving trace, but adding drumOffset to starting position to support manual shifts
+            const offsetPx = drumOffset * 30;
+            x = 50 + offsetPx + (simTime / TOTAL_WINDOW_MS) * PIXELS;
         } else {
-            // Stationary: Fixed X position on the canvas, BUT updated by drumOffset
-            // drumOffset incrementing means we are rotating the drum "forward", so we should draw further right on the texture?
-            // Actually, if we rotate the drum, the stylus stays in place physically.
-            // So on the drum's surface (the texture), the drawing point moves.
-            // Let's say 1 offset unit = 20px spacing
+            // Stationary: Fixed X position on the canvas, updated by drumOffset
             x = 50 + (drumOffset * 30);
         }
 
-        const y = (512 * 0.5) - (tension * 80);
+        // Reduced scaling from 80 to 40 to accommodate larger peaks in Effect of Load (up to ~6cm)
+        const y = (512 * 0.5) - (tension * 40);
 
         if (lastDrawState.current) {
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
@@ -364,8 +494,8 @@ const Kymograph = ({
             // To bring that new spot under the stylus (which is fixed), we must rotate the drum.
             // Let's just sync it: 
 
-            if (drumMode === 'Moving' && isRunning) {
-                const angle = (simTime / TOTAL_WINDOW_MS) * (Math.PI / 4);
+            if (drumMode === 'Moving') {
+                const angle = (simTime / TOTAL_WINDOW_MS) * (Math.PI / 1.5);
                 drumRef.current.rotation.y = baseRotation - offsetRotation - angle;
             } else {
                 // Stationary or just holding position
@@ -376,7 +506,7 @@ const Kymograph = ({
 
     return (
         <InteractiveObject label="Kymograph" onHoverChange={onHoverChange}>
-            <group position={[-2.5, 1.5, 2]}>
+            <group position={[-2.09, 0.7, 4.195]}>
                 <group ref={drumRef} rotation={[0, 1.5, 0]}>
                     <Cylinder args={[1.2, 1.2, 3, 64]}>
                         <meshBasicMaterial attach="material-0" map={texture} />
@@ -391,18 +521,7 @@ const Kymograph = ({
     );
 };
 
-const AfterLoadScrew = ({ visible, onHoverChange }: { visible: boolean, onHoverChange?: (l: string | null) => void }) => {
-    return (
-        <group position={[-0.4, 0.45, 0]} rotation={[0, 0, Math.PI / 6]}>
-            <InteractiveObject label="After-Loading Screw" onHoverChange={onHoverChange}>
-                <group visible={visible}>
-                    <Cylinder args={[0.04, 0.04, 0.5]} position={[0, -0.25, 0]}><meshStandardMaterial color="#b8860b" /></Cylinder>
-                    <Cylinder args={[0.08, 0.08, 0.05]} position={[0, 0, 0]}><meshStandardMaterial color="#b8860b" /></Cylinder>
-                </group>
-            </InteractiveObject>
-        </group>
-    );
-};
+
 
 // --- Main Component ---
 
@@ -422,9 +541,13 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     });
 
     const animationFrameRef = useRef<number>();
+    const idleAnimationFrameRef = useRef<number>();
 
     const handleStimulate = () => {
         if (simState.isRunning) return;
+        // Stop idle loop if running (though effect handles it, explicit safety is good)
+        if (idleAnimationFrameRef.current) cancelAnimationFrame(idleAnimationFrameRef.current);
+
         const extension = getExtension(load, mode);
         const peak = calculatePeakHeight(load, mode);
         const work = load * peak;
@@ -441,6 +564,62 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setSimState({ time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest' });
         setDrumOffset(0);
     };
+
+    // Optimized Idle Animation Loop
+    useEffect(() => {
+        if (simState.isRunning) return;
+
+        const loop = () => {
+            setSimState(prev => {
+                const extension = getExtension(load, mode);  // Capture latest from closure? 
+                // Wait, closures might be stale if effect doesn't re-run.
+                // But effect depends on [load, mode]. So it restarts on change.
+                // WE also need it to run if it wasn't finished yet.
+                // Ideally, we just check bounds.
+
+                const targetHeight = -extension;
+                const diff = targetHeight - prev.currentHeight;
+
+                if (Math.abs(diff) < 0.005) {
+                    // Close enough, stop loop (by not requesting next frame? No, we need to cancel outside or return same state)
+                    // If we return same state, re-render might not happen, but loop continues?
+                    // Better: If close, snap and don't request frame? 
+                    // We can't cancel the frame from inside the state setter easily.
+                    return { ...prev, currentHeight: targetHeight };
+                }
+
+                const dt = 0.016; // Approx 60fps fixed delta for simplicity or use real time
+                const speed = 5;
+                const move = diff * Math.min(1, speed * dt);
+                return { ...prev, currentHeight: prev.currentHeight + move };
+            });
+
+            // We need to decide whether to continue looping.
+            // Using a predictable condition outside setter is hard without Ref.
+            // Let's just run it 'a bit' or always? 
+            // Always running loop in background is OK for this page.
+            idleAnimationFrameRef.current = requestAnimationFrame(loop);
+        };
+
+        // Delay lever animation only when going TO After-Loaded (Screw pushing lever)
+        // When going TO Free-Loaded, drop immediately (Gravity)
+        const delay = mode === 'After-Loaded' ? 400 : 0;
+
+        const timerId = setTimeout(() => {
+            idleAnimationFrameRef.current = requestAnimationFrame(loop);
+        }, delay);
+
+        return () => {
+            clearTimeout(timerId);
+            if (idleAnimationFrameRef.current) cancelAnimationFrame(idleAnimationFrameRef.current);
+        }
+    }, [load, mode, simState.isRunning]);
+    // This will start a loop whenever load/mode changes or simulation stops.
+    // Takes advantage of the fact that we WANT to animate to the new target.
+    // It keeps running even when settled, which is a bit wasteful (setting state to same value), 
+    // but React bails out on same-value updates usually.
+    // To be cleaner, we can check a Ref or use a specialized hook, but this is sufficient.
+
 
     useEffect(() => {
         if (!simState.isRunning) {
@@ -615,12 +794,11 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <group position={[0, -1, 0]}>
                             <group rotation={[0, Math.PI / 2, 0]}>
                                 <LucasChamber muscleShortening={simState.currentHeight} onHoverChange={setHoveredLabel} />
-                                <StarlingLever angle={simState.currentHeight * 0.15} load={load} onHoverChange={setHoveredLabel} />
-                                <AfterLoadScrew visible={mode === 'After-Loaded'} onHoverChange={setHoveredLabel} />
+                                <StarlingLever angle={simState.currentHeight * 0.08} load={load} onHoverChange={setHoveredLabel} mode={mode} />
                             </group>
                             <Kymograph simTime={simState.time} tension={simState.currentHeight} isRunning={simState.isRunning} onHoverChange={setHoveredLabel} resetKey={clearKey} drumMode={drumMode} drumOffset={drumOffset} historyLength={history.length} />
                         </group>
-                        <OrbitControls target={[1.5, 0, 0]} minDistance={4} maxDistance={15} maxPolarAngle={Math.PI / 2.1} />
+                        <OrbitControls target={[1.5, 0, 0]} minDistance={1} maxDistance={15} />
                     </Canvas>
                     {hoveredLabel && <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full border border-white/10 text-white font-bold text-sm pointer-events-none">{hoveredLabel}</div>}
                 </div>

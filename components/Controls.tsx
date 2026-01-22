@@ -7,14 +7,18 @@ interface ControlsProps {
   onStimulate: () => void;
   onReset: () => void;
   isStimulating: boolean;
+  thresholdValue?: number; // Optional dynamic threshold
+  maximalValue?: number;   // Optional dynamic maximal
 }
 
-export const Controls: React.FC<ControlsProps> = ({ 
-  voltage, 
-  setVoltage, 
-  onStimulate, 
+export const Controls: React.FC<ControlsProps> = ({
+  voltage,
+  setVoltage,
+  onStimulate,
   onReset,
-  isStimulating 
+  isStimulating,
+  thresholdValue,
+  maximalValue
 }) => {
   return (
     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
@@ -40,9 +44,10 @@ export const Controls: React.FC<ControlsProps> = ({
             className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
             disabled={isStimulating}
           />
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
+          <div className="flex justify-between text-xs text-slate-500 mt-1 px-1">
             <span>0V</span>
-            <span>Threshold (~3V)</span>
+            {thresholdValue !== undefined && <span>Threshold (~{thresholdValue}V)</span>}
+            {maximalValue !== undefined && <span>Maximal (~{maximalValue}V)</span>}
             <span>10V</span>
           </div>
         </div>
@@ -54,8 +59,8 @@ export const Controls: React.FC<ControlsProps> = ({
             disabled={isStimulating}
             className={`
               flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all
-              ${isStimulating 
-                ? 'bg-green-900/50 text-green-500/50 cursor-not-allowed' 
+              ${isStimulating
+                ? 'bg-green-900/50 text-green-500/50 cursor-not-allowed'
                 : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)] active:scale-95'}
             `}
           >

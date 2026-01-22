@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'rea
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls, Stage } from '@react-three/drei';
 import { Controls } from './components/Controls';
+import { SimpleMuscleTwitch } from './components/SimpleMuscleTwitch';
+import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 
 // Lazy load heavy components
@@ -2402,14 +2404,14 @@ const App: React.FC = () => {
       );
 
     // Experiments
-    case 'twitch': return <MuscleLab mode="twitch" title="Simple Muscle Twitch" subtitle="Amphibian / Gastrocnemius" onBack={() => window.history.back()} />;
+    case 'twitch': return <SimpleMuscleTwitch onBack={() => window.history.back()} />;
     case 'load':
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Effect of Load Experiment..." />}>
           <EffectOfLoad onBack={() => window.history.back()} />
         </Suspense>
       );
-    case 'fatigue': return <MuscleLab mode="fatigue" title="Genesis of Fatigue" subtitle="Amphibian / Gastrocnemius" onBack={() => window.history.back()} />;
+    case 'fatigue': return <GenesisOfFatigue onBack={() => window.history.back()} />;
     case 'wbc-count': return <WBCExperiment onBack={() => window.history.back()} />;
     case 'rbc-count': return <RBCExperiment onBack={() => window.history.back()} />;
     case 'dlc-count': return <DLCExperiment onBack={() => window.history.back()} />;
