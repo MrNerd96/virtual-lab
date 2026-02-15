@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, useTexture, RoundedBox } from '@react-three/drei';
-import { ArrowLeft, Activity, Scale, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Activity, Scale, CheckCircle, Eye, LineChart } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -535,6 +535,7 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [history, setHistory] = useState<ExperimentHistory[]>([]);
     const [simReseter, setSimReseter] = useState(0);
     const [clearKey, setClearKey] = useState(0);
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
 
     const [simState, setSimState] = useState<SimulationState>({
         time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest'
@@ -679,9 +680,6 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         // Clear only on clearKey change
         if (history.length === 0) { // If history cleared
             ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath();
-            for (let x = 0; x < w; x += w / 10) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-            ctx.stroke();
             ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1; ctx.beginPath();
             const zeroY = h - (0 / 8) * h - 50;
             ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
@@ -783,7 +781,32 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                <div className="flex-1 relative bg-black">
+                {/* Mobile View Toggle - Only visible on small screens */}
+                <div className="lg:hidden flex bg-slate-800 border-b border-slate-700">
+                    <button
+                        onClick={() => setMobileView('3d')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === '3d'
+                            ? 'bg-slate-900 text-emerald-400 border-b-2 border-emerald-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        <span>3D View</span>
+                    </button>
+                    <button
+                        onClick={() => setMobileView('graph')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === 'graph'
+                            ? 'bg-slate-900 text-emerald-400 border-b-2 border-emerald-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <LineChart className="w-4 h-4" />
+                        <span>Graph View</span>
+                    </button>
+                </div>
+
+                {/* 3D View - Hidden on mobile when graph is selected */}
+                <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
                         <color attach="background" args={['#0f172a']} />
                         <Environment preset="city" />
@@ -803,8 +826,10 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     {hoveredLabel && <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full border border-white/10 text-white font-bold text-sm pointer-events-none">{hoveredLabel}</div>}
                 </div>
 
-                <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col h-full shrink-0">
-                    <div className="flex-1 p-4 bg-black relative border-b border-slate-800 min-h-[250px]">
+                {/* Right Panel: Graph (Top) & Controls (Bottom) */}
+                <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col flex-1 lg:flex-none">
+                    {/* Graph/History View - Top (Hidden in Mobile 3D View) */}
+                    <div className={`flex-1 p-4 bg-black relative border-b border-slate-800 min-h-[250px] ${mobileView === '3d' ? 'hidden lg:flex' : 'flex'}`}>
                         {drumMode === 'Moving' ? (
                             <canvas ref={canvasRef} width={420} height={250} className="w-full h-full rounded border border-slate-800" />
                         ) : (
@@ -856,7 +881,8 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
                     </div>
 
-                    <div className="p-6 space-y-6 overflow-y-auto">
+                    {/* Controls - Bottom (Always Visible) */}
+                    <div className="p-6 space-y-6 overflow-y-auto z-10 bg-slate-900 border-t lg:border-t-0 border-slate-800">
                         <div className="flex gap-2 p-1 bg-slate-800 rounded-lg">
                             <button onClick={() => setMode('After-Loaded')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'After-Loaded' ? 'bg-green-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>After-Loaded</button>
                             <button onClick={() => setMode('Free-Loaded')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'Free-Loaded' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Free-Loaded</button>
@@ -875,13 +901,7 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             {simState.isRunning ? 'In Progress...' : <><Activity className="w-5 h-5" /> Stimulate</>}
                         </button>
 
-                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 space-y-2">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Experiment Data</h3>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="bg-slate-800 p-2 rounded"><span className="block text-slate-500">Last Work Done</span><span className="block text-lg font-mono text-white">{history.length > 0 ? history[history.length - 1].work.toFixed(1) : '-'} <span className="text-[10px] text-slate-500">g-cm</span></span></div>
-                                <div className="bg-slate-800 p-2 rounded relative"><span className="block text-slate-500">Optimal Load</span><span className="block text-lg font-mono text-green-400">{optimalLoad > 0 ? `${optimalLoad}g` : '-'}</span>{load === optimalLoad && load > 0 && <CheckCircle className="absolute top-2 right-2 w-4 h-4 text-green-500" />}</div>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             </main>

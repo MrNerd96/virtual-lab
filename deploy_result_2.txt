@@ -1,0 +1,35 @@
+
+> virtual-physiology-lab@1.0.0 predeploy
+> npm run build
+
+
+> virtual-physiology-lab@1.0.0 build
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 5 modules transformed.
+[31mx[39m Build failed in 1.63s
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 1 error:
+C:/Users/windows/Desktop/physim -git/App.tsx:1878:6: ERROR: The symbol "FeedbackModal" has already been declared[31m
+file: [36mC:/Users/windows/Desktop/physim -git/App.tsx:1878:6[31m
+[33m
+[33mThe symbol "FeedbackModal" has already been declared[33m
+1876|  }
+1877|  
+1878|  const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
+   |        ^
+1879|    const [name, setName] = useState('');
+1880|    const [email, setEmail] = useState('');
+[31m
+    at failureErrorWithLog (C:\Users\windows\Desktop\physim -git\node_modules\esbuild\lib\main.js:1472:15)
+    at C:\Users\windows\Desktop\physim -git\node_modules\esbuild\lib\main.js:755:50
+    at responseCallbacks.<computed> (C:\Users\windows\Desktop\physim -git\node_modules\esbuild\lib\main.js:622:9)
+    at handleIncomingPacket (C:\Users\windows\Desktop\physim -git\node_modules\esbuild\lib\main.js:677:12)
+    at Socket.readFromStdout (C:\Users\windows\Desktop\physim -git\node_modules\esbuild\lib\main.js:600:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)[39m

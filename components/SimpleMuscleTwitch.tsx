@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube } from '@react-three/drei';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls'; // Reuse existing Controls
 import { Oscilloscope } from './Oscilloscope'; // Reuse existing Oscilloscope
@@ -474,6 +474,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
     const [stimulationType, setStimulationType] = useState<'Indirect' | 'Direct'>('Indirect');
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
 
     const [simState, setSimState] = useState<SimulationState>({
         time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest'
@@ -569,13 +570,37 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                     <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ArrowLeft className="w-5 h-5" /></button>
                     <div>
                         <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">Simple Muscle Twitch</h1>
-                        <p className="text-slate-400 text-xs">Effect of Single Stimulus</p>
                     </div>
                 </div>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                <div className="flex-1 relative bg-black">
+                {/* Mobile View Toggle - Only visible on small screens */}
+                <div className="lg:hidden flex bg-slate-800 border-b border-slate-700">
+                    <button
+                        onClick={() => setMobileView('3d')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === '3d'
+                            ? 'bg-slate-900 text-emerald-400 border-b-2 border-emerald-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        <span>3D View</span>
+                    </button>
+                    <button
+                        onClick={() => setMobileView('graph')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === 'graph'
+                            ? 'bg-slate-900 text-emerald-400 border-b-2 border-emerald-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <LineChart className="w-4 h-4" />
+                        <span>Graph View</span>
+                    </button>
+                </div>
+
+                {/* 3D View - Hidden on mobile when graph is selected */}
+                <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
                         <color attach="background" args={['#0f172a']} />
                         <Environment preset="city" />
@@ -608,8 +633,21 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                     )}
                 </div>
 
-                <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col">
-                    <div className="p-6 border-b border-slate-800">
+                {/* Controls & Graph Panel */}
+                <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col flex-1 lg:flex-none">
+                    {/* Oscilloscope View - Top */}
+                    <div className={`flex-1 p-6 min-h-0 flex flex-col border-b border-slate-800 ${mobileView === '3d' ? 'hidden lg:flex' : 'flex'}`}>
+                        <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-4">Oscilloscope View</h3>
+                        <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden relative">
+                            <Oscilloscope
+                                data={simState.data.map(d => ({ time: d.t, force: d.y * 4, voltage: voltage }))}
+                                currentVoltage={voltage}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Controls - Bottom */}
+                    <div className="p-6 bg-slate-900 z-10">
                         {/* Stimulation Mode Toggle */}
                         <div className="mb-6 bg-slate-800 p-1 rounded-lg flex">
                             <button
@@ -635,16 +673,6 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                             thresholdValue={stimulationType === 'Indirect' ? 0.3 : 1.5}
                             maximalValue={stimulationType === 'Indirect' ? 4.0 : 8.0}
                         />
-                    </div>
-
-                    <div className="flex-1 p-6 min-h-0 flex flex-col">
-                        <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-4">Oscilloscope View</h3>
-                        <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden relative">
-                            <Oscilloscope
-                                data={simState.data.map(d => ({ time: d.t, force: d.y * 4, voltage: voltage }))}
-                                currentVoltage={voltage}
-                            />
-                        </div>
                     </div>
                 </div>
             </main>

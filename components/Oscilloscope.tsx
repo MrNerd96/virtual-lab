@@ -7,9 +7,10 @@ interface OscilloscopeProps {
     currentVoltage: number;
     xDomain?: [number, number];
     historyTraces?: { data: DataPoint[], label?: string }[];
+    timeLabel?: string;
 }
 
-export const Oscilloscope: React.FC<OscilloscopeProps> = ({ data, currentVoltage, xDomain, historyTraces }) => {
+export const Oscilloscope: React.FC<OscilloscopeProps> = ({ data, currentVoltage, xDomain, historyTraces, timeLabel = "50ms/div" }) => {
     return (
         <div className="w-full h-full bg-black border-4 border-gray-700 rounded-lg shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col">
             {/* Screen Grid Overlay Effect */}
@@ -19,7 +20,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({ data, currentVoltage
                 CH1: {currentVoltage.toFixed(1)}V
             </div>
             <div className="absolute top-6 right-4 text-green-400 font-mono text-xs z-20 font-bold">
-                TIME: 50ms/div
+                TIME: {timeLabel}
             </div>
 
             <div className="flex-1 w-full min-h-0">

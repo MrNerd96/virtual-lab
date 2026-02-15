@@ -858,7 +858,6 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </button>
                     <div>
                         <h1 className="text-base sm:text-xl font-bold tracking-tight leading-tight">Classic Student Microscope</h1>
-                        <p className="text-[10px] sm:text-xs text-slate-400 font-medium">Mechanical Precision Simulation</p>
                     </div>
                 </div>
 

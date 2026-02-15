@@ -12,6 +12,13 @@ const Microscope3D = lazy(() => import('./components/Microscope3D').then(m => ({
 const Oscilloscope = lazy(() => import('./components/Oscilloscope').then(m => ({ default: m.Oscilloscope })));
 const TwoSuccessiveStimuli = lazy(() => import('./components/TwoSuccessiveStimuli').then(m => ({ default: m.TwoSuccessiveStimuli })));
 const EffectOfLoad = lazy(() => import('./components/EffectOfLoad').then(m => ({ default: m.EffectOfLoad })));
+const GenesisOfTetanus = lazy(() => import('./components/GenesisOfTetanus').then(m => ({ default: m.GenesisOfTetanus })));
+const EffectOfTemperature = lazy(() => import('./components/EffectOfTemperature').then(m => ({ default: m.EffectOfTemperature })));
+const EffectOfStimulusStrength = lazy(() => import('./components/EffectOfStimulusStrength').then(m => ({ default: m.EffectOfStimulusStrength })));
+const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').then(m => ({ default: m.ConductionVelocity })));
+const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })));
+
+
 
 import {
   ArrowLeft,
@@ -40,7 +47,10 @@ import {
   Send,
   ExternalLink,
   Library,
-  Loader
+  Loader,
+  BatteryWarning,
+  Thermometer,
+  Heart
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -52,7 +62,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'genesis-tetanus' | 'microscope';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram';
 
 // --- Loading Component ---
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Loading...' }) => (
@@ -96,7 +106,6 @@ const MenuCard: React.FC<{
         {icon}
       </div>
       <h3 className="text-xl font-bold text-slate-100 mb-2">{title}</h3>
-      <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
 
       {!disabled && (
         <div className={`mt-auto pt-6 flex items-center text-sm font-semibold text-${colorClass}-400 opacity-0 group-hover:opacity-100 transition-opacity`}>
@@ -2336,6 +2345,27 @@ const App: React.FC = () => {
                 onClick={() => navigateTo('twitch')}
               />
               <MenuCard
+                title="Effect of Temperature"
+                description="Effect of temperature on muscle contraction: Cold, Optimal, and Hot."
+                icon={<Thermometer className="w-8 h-8" />}
+                onClick={() => setCurrentView('effect-of-temperature')}
+                colorClass="blue"
+              />
+              <MenuCard
+                title="Effect of Two Successive Stimuli"
+                description="Refractory period, summation of contractions, and beneficial effect."
+                icon={<Zap className="w-8 h-8" />}
+                onClick={() => setCurrentView('two-stimuli')}
+                colorClass="yellow"
+              />
+              <MenuCard
+                title="Genesis of Tetanus"
+                description="Effect of increasing frequency of stimuli: Treppe, Clonus, and Tetanus."
+                icon={<Activity className="w-8 h-8" />}
+                onClick={() => setCurrentView('genesis-tetanus')}
+                colorClass="teal"
+              />
+              <MenuCard
                 title="Effect of Load"
                 description="Afterload's effect on Work Done and Velocity."
                 icon={<Scale className="w-8 h-8" />}
@@ -2350,18 +2380,25 @@ const App: React.FC = () => {
                 onClick={() => navigateTo('fatigue')}
               />
               <MenuCard
-                title="Effect of Two Successive Stimuli"
-                description="Observe summation of contractions and refractory period by applying two stimuli."
-                icon={<Activity className="w-8 h-8" />}
-                colorClass="purple"
-                onClick={() => navigateTo('two-stimuli')}
+                title="Effect of Stimulus Strength"
+                description="Make vs Break stimuli, Recruitment of Motor Units."
+                icon={<Zap className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => setCurrentView('stimulus-strength')}
               />
               <MenuCard
-                title="Genesis of Tetanus"
-                description="Frequency of stimulation, Summation, and Tetanus."
+                title="Conduction Velocity"
+                description="Measure nerve conduction velocity."
                 icon={<Activity className="w-8 h-8" />}
-                colorClass="indigo"
-                onClick={() => navigateTo('genesis-tetanus')}
+                colorClass="orange"
+                onClick={() => setCurrentView('conduction-velocity')}
+              />
+              <MenuCard
+                title="Normal Cardiogram"
+                description="Recording a frog heart cardiogram & effect of temperature on heart rate."
+                icon={<Heart className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => setCurrentView('normal-cardiogram')}
               />
             </div>
           </div>
@@ -2412,6 +2449,7 @@ const App: React.FC = () => {
         </Suspense>
       );
     case 'fatigue': return <GenesisOfFatigue onBack={() => window.history.back()} />;
+
     case 'wbc-count': return <WBCExperiment onBack={() => window.history.back()} />;
     case 'rbc-count': return <RBCExperiment onBack={() => window.history.back()} />;
     case 'dlc-count': return <DLCExperiment onBack={() => window.history.back()} />;
@@ -2419,10 +2457,45 @@ const App: React.FC = () => {
     case 'two-stimuli':
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Two Stimuli Experiment..." />}>
-          <TwoSuccessiveStimuli onBack={() => window.history.back()} />
+          <TwoSuccessiveStimuli onBack={() => setCurrentView('amphibian')} />
         </Suspense>
       );
-    case 'genesis-tetanus': return <GenesisOfTetanusExperiment onBack={() => window.history.back()} />;
+    case 'genesis-tetanus':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Genesis of Tetanus..." />}>
+          <GenesisOfTetanus onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'effect-of-temperature':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Effect of Temperature..." />}>
+          <EffectOfTemperature onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'stimulus-strength':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Effect of Stimulus Strength..." />}>
+          <EffectOfStimulusStrength onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'conduction-velocity':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Conduction Velocity..." />}>
+          <ConductionVelocity onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'normal-cardiogram':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Normal Cardiogram..." />}>
+          <NormalCardiogram onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'effect-of-load':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Effect of Load..." />}>
+          <EffectOfLoad onBack={() => window.history.back()} />
+        </Suspense>
+      );
     case 'microscope': return (
       <Suspense fallback={
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">

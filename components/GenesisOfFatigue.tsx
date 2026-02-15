@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Environment } from '@react-three/drei';
-import { ArrowLeft, Timer, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Timer, RefreshCw, Eye, LineChart } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
 import { Oscilloscope } from './Oscilloscope';
@@ -210,16 +210,18 @@ const StarlingLever = ({ angle, onHoverChange }: { angle: number, onHoverChange?
 
 const Kymograph = ({
     simTime,
-    tension,
+    currentForce,
     isRunning,
     onHoverChange,
-    resetKey
+    resetKey,
+    historyTraces
 }: {
     simTime: number,
-    tension: number,
+    currentForce: number, // Changed from tension to actual force value
     isRunning: boolean,
     onHoverChange?: (l: string | null) => void,
-    resetKey: number
+    resetKey: number,
+    historyTraces: { data: DataPoint[], label?: string }[]
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
     const lastDrawState = useRef<{ x: number, y: number } | null>(null);
@@ -233,33 +235,65 @@ const Kymograph = ({
         }
         return new THREE.CanvasTexture(canvas);
     }, []);
-    // For fatigue we might want to clear less often or handle reset differently, but standard logic applies
+
+    // Y-axis scaling constants matching Oscilloscope domain [-3, 12]
+    const Y_MIN = -3;
+    const Y_MAX = 12;
+    const Y_RANGE = Y_MAX - Y_MIN; // 15
+    const CANVAS_HEIGHT = 512;
+    const CANVAS_TOP_MARGIN = 30; // Leave some margin at top
+    const CANVAS_BOTTOM_MARGIN = 50; // Leave some margin at bottom
+    const USABLE_HEIGHT = CANVAS_HEIGHT - CANVAS_TOP_MARGIN - CANVAS_BOTTOM_MARGIN;
+
+    // Convert force value to canvas Y coordinate (inverted: higher force = lower Y)
+    const forceToCanvasY = (force: number) => {
+        const normalized = (force - Y_MIN) / Y_RANGE; // 0 to 1
+        return CANVAS_HEIGHT - CANVAS_BOTTOM_MARGIN - (normalized * USABLE_HEIGHT);
+    };
+
+    // Draw History Logic
     useEffect(() => {
         const ctx = canvasRef.current.getContext('2d');
-        if (ctx) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1024, 512); texture.needsUpdate = true; }
-        lastDrawState.current = null;
-    }, [resetKey, texture]);
+        if (!ctx) return;
+
+        // Clear Canvas
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 1024, 512);
+
+        const MAX_ROTATION = Math.PI; // Full spread
+        const PIXELS = 1024 * (MAX_ROTATION / (2 * Math.PI));
+        const TOTAL_WINDOW_MS = 500; // Increased window
+
+        // Draw all history traces with same scaling as Oscilloscope
+        historyTraces.forEach((trace, i) => {
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + (i / Math.max(1, historyTraces.length)) * 0.7})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            trace.data.forEach((pt, idx) => {
+                const x = 50 + (pt.time / TOTAL_WINDOW_MS) * PIXELS;
+                const y = forceToCanvasY(pt.force);
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        });
+
+        texture.needsUpdate = true;
+        lastDrawState.current = null; // Reset live draw state
+    }, [historyTraces, resetKey, texture]);
 
     useFrame(() => {
         if (!isRunning) { lastDrawState.current = null; return; }
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
 
-        // Fatigue Kymograph Logic adjusted for continuous running?
-        // App.tsx logic suggests it runs per stimulus. Kymograph here visualizes 'simTime' which resets per stimulus.
-        // To show multiple waves on Kymograph, we'd need a continuous time or offset.
-        // But the original MuscleLab Kymograph logic wasn't visible in the snippet. 
-        // Assuming standard behavior: traces overwrite or we rely on Oscilloscope for history.
-        // The user only asked to change the 3D model, not the kymograph behavior specifically, so standard behavior is safe.
-        // However, if we want multiple traces on Kymograph for fatigue, that's a bigger change.
-        // Let's stick to the standard behavior: one trace per stim. The Oscilloscope shows the history.
-
-        const MAX_ROTATION = Math.PI / 4;
+        const MAX_ROTATION = Math.PI;
         const PIXELS = 1024 * (MAX_ROTATION / (2 * Math.PI));
-        const TOTAL_WINDOW_MS = 200; // From App.tsx logic implicity
+        const TOTAL_WINDOW_MS = 500;
 
         const x = 50 + (simTime / TOTAL_WINDOW_MS) * PIXELS;
-        const y = (512 * 0.5) - (tension * 80);
+        const y = forceToCanvasY(currentForce); // Use same scaling as history traces
 
         if (lastDrawState.current) {
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
@@ -273,7 +307,7 @@ const Kymograph = ({
     useFrame(() => {
         if (drumRef.current && isRunning) {
             const baseRotation = 1.5;
-            const angle = (simTime / 200) * (Math.PI / 4);
+            const angle = (simTime / 500) * Math.PI;
             drumRef.current.rotation.y = baseRotation - angle;
         }
     });
@@ -385,6 +419,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
     const [isStimulating, setIsStimulating] = useState(false);
     const [contractionLevel, setContractionLevel] = useState(0);
+    const [currentForceValue, setCurrentForceValue] = useState(0); // Actual force value for Kymograph
     const [lastPeakForce, setLastPeakForce] = useState(0);
 
     const [autoStimulate, setAutoStimulate] = useState(false);
@@ -399,6 +434,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const startTimeRef = useRef<number>(0);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
 
     const calculateParameters = (v: number, l: number, f: number, sc: number) => {
         let maxForce = v < THRESHOLD_VOLTAGE ? 0 : (v >= MAX_VOLTAGE ? 10 : 10 * ((v - THRESHOLD_VOLTAGE) / (MAX_VOLTAGE - THRESHOLD_VOLTAGE)));
@@ -529,6 +565,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
         dataRef.current = [];
         setHistoryData([]);
         setContractionLevel(0);
+        setCurrentForceValue(0); // Reset force value for Kymograph
         setIsStimulating(false);
         setFatigueLevel(0);
         fatigueLevelRef.current = 0;
@@ -641,6 +678,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
         });
 
         setContractionLevel(currentForce / 10);
+        setCurrentForceValue(currentForce); // Track actual force for Kymograph
         animationRef.current = requestAnimationFrame((t) => runSimulationWithTime(t, params));
     }
 
@@ -680,13 +718,37 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                     <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ArrowLeft className="w-5 h-5" /></button>
                     <div>
                         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Genesis of Fatigue</h1>
-                        <p className="text-slate-400 text-xs">Amphibian / Gastrocnemius</p>
                     </div>
                 </div>
             </header>
 
-            <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                <div className="flex-1 relative bg-black">
+            <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
+                {/* Mobile View Toggle - Only visible on small screens */}
+                <div className="lg:hidden flex bg-slate-800 border-b border-slate-700">
+                    <button
+                        onClick={() => setMobileView('3d')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === '3d'
+                            ? 'bg-slate-900 text-orange-400 border-b-2 border-orange-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        <span>3D View</span>
+                    </button>
+                    <button
+                        onClick={() => setMobileView('graph')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === 'graph'
+                            ? 'bg-slate-900 text-orange-400 border-b-2 border-orange-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <LineChart className="w-4 h-4" />
+                        <span>Graph View</span>
+                    </button>
+                </div>
+
+                {/* 3D Visualization Area */}
+                <div className={`relative bg-black shrink-0 ${mobileView === 'graph' ? 'hidden lg:flex lg:flex-1' : 'h-[40vh] lg:h-auto lg:flex-1 flex'}`}>
                     <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
                         <color attach="background" args={['#0f172a']} />
                         <Environment preset="city" />
@@ -700,10 +762,11 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                             </group>
                             <Kymograph
                                 simTime={simTime}
-                                tension={contractionLevel}
+                                currentForce={currentForceValue}
                                 isRunning={isStimulating}
                                 onHoverChange={setHoveredLabel}
                                 resetKey={resetKey}
+                                historyTraces={historyData}
                             />
                         </group>
 
@@ -717,8 +780,23 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                     )}
                 </div>
 
-                <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col">
-                    <div className="p-6 border-b border-slate-800">
+                {/* Right Panel: Oscilloscope & Controls */}
+                <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col flex-1 lg:flex-none h-auto z-10">
+
+                    {/* Oscilloscope View - Top */}
+                    <div className={`flex-1 p-6 min-h-0 flex flex-col ${mobileView === '3d' ? 'hidden lg:flex' : 'flex'}`}>
+                        <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-4">Oscilloscope View</h3>
+                        <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden relative">
+                            <Oscilloscope
+                                data={data}
+                                currentVoltage={voltage}
+                                historyTraces={historyData}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Controls - Bottom */}
+                    <div className="p-6 border-t border-slate-800 shrink-0 bg-slate-900 z-10">
                         <Controls
                             voltage={voltage}
                             setVoltage={setVoltage}
@@ -752,17 +830,6 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                 <span className="text-xs text-slate-500 uppercase">Stimuli</span>
                                 <span className="text-xl font-mono text-white">{stimulusCount}</span>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 p-6 min-h-0 flex flex-col">
-                        <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-4">Oscilloscope View</h3>
-                        <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden relative">
-                            <Oscilloscope
-                                data={data}
-                                currentVoltage={voltage}
-                                historyTraces={historyData}
-                            />
                         </div>
                     </div>
                 </div>

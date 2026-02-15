@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useTexture, Cylinder, Box, Sphere, Circle, RoundedBox, Text, Environment } from '@react-three/drei';
-import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle, Eye, LineChart } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -518,6 +518,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
     const [isi, setIsi] = useState<number>(30);
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
 
     // Handler for preset selection
     const handlePresetSelect = (preset: PhasePreset) => {
@@ -860,8 +861,32 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
-                {/* 3D Visualization Area */}
-                <div className="h-[30vh] lg:h-auto lg:flex-1 relative bg-[#09090b] shrink-0">
+                {/* Mobile View Toggle - Only visible on small screens */}
+                <div className="lg:hidden flex bg-slate-800 border-b border-slate-700">
+                    <button
+                        onClick={() => setMobileView('3d')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === '3d'
+                            ? 'bg-slate-900 text-cyan-400 border-b-2 border-cyan-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        <span>3D View</span>
+                    </button>
+                    <button
+                        onClick={() => setMobileView('graph')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === 'graph'
+                            ? 'bg-slate-900 text-cyan-400 border-b-2 border-cyan-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <LineChart className="w-4 h-4" />
+                        <span>Graph View</span>
+                    </button>
+                </div>
+
+                {/* 3D Visualization Area - Hidden on mobile when graph is selected */}
+                <div className={`relative bg-[#09090b] shrink-0 ${mobileView === 'graph' ? 'hidden lg:flex lg:flex-1' : 'h-[40vh] lg:h-auto lg:flex-1 flex'}`}>
                     <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
                         <color attach="background" args={['#09090b']} />
 
@@ -917,8 +942,9 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                 </div>
 
                 {/* Right Panel: Controls & 2D Graph */}
-                <div className="w-full lg:w-[400px] lg:flex-none flex flex-col bg-slate-900 border-l border-slate-800 z-10 shadow-2xl lg:min-h-0">
-                    <div className="p-3 bg-slate-950 border-b border-slate-800 shrink-0">
+                <div className="w-full lg:w-[400px] lg:flex-none flex flex-col bg-slate-900 border-l border-slate-800 z-10 shadow-2xl lg:min-h-0 flex-1 lg:flex-none">
+                    {/* Graph (Top) - Hidden in Mobile 3D View */}
+                    <div className={`p-3 bg-slate-950 border-b border-slate-800 shrink-0 ${mobileView === '3d' ? 'hidden lg:block' : 'block'}`}>
                         <canvas
                             ref={canvasRef}
                             width={360}
@@ -927,7 +953,8 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                         />
                     </div>
 
-                    <div className="lg:flex-1 lg:overflow-y-auto p-3 lg:p-6 space-y-6">
+                    {/* Controls (Bottom) - Always visible, scrollable */}
+                    <div className="flex-1 overflow-y-auto p-3 lg:p-6 space-y-6">
 
 
                         {/* ISI Slider */}
