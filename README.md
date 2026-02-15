@@ -1,20 +1,85 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# Virtual Physiology Lab
 
-This contains everything you need to run your app locally.
+A comprehensive, interactive simulation suite designed for performing and visualizing physiological experiments in a virtual environment. This application leverages modern web technologies to provide realistic simulations of amphibian skeletal muscle, amphibian heart, and hematology experiments.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1yEN4_C98fKu_SrdwbM9vrk2Dgu2m_BY7
+## 🚀 Key Features
 
-## Run Locally
+*   **Realistic Simulations:** Uses physics-based models to simulate muscle contraction, fatigue, and cardiac cycles.
+*   **Interactive 3D Visualizations:** Powered by Three.js and React Three Fiber for immersive 3D models of experimental setups (kymographs, microscopes, muscle/heart preparations).
+*   **Dynamic Graphing:** Real-time data visualization using Recharts to mimic oscilloscopes and chart recorders.
+*   **Cross-Platform:** Built with React and Capacitor, ready for deployment on Web and Android.
 
-**Prerequisites:**  Node.js
+## 🔬 Experiments
 
+### Amphibian Skeletal Muscle
+1.  **Simple Muscle Twitch**: Analyze the phases of a single muscle twitch (Latent, Contraction, Relaxation).
+2.  **Effect of Load**: Study the relationship between load and work done producing free and after loaded curves.
+3.  **Effect of Temperature**: Observe how temperature changes affect muscle enzyme activity and twitch duration.
+4.  **Effect of Stimulus Strength**: Demonstrate the "All-or-None" law and graded response in whole muscle.
+5.  **Genesis of Fatigue**: Simulate muscle fatigue through repeated stimulation.
+6.  **Genesis of Tetanus**: Demonstrate summation of contractions and tetanus by varying stimulus frequency.
+7.  **Conduction Velocity**: Measure the speed of nerve impulse conduction.
+8.  **Two Successive Stimuli**: Investigate the refractory period and summation of potential.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Amphibian Heart
+1.  **Normal Cardiogram**: Record and analyze normal cardiac rhythm and phases (systole, diastole).
+
+### Hematology
+1.  **Total RBC Count**: Simulate red blood cell counting using a Neubauer chamber.
+2.  **Total WBC Count**: Simulate white blood cell counting.
+3.  **Differential Leukocyte Count (DLC)**: Identify and count different types of WBCs from a blood smear.
+
+## 🛠️ Technologies Used
+
+*   **Frontend**: React, TypeScript, Vite
+*   **Styling**: Tailwind CSS
+*   **3D Graphics**: Three.js, @react-three/fiber, @react-three/drei
+*   **Charting**: Recharts
+*   **Mobile Runtime**: Capacitor
+*   **Icons**: Lucide React
+
+## 💻 Setup & Installation
+
+**Prerequisites:** Node.js (v18+ recommended)
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/MrNerd96/virtual-lab.git
+    cd virtual-lab
+    ```
+
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+3.  **Set up environment variables:**
+    Create a `.env.local` file in the root directory and add any necessary API keys (e.g., for AI features if applicable).
+    ```env
+    VITE_GEMINI_API_KEY=your_api_key_here
+    ```
+
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
+
+5.  **Build for production:**
+    ```bash
+    npm run build
+    ```
+
+## 📱 Mobile Build (Android)
+
+This project is configured with Capacitor for Android deployment.
+
+1.  **Sync the project:**
+    ```bash
+    npx cap sync
+    ```
+
+2.  **Open in Android Studio:**
+    ```bash
+    npx cap open android
+    ```
