@@ -1,4 +1,8 @@
 
+<div align="center">
+  <img src="public/og-image.jpg" alt="Virtual Physiology Lab Banner" width="100%" />
+</div>
+
 # Virtual Physiology Lab
 
 A comprehensive, interactive simulation suite designed for performing and visualizing physiological experiments in a virtual environment. This application leverages modern web technologies to provide realistic simulations of amphibian skeletal muscle, amphibian heart, and hematology experiments.
