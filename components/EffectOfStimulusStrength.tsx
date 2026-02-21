@@ -729,6 +729,7 @@ const StationaryDrumGraph = ({ data }: { data: DataPoint[] }) => {
 export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     const [distance, setDistance] = useState(15); // Start far away (weak)
     const [history, setHistory] = useState<DataPoint[]>([]);
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
 
     // Animation state for 3D muscle
     const [muscleShortening, setMuscleShortening] = useState(0);
@@ -818,9 +819,33 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                {/* Mobile View Toggle */}
+                <div className="lg:hidden flex bg-slate-800 border-b border-slate-700 shrink-0">
+                    <button
+                        onClick={() => setMobileView('3d')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === '3d'
+                            ? 'bg-slate-900 text-cyan-400 border-b-2 border-cyan-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        <span>3D View</span>
+                    </button>
+                    <button
+                        onClick={() => setMobileView('graph')}
+                        className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-medium transition-all ${mobileView === 'graph'
+                            ? 'bg-slate-900 text-cyan-400 border-b-2 border-cyan-400'
+                            : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                    >
+                        <LineChart className="w-4 h-4" />
+                        <span>Graph</span>
+                    </button>
+                </div>
+
                 {/* 3D View (Left) */}
-                <div className="flex-1 relative bg-gradient-to-b from-slate-900 to-slate-950">
+                <div className={`flex-1 relative bg-gradient-to-b from-slate-900 to-slate-950 ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     {hoveredLabel && (
                         <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg border border-cyan-400/30">
                             <p className="text-sm font-semibold text-cyan-300">
@@ -859,9 +884,9 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
                 </div>
 
                 {/* Right Panel: Graph & Controls */}
-                <div className="w-[450px] flex flex-col border-l border-slate-800 bg-slate-950 shrink-0">
+                <div className="w-full lg:w-[450px] flex flex-col border-l border-slate-800 bg-slate-950 shrink-0 lg:flex-none">
                     {/* Graph Area - TOP */}
-                    <div className="flex-1 p-8 relative flex flex-col min-h-0 bg-slate-900 border-b border-slate-800">
+                    <div className={`flex-1 p-8 relative flex-col min-h-0 bg-slate-900 border-b border-slate-800 ${mobileView === '3d' ? 'hidden lg:flex' : 'flex'}`}>
                         <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-4">Oscilloscope View</h3>
                         <div className="flex-1 h-full border border-slate-800 rounded-xl overflow-hidden relative">
                             <div className="relative z-10 w-full h-full bg-black">

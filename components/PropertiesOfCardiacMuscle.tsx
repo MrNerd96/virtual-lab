@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Environment, Tube, Torus, Circle, Cone } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Activity } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -13,6 +13,8 @@ interface CardiogramState {
     currentContraction: number; // 0–1 normalized heart contraction
     heartRate: number; // bpm
     temperature: number; // °C
+    ligature1?: boolean; // 1st Stannius Ligature (Sinus-Atrial)
+    ligature2?: boolean; // 2nd Stannius Ligature (Atrio-Ventricular)
 }
 
 // Temperature presets matching textbook values
@@ -22,10 +24,11 @@ const TEMPERATURE_PRESETS = [
     { label: 'Warm (35°C)', value: 35, hr: 36, amplitude: 0.7, color: '#ef4444', bgColor: 'bg-red-600', borderColor: 'border-red-400' },
 ];
 
-function getTemperatureParams(temp: number) {
+function getTemperatureParams(temp: number, experiment?: string) {
     const preset = TEMPERATURE_PRESETS.find(p => p.value === temp) || TEMPERATURE_PRESETS[1];
-    const periodMs = (60 / preset.hr) * 1000; // ms per beat
-    return { hr: preset.hr, amplitude: preset.amplitude, periodMs, color: preset.color };
+    const hr = (experiment === 'heart-block') ? 36 : preset.hr;
+    const periodMs = (60 / hr) * 1000; // ms per beat
+    return { hr, amplitude: preset.amplitude, periodMs, color: preset.color };
 }
 
 // Cardiogram waveform — one full cardiac cycle mapped to phase 0..1
@@ -34,25 +37,104 @@ function getTemperatureParams(temp: number) {
 // AV Delay:            2      (flat pause)
 // Ventricular Systole: 2 → 0  (contraction, deep downward deflection)
 // Ventricular Diastole:0 → 3  (relaxation, full recovery to baseline)
-function cardiogramWaveform(phase: number, amplitude: number): number {
+function cardiogramWaveform(phase: number, amplitude: number, cycleIndex: number = 0, experiment: string = 'extra-systole'): number {
     const smooth = (p: number) => (1 - Math.cos(p * Math.PI)) / 2; // 0→1 smooth
+
+    const getNormalY = (p: number) => {
+        if (p < 0.16) return 3.0 - 2.0 * smooth(p / 0.16);
+        if (p < 0.32) return 1.0 + 1.0 * smooth((p - 0.16) / 0.16);
+        if (p < 0.40) return 2.0;
+        if (p < 0.56) return 2.0 - 2.0 * smooth((p - 0.40) / 0.16);
+        return 3.0 * smooth((p - 0.56) / 0.44);
+    };
+
     let y: number;
 
-    if (phase < 0.16) {
-        // Atrial Systole: 3 → 1
-        y = 3.0 - 2.0 * smooth(phase / 0.16);
-    } else if (phase < 0.32) {
-        // Atrial Diastole: 1 → 2
-        y = 1.0 + 1.0 * smooth((phase - 0.16) / 0.16);
-    } else if (phase < 0.40) {
-        // AV Delay: hold at 2
-        y = 2.0;
-    } else if (phase < 0.56) {
-        // Ventricular Systole: 2 → 0
-        y = 2.0 - 2.0 * smooth((phase - 0.40) / 0.16);
+    if (experiment === 'extra-systole') {
+        // Special behavior for the 3rd wave (index 2): Deep Atrial Systole (3 -> -2)
+        if (cycleIndex === 2) {
+            if (phase < 0.16) {
+                // Atrial Systole: 3 → -2 (Deeper deflection)
+                y = 3.0 - 5.0 * smooth(phase / 0.16);
+            } else if (phase < 0.32) {
+                // Atrial Diastole: -2 → 3 (Recover from deep trough)
+                y = -2.0 + 5.0 * smooth((phase - 0.16) / 0.16);
+            } else if (phase < 0.40) {
+                // AV Delay: hold at 3
+                y = 3.0;
+            } else if (phase < 0.56) {
+                // Ventricular Systole: 3 → 3 (No contraction)
+                y = 3.0;
+            } else {
+                // Ventricular Diastole: Hold baseline
+                y = 3.0;
+            }
+        } else {
+            // Normal waveform shape
+            y = getNormalY(phase);
+
+            // Progressive scaling for waves 4–7 (cycleIndex 3–6)
+            // Scale factors: 1/3 → 5/9 → 7/9 → 1 (full size)
+            const scaleMap: Record<number, number> = { 3: 1 / 3, 4: 5 / 9, 5: 7 / 9, 6: 1 };
+            if (cycleIndex in scaleMap) {
+                const scale = scaleMap[cycleIndex];
+                // Scale deviation from baseline (3.0)
+                y = 3.0 - (3.0 - y) * scale;
+            }
+        }
+    } else if (experiment === 'staircase') {
+        // Staircase / Treppe Phenomenon
+        // Progressive increase in amplitude for the first few beats
+        const scaleMap: Record<number, number> = { 0: 0.4, 1: 0.6, 2: 0.8, 3: 0.9 };
+        y = getNormalY(phase);
+
+        const scale = scaleMap[cycleIndex] ?? 1.0;
+        y = 3.0 - (3.0 - y) * scale;
+
+    } else if (experiment === 'summation') {
+        // Summation of Subliminal Stimuli
+        // User Request: 
+        // 1. Threshold Stimulus (Cycle 0) -> Contraction
+        // 2. Gap (Cycle 1, 2, 3 suppressed) -> Flat (3 cycles gap)
+        //    * Single sub-threshold stimulus after 1st gap cycle (at Cycle 1 start)
+        // 3. Summation (Cycle 4 & 5) -> Contraction
+        // 4. Flatline (Cycle 6+)
+
+        if (cycleIndex >= 1 && cycleIndex <= 3) {
+            y = 3.0; // Gap for 3 cycles
+        } else if (cycleIndex >= 6) {
+            y = 3.0; // Stop after Cycle 5
+        } else {
+            y = getNormalY(phase); // Cycle 0 (Threshold) and Cycle 4,5 (Summation)
+        }
+
+    } else if (experiment === 'heart-block') {
+        // Stannius ligatures: 
+        // 1st Ligature: Pause cycles 4-7 (4 cycles)
+        // 2nd Ligature: Pause cycles 12-15 (4 cycles)
+        if ((cycleIndex >= 4 && cycleIndex <= 7) || (cycleIndex >= 12 && cycleIndex <= 15)) {
+            y = 3.0; // Flat line (Enforced Diastole/Pause)
+        } else {
+            y = getNormalY(phase);
+        }
+    } else if (experiment === 'all-or-none') {
+        // All or None Law:
+        // Cycle 0: Sub-threshold (No response)
+        // Others: Full response
+        // phase < 0 indicates a pause between beats
+        if (cycleIndex === 0 || phase < 0) {
+            y = 3.0;
+        } else {
+            y = getNormalY(phase);
+        }
+
+        // Add Stimulus Artifact (Only at the very start of the recording to show it has begun)
+        if (cycleIndex === 0 && phase >= 0 && phase < 0.02) {
+            y -= 0.6; // Sharp upward spike
+        }
     } else {
-        // Ventricular Diastole: 0 → 3
-        y = 3.0 * smooth((phase - 0.56) / 0.44);
+        // All other experiments start with normal behavior
+        y = getNormalY(phase);
     }
 
     return y * amplitude;
@@ -121,16 +203,23 @@ const MyographBoard = ({ onHoverChange }: { onHoverChange?: (l: string | null) =
 
 // --- Frog Heart (3-chambered: 2 atria + 1 ventricle) ---
 // Procedural model: Lathe geometry for ventricle, deformed spheres for atria
-const FrogHeart = ({ contraction, temperature, onHoverChange }: {
+const FrogHeart = ({ contraction, temperature, onHoverChange, showLigature1, isTight1, showLigature2, isTight2 }: {
     contraction: number,
     temperature: number,
-    onHoverChange?: (l: string | null) => void
+    onHoverChange?: (l: string | null) => void,
+    showLigature1?: boolean,
+    isTight1?: boolean,
+    showLigature2?: boolean,
+    isTight2?: boolean
 }) => {
     const heartRef = useRef<THREE.Group>(null);
     const ventricleRef = useRef<THREE.Group>(null);
     const leftAtriumRef = useRef<THREE.Group>(null);
     const rightAtriumRef = useRef<THREE.Group>(null);
     const truncusRef = useRef<THREE.Group>(null);
+    const ligature2Ref = useRef<THREE.Group>(null);
+    const sinusRef = useRef<THREE.Mesh>(null);
+    const ligature1Ref = useRef<THREE.Group>(null);
 
     // Heart color changes with temperature - wet tissue look
     const heartColor = useMemo(() => {
@@ -150,6 +239,28 @@ const FrogHeart = ({ contraction, temperature, onHoverChange }: {
             const squeeze = Math.max(0.4, 1 - deflection * 0.05);
             const shorten = Math.max(0.5, 1 - deflection * 0.05);
             ventricleRef.current.scale.set(squeeze, shorten, squeeze);
+
+            // Animate 2nd Ligature to follow the AV groove
+            if (ligature2Ref.current) {
+                // Determine new Y position based on ventricle shortening
+                // Initial Y is -0.3. As ventricle shortens (scale Y < 1), this point moves up towards 0.
+                const newY = -0.3 * shorten;
+                ligature2Ref.current.position.set(0, newY, 0.05 * squeeze);
+
+                // Scale the ligature ring to match ventricle squeezing
+                ligature2Ref.current.scale.set(squeeze, 1, squeeze);
+            }
+
+            // Animate Sinus Venosus (pulsing slightly with systole)
+            // Sinus should contract as Atria contract. For simplicity, we link it to general contraction with a small phase or just direct scaling.
+            const sinusSqueeze = Math.max(0.8, 1 - deflection * 0.04);
+            if (sinusRef.current) {
+                sinusRef.current.scale.set(sinusSqueeze, sinusSqueeze, sinusSqueeze);
+            }
+            if (ligature1Ref.current) {
+                // Ligature 1 follows Sinus contraction
+                ligature1Ref.current.scale.set(sinusSqueeze * (isTight1 ? 0.9 : 1.05), sinusSqueeze * (isTight1 ? 0.9 : 1.05), 1);
+            }
         }
         if (leftAtriumRef.current && rightAtriumRef.current) {
             leftAtriumRef.current.scale.set(1, 1, 1);
@@ -186,11 +297,112 @@ const FrogHeart = ({ contraction, temperature, onHoverChange }: {
     const rightArchPath = useMemo(() => new THREE.CatmullRomCurve3([
         new THREE.Vector3(0, 0.85, 0.15), new THREE.Vector3(0.25, 1.0, 0.05), new THREE.Vector3(0.4, 1.05, -0.1),
     ]), []);
-    const superiorVenaCavaPath = useMemo(() => new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.25, 0.4, -0.1), new THREE.Vector3(0.4, 0.6, -0.15), new THREE.Vector3(0.45, 0.8, -0.1),
+    // Sinus Venosus Dimensions (used for geometry and collecting veins)
+    const SINUS_W = 0.18;
+    const SINUS_H = 0.18;
+    const SINUS_R = 0.12;
+    const SINUS_Z = 0.3;
+    const SINUS_Y_OFFSET = 0;
+
+    // Vena Cavae Paths (Refined to match Sinus Venosus geometry)
+    const leftSuperiorVenaCavaPath = useMemo(() => new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.4, 0.6, 0.1), // Start (far out)
+        new THREE.Vector3(-0.3, 0.4, 0.15),
+        new THREE.Vector3(-SINUS_W, SINUS_Y_OFFSET + SINUS_H - 0.05, SINUS_Z), // Connect to Top-Left corner of Sinus
     ]), []);
+
+    const rightSuperiorVenaCavaPath = useMemo(() => new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.4, 0.6, 0.1), // Start (far out)
+        new THREE.Vector3(0.3, 0.4, 0.15),
+        new THREE.Vector3(SINUS_W, SINUS_Y_OFFSET + SINUS_H - 0.05, SINUS_Z), // Connect to Top-Right corner of Sinus
+    ]), []);
+
     const inferiorVenaCavaPath = useMemo(() => new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.2, 0.35, 0.1), new THREE.Vector3(0.3, 0.2, 0.15), new THREE.Vector3(0.35, -0.05, 0.1),
+        new THREE.Vector3(0, SINUS_Y_OFFSET - SINUS_H + 0.05, SINUS_Z), // Connect to Bottom tip of Sinus
+        new THREE.Vector3(0, -0.6, 0.1),
+        new THREE.Vector3(0, -0.7, 0.1), // End (downwards)
+    ]), []);
+
+    const sinusGeometry = useMemo(() => {
+        const shape = new THREE.Shape();
+        const w = SINUS_W;
+        const h = SINUS_H;
+        const r = SINUS_R;
+
+        // Rounded Triangle pointing UP (relative to shape coords)
+        // Start bottom-left
+        shape.moveTo(-w + r, -h);
+
+        // Bottom edge
+        shape.lineTo(w - r, -h);
+        // Bottom-right corner smoother
+        shape.quadraticCurveTo(w, -h, w - 0.06, -h + 0.1);
+
+        // Right edge
+        shape.lineTo(0.06, h - 0.1);
+        // Top corner smoother
+        shape.quadraticCurveTo(0, h, -0.06, h - 0.1);
+
+        // Left edge
+        shape.lineTo(-w + 0.06, -h + 0.1);
+        // Bottom-left corner smoother
+        shape.quadraticCurveTo(-w, -h, -w + r, -h);
+
+        const extrudeSettings = {
+            depth: 0.08,
+            bevelEnabled: true,
+            bevelSegments: 8,
+            steps: 2,
+            bevelSize: 0.05,
+            bevelThickness: 0.05
+        };
+        const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geom.center(); // Center the geometry
+        return geom;
+    }, []);
+
+    const ligaturePath = useMemo(() => {
+        const w = SINUS_W + 0.08; // Expanded to wrap around the sinus
+        const h = SINUS_H + 0.08;
+        const r = SINUS_R;
+
+        // More control points for a tighter rounded triangle
+        const pts = [
+            new THREE.Vector3(0, -h, 0),             // Bottom Center
+            new THREE.Vector3(w - 0.1, -h, 0),       // Bottom Right
+            new THREE.Vector3(w, -h + 0.1, 0),       // Bottom Right Corner
+            new THREE.Vector3(w - 0.05, 0, 0),       // Right Side
+            new THREE.Vector3(0, h + 0.02, 0),       // Top Tip
+            new THREE.Vector3(-(w - 0.05), 0, 0),    // Left Side
+            new THREE.Vector3(-w, -h + 0.1, 0),      // Bottom Left Corner
+            new THREE.Vector3(-(w - 0.1), -h, 0),    // Bottom Left
+        ];
+        return new THREE.CatmullRomCurve3(pts, true);
+    }, []);
+
+    // Loose ends of the knot
+    const threadEnd1 = useMemo(() => new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, SINUS_H + 0.08, 0),       // Start at knot
+        new THREE.Vector3(0.08, SINUS_H + 0.18, 0.1),  // Curve right & out
+        new THREE.Vector3(0.12, SINUS_H + 0.28, 0.15), // End
+    ]), []);
+
+    const threadEnd2 = useMemo(() => new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, SINUS_H + 0.08, 0),       // Start at knot
+        new THREE.Vector3(-0.08, SINUS_H + 0.18, 0.1), // Curve left & out
+        new THREE.Vector3(-0.12, SINUS_H + 0.28, 0.15),// End
+    ]), []);
+
+    const threadEnd2_1 = useMemo(() => new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.21, 0, 0),       // Start at knot
+        new THREE.Vector3(0.35, 0.1, 0.05),  // Out and up/down? Knot is at x=0.21. 
+        new THREE.Vector3(0.40, 0.2, 0.1), // End
+    ]), []);
+
+    const threadEnd2_2 = useMemo(() => new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.21, 0, 0),       // Start at knot
+        new THREE.Vector3(0.35, -0.1, 0.05), // Out and down
+        new THREE.Vector3(0.40, -0.2, 0.1),// End
     ]), []);
 
     return (
@@ -265,7 +477,10 @@ const FrogHeart = ({ contraction, temperature, onHoverChange }: {
 
                 {/* Major Veins */}
                 <InteractiveObject label="Vena Cavae" onHoverChange={onHoverChange}>
-                    <Tube args={[superiorVenaCavaPath, 12, 0.035, 8, false]}>
+                    <Tube args={[leftSuperiorVenaCavaPath, 12, 0.035, 8, false]}>
+                        <meshPhysicalMaterial color="#5e4b8b" roughness={0.6} />
+                    </Tube>
+                    <Tube args={[rightSuperiorVenaCavaPath, 12, 0.035, 8, false]}>
                         <meshPhysicalMaterial color="#5e4b8b" roughness={0.6} />
                     </Tube>
                     <Tube args={[inferiorVenaCavaPath, 12, 0.035, 8, false]}>
@@ -275,10 +490,56 @@ const FrogHeart = ({ contraction, temperature, onHoverChange }: {
 
                 {/* Sinus Venosus (Simulated posterior dark mass) */}
                 <InteractiveObject label="Sinus Venosus (Posterior)" onHoverChange={onHoverChange}>
-                    <Sphere args={[0.2, 16, 16]} position={[0, 0.4, -0.2]} scale={[1.2, 0.8, 0.5]}>
+                    <mesh ref={sinusRef} geometry={sinusGeometry} position={[0, SINUS_Y_OFFSET, SINUS_Z]} rotation={[0, 0, Math.PI]}>
                         <meshPhysicalMaterial color="#4a2c2c" roughness={0.8} />
-                    </Sphere>
+                    </mesh>
                 </InteractiveObject>
+
+                {showLigature1 && (
+                    <InteractiveObject label="1st Stannius Ligature" onHoverChange={onHoverChange}>
+                        {/* Wrap around the triangular Sinus Venosus */}
+                        {/* Use same position/rotation as Sinus to align the triangle */}
+                        <group ref={ligature1Ref} position={[0, SINUS_Y_OFFSET, SINUS_Z]} rotation={[0, 0, Math.PI]}>
+                            {/* Main Loop */}
+                            <Tube args={[ligaturePath, 64, isTight1 ? 0.025 : 0.035, 8, true]} scale={[isTight1 ? 0.9 : 1.05, isTight1 ? 0.9 : 1.05, 1]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Tube>
+                            {/* Knot - Positioned at top corner (which is technically bottom in world due to rotation, but let's place it) */}
+                            <Sphere args={[0.05, 8, 8]} position={[0, SINUS_H + 0.08, 0]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Sphere>
+                            {/* Free Ends of the Knot */}
+                            <Tube args={[threadEnd1, 12, 0.025, 6, false]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Tube>
+                            <Tube args={[threadEnd2, 12, 0.025, 6, false]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Tube>
+                        </group>
+                    </InteractiveObject>
+                )}
+
+                {showLigature2 && (
+                    <InteractiveObject label="2nd Stannius Ligature" onHoverChange={onHoverChange}>
+                        <group ref={ligature2Ref} position={[0, -0.3, 0.05]}>
+                            {/* Thread wrapping around the atrio-ventricular junction */}
+                            <Torus args={[isTight2 ? 0.2 : 0.2, 0.03, 8, 24]} rotation={[Math.PI / 2, 0, 0]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Torus>
+                            {/* Knot */}
+                            <Sphere args={[0.05, 8, 8]} position={[isTight2 ? 0.21 : 0.21, 0, 0]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Sphere>
+                            {/* Free Ends of the Knot */}
+                            <Tube args={[threadEnd2_1, 12, 0.02, 6, false]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Tube>
+                            <Tube args={[threadEnd2_2, 12, 0.02, 6, false]}>
+                                <meshStandardMaterial color="#ffffff" roughness={0.9} />
+                            </Tube>
+                        </group>
+                    </InteractiveObject>
+                )}
 
             </group>
         </InteractiveObject>
@@ -828,11 +1089,17 @@ const SolutionTray = ({ temperature, onHoverChange }: { temperature: number, onH
 const CardiogramGraph = ({
     data,
     temperature,
-    isRecording
+    isRecording,
+    selectedExperiment,
+    drumSpeed,
+    heartRate,
 }: {
     data: { t: number; y: number }[];
     temperature: number;
     isRecording: boolean;
+    selectedExperiment: string;
+    drumSpeed: number;
+    heartRate: number;
 }) => {
     const preset = TEMPERATURE_PRESETS.find(p => p.value === temperature) || TEMPERATURE_PRESETS[1];
 
@@ -844,17 +1111,21 @@ const CardiogramGraph = ({
 
     const svgWidth = 900;
     const svgHeight = 320;
-    const margin = { top: 30, right: 20, bottom: 40, left: 40 };
+    const margin = { top: 110, right: 20, bottom: 40, left: 40 };
     const plotW = svgWidth - margin.left - margin.right;
     const plotH = svgHeight - margin.top - margin.bottom;
 
-    // Y range: -0.5 to 3.5
-    const yMin = -0.5;
+    // Y range: -2.5 to 3.5
+    const yMin = -2.5;
     const yMax = 3.5;
     const yScale = (y: number) => margin.top + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
 
-    // X range: show a scrolling window of ~24 seconds for compressed view (more waves visible)
-    const WINDOW_MS = 24000;
+    // X range: show a scrolling window of ~24 seconds for compressed view (more waves visible) at regular speed (2.5mm/s)
+    // Adjust window size inversely to drum speed: Slower drum = More time visible (squashed waves)
+    const BASE_SPEED = 2.5;
+    const BASE_WINDOW = 24000;
+    const WINDOW_MS = BASE_WINDOW * (BASE_SPEED / Math.max(0.5, drumSpeed));
+
     const latestT = data.length > 0 ? data[data.length - 1].t : 0;
     const windowStart = Math.max(0, latestT - WINDOW_MS);
     const windowEnd = Math.max(WINDOW_MS, latestT + 200);
@@ -872,7 +1143,10 @@ const CardiogramGraph = ({
     // Vertical: Time (every 0.5s)
     const timeMarkers: number[] = [];
     const startTick = Math.ceil(windowStart / 500) * 500;
-    for (let t = startTick; t <= windowEnd; t += 500) {
+    // Limit grid lines to avoid lagging if window is huge
+    const gridStep = WINDOW_MS > 60000 ? 5000 : (WINDOW_MS > 30000 ? 1000 : 500);
+
+    for (let t = startTick; t <= windowEnd; t += gridStep) {
         timeMarkers.push(t);
     }
     // Horizontal: Voltage
@@ -907,103 +1181,409 @@ const CardiogramGraph = ({
                     <feGaussianBlur stdDeviation="2" result="blur" />
                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
+                <marker id="arrowAmber" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
+                </marker>
+                <marker id="arrowBlue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+                </marker>
             </defs>
             <path d={pathD} fill="none" stroke={traceColor} strokeWidth={2} filter="url(#oscilloscopeGlow)" />
 
+            {/* Wave Labels */}
+            {(() => {
+                const params = getTemperatureParams(temperature, selectedExperiment);
+                const periodMs = params.periodMs;
+
+                // Wave 3 (cycleIndex 2) — Extra Systole label
+                const wave3MidT = periodMs * 2 + periodMs * 0.16; // Peak of atrial systole dip
+                const wave3X = xScale(wave3MidT);
+                // Compensatory Pause — flat section of wave 3 (from ~0.4 to 1.0 of the cycle)
+                const pauseMidT = periodMs * 2 + periodMs * 0.7;
+                const pauseX = xScale(pauseMidT);
+                // Treppe — waves 4-7 (cycleIndex 3-6), label centered
+                const treppeMidT = periodMs * 3 + periodMs * 2; // middle of waves 4-7
+                const treppeStartT = periodMs * 3;
+                const treppeEndT = periodMs * 7;
+                const treppeStartX = xScale(treppeStartT);
+                const treppeEndX = xScale(treppeEndT);
+                const treppeMidX = (treppeStartX + treppeEndX) / 2;
+
+                if (data.length === 0) return null;
+
+                // For most experiments, show labels only after recording is done
+                // But for Summation, we want live stimulus ticks
+                if (isRecording && selectedExperiment !== 'summation') return null;
+
+                if (selectedExperiment === 'extra-systole') {
+                    return (
+                        <>
+                            {/* Extra Systole: label BELOW → arrow pointing UP to dip */}
+                            <g>
+                                <text x={wave3X} y={yScale(-2) + 110} textAnchor="middle" fill="#f59e0b" fontSize={24} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                    Extra Systole
+                                </text>
+                                {/* Manual Arrow UP */}
+                                <line x1={wave3X} y1={yScale(-2) + 85} x2={wave3X} y2={yScale(-2) + 12}
+                                    stroke="#f59e0b" strokeWidth={3} />
+                                <path d={`M ${wave3X - 10} ${yScale(-2) + 22} L ${wave3X} ${yScale(-2) + 8} L ${wave3X + 10} ${yScale(-2) + 22}`}
+                                    fill="none" stroke="#f59e0b" strokeWidth={3} strokeLinejoin="round" />
+                            </g>
+
+                            {/* Compensatory Pause: Label ABOVE → arrow pointing DOWN */}
+                            <g>
+                                <text x={pauseX} y={yScale(3.0) - 90} textAnchor="middle" fill="#38bdf8" fontSize={24} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                    Compensatory Pause
+                                </text>
+                                {/* Manual Arrow DOWN */}
+                                <line x1={pauseX} y1={yScale(3.0) - 65} x2={pauseX} y2={yScale(3.0) - 10}
+                                    stroke="#38bdf8" strokeWidth={3} />
+                                <path d={`M ${pauseX - 10} ${yScale(3.0) - 22} L ${pauseX} ${yScale(3.0) - 8} L ${pauseX + 10} ${yScale(3.0) - 22}`}
+                                    fill="none" stroke="#38bdf8" strokeWidth={3} strokeLinejoin="round" />
+                            </g>
+
+                            {/* Treppe: bracket + label below */}
+                            <g>
+                                <line x1={treppeStartX} y1={svgHeight - margin.bottom + 15} x2={treppeEndX} y2={svgHeight - margin.bottom + 15}
+                                    stroke="#c084fc" strokeWidth={3} />
+                                <line x1={treppeStartX} y1={svgHeight - margin.bottom + 5} x2={treppeStartX} y2={svgHeight - margin.bottom + 25}
+                                    stroke="#c084fc" strokeWidth={3} />
+                                <line x1={treppeEndX} y1={svgHeight - margin.bottom + 5} x2={treppeEndX} y2={svgHeight - margin.bottom + 25}
+                                    stroke="#c084fc" strokeWidth={3} />
+                                <text x={treppeMidX} y={svgHeight - margin.bottom + 65} textAnchor="middle" fill="#c084fc" fontSize={26} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                    Treppe (Staircase)
+                                </text>
+                            </g>
+                        </>
+                    );
+                }
+
+                if (selectedExperiment === 'summation') {
+                    // Summation Labels & Signal Marker
+                    const params = getTemperatureParams(temperature, selectedExperiment); // Ensure we have params
+                    const periodMs = params.periodMs;
+
+                    const t0 = 0; // Cycle 0
+                    const tSingleSub = periodMs * 2; // Cycle 2 Start (Sub-threshold)
+                    const tSummationStart = periodMs * 4; // Cycle 4 Start (Summation)
+
+                    const x0 = xScale(t0);
+
+                    // Signal Marker Trace Y position
+                    const markerY = svgHeight - margin.bottom + 40;
+
+                    // Ticks for Stimuli
+                    const ticks = [];
+                    // 1. Initial Threshold Tick
+                    ticks.push(0);
+
+                    // 2. Single Sub-threshold Tick (at Cycle 2)
+                    ticks.push(tSingleSub);
+
+                    // 3. Burst Ticks (5 ticks before tSummationStart)
+                    for (let i = 0; i < 5; i++) {
+                        ticks.push(tSummationStart - 1250 + (i * 250));
+                    }
+
+                    // Filter ticks: Only show those that have occurred (t <= latestT)
+                    const visibleTicks = ticks.filter(t => !isRecording || t <= latestT);
+
+                    // Signal Line: visible portion baseline
+                    // If recording, draw line up to latestT
+                    const lineEndX = isRecording ? Math.min(svgWidth - margin.right, xScale(latestT)) : svgWidth - margin.right;
+                    const lineStartX = margin.left;
+
+                    return (
+                        <>
+                            {/* Signal Marker Line */}
+                            {(lineEndX > lineStartX) &&
+                                <line x1={lineStartX} y1={markerY} x2={lineEndX} y2={markerY} stroke="#ef4444" strokeWidth={2} />
+                            }
+
+                            {/* Ticks */}
+                            {visibleTicks.map((t, i) => (
+                                <line key={i} x1={xScale(t)} y1={markerY - 10} x2={xScale(t)} y2={markerY + 10} stroke="#ef4444" strokeWidth={2} />
+                            ))}
+
+                            {/* Label: Threshold Stimulus */}
+                            {(!isRecording || latestT >= t0) && (
+                                <g>
+                                    <text x={x0} y={markerY + 100} textAnchor="start" fill="#22c55e" fontSize={18} fontFamily="monospace" fontWeight="bold">
+                                        Threshold
+                                    </text>
+                                    {/* Arrow pointing UP to tick */}
+                                    <line x1={x0 + 5} y1={markerY + 75} x2={x0} y2={markerY + 15} stroke="#22c55e" strokeWidth={2} strokeDasharray="4 2" />
+                                    <path d={`M ${x0 - 4} ${markerY + 20} L ${x0} ${markerY + 12} L ${x0 + 4} ${markerY + 20}`} fill="none" stroke="#22c55e" strokeWidth={2} />
+                                </g>
+                            )}
+
+                            {/* Label: Sub-threshold (Staggered Down) */}
+                            {(!isRecording || latestT >= tSingleSub) && (
+                                <g>
+                                    <text x={xScale(tSingleSub)} y={markerY + 100} textAnchor="middle" fill="#fbbf24" fontSize={18} fontFamily="monospace" fontWeight="bold">
+                                        Sub-threshold
+                                    </text>
+                                    {/* Arrow pointing UP to tick */}
+                                    <line x1={xScale(tSingleSub)} y1={markerY + 75} x2={xScale(tSingleSub)} y2={markerY + 15} stroke="#fbbf24" strokeWidth={2} strokeDasharray="4 2" />
+                                    <path d={`M ${xScale(tSingleSub) - 4} ${markerY + 20} L ${xScale(tSingleSub)} ${markerY + 12} L ${xScale(tSingleSub) + 4} ${markerY + 20}`} fill="none" stroke="#fbbf24" strokeWidth={2} />
+                                </g>
+                            )}
+
+                            {/* Label: Summation (Bracket and Label) */}
+                            {(!isRecording || latestT >= (tSummationStart - 1250)) && (
+                                <g>
+                                    {/* Bracket under the 5 ticks */}
+                                    {/* Ticks span from (tSummationStart - 1250) to (tSummationStart - 250) approx */}
+                                    <line x1={xScale(tSummationStart - 1250)} y1={markerY + 15} x2={xScale(tSummationStart - 250)} y2={markerY + 15} stroke="#ef4444" strokeWidth={2} />
+                                    <line x1={xScale(tSummationStart - 1250)} y1={markerY + 10} x2={xScale(tSummationStart - 1250)} y2={markerY + 20} stroke="#ef4444" strokeWidth={2} />
+                                    <line x1={xScale(tSummationStart - 250)} y1={markerY + 10} x2={xScale(tSummationStart - 250)} y2={markerY + 20} stroke="#ef4444" strokeWidth={2} />
+
+                                    <text x={xScale(tSummationStart - 1250)} y={markerY + 40} textAnchor="start" fill="#ef4444" fontSize={18} fontFamily="monospace" fontWeight="bold">
+                                        Summation (5 subthreshold)
+                                    </text>
+                                </g>
+                            )}
+                        </>
+                    );
+                }
+
+                if (selectedExperiment === 'staircase') {
+                    // Treppe: bracket + label below
+                    const treppeStartT = 0;
+                    const treppeEndT = periodMs * 4;
+                    const treppeStartX = xScale(treppeStartT);
+                    const treppeEndX = xScale(treppeEndT);
+                    const treppeMidX = (treppeStartX + treppeEndX) / 2;
+
+                    return (
+                        <g>
+                            <line x1={treppeStartX} y1={svgHeight - margin.bottom + 15} x2={treppeEndX} y2={svgHeight - margin.bottom + 15}
+                                stroke="#c084fc" strokeWidth={3} />
+                            <line x1={treppeStartX} y1={svgHeight - margin.bottom + 5} x2={treppeStartX} y2={svgHeight - margin.bottom + 25}
+                                stroke="#c084fc" strokeWidth={3} />
+                            <line x1={treppeEndX} y1={svgHeight - margin.bottom + 5} x2={treppeEndX} y2={svgHeight - margin.bottom + 25}
+                                stroke="#c084fc" strokeWidth={3} />
+                            <text x={treppeMidX} y={svgHeight - margin.bottom + 65} textAnchor="middle" fill="#c084fc" fontSize={26} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                Treppe (Staircase)
+                            </text>
+                        </g>
+                    );
+                }
+
+                if (selectedExperiment === 'heart-block') {
+                    // Stannius Ligatures Labels
+                    const lig1Start = 6666;
+                    const lig1End = 13333;
+                    const lig1Mid = (lig1Start + lig1End) / 2;
+                    const lig1X = xScale(lig1Mid);
+
+                    const lig2Start = 23333;
+                    const lig2End = 33333;
+                    const lig2Mid = (lig2Start + lig2End) / 2;
+                    const lig2X = xScale(lig2Mid);
+
+                    return (
+                        <>
+                            {/* 1st Ligature Label - Moved Up */}
+                            <g>
+                                <text x={lig1X} y={yScale(3.0) - 130} textAnchor="middle" fill="#f59e0b" fontSize={24} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                    1st Stannius Ligature
+                                </text>
+                                <line x1={lig1X} y1={yScale(3.0) - 105} x2={lig1X} y2={yScale(3.0) - 12}
+                                    stroke="#f59e0b" strokeWidth={3} />
+                                <path d={`M ${lig1X - 10} ${yScale(3.0) - 22} L ${lig1X} ${yScale(3.0) - 8} L ${lig1X + 10} ${yScale(3.0) - 22}`}
+                                    fill="none" stroke="#f59e0b" strokeWidth={3} strokeLinejoin="round" />
+                            </g>
+
+                            {/* 2nd Ligature Label - Moved Down */}
+                            <g>
+                                <text x={lig2X} y={yScale(3.0) - 70} textAnchor="middle" fill="#38bdf8" fontSize={24} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                    2nd Stannius Ligature
+                                </text>
+                                <line x1={lig2X} y1={yScale(3.0) - 45} x2={lig2X} y2={yScale(3.0) - 12}
+                                    stroke="#38bdf8" strokeWidth={3} />
+                                <path d={`M ${lig2X - 10} ${yScale(3.0) - 22} L ${lig2X} ${yScale(3.0) - 8} L ${lig2X + 10} ${yScale(3.0) - 22}`}
+                                    fill="none" stroke="#38bdf8" strokeWidth={3} strokeLinejoin="round" />
+                            </g>
+
+                            {/* Heart Rate Labels */}
+                            <text x={xScale(3333)} y={svgHeight - 15} textAnchor="middle" fill="#a3e635" fontSize={18} fontFamily="monospace" fontWeight="bold">
+                                36 BPM
+                            </text>
+                            <text x={xScale(18333)} y={svgHeight - 15} textAnchor="middle" fill="#a3e635" fontSize={18} fontFamily="monospace" fontWeight="bold">
+                                24 BPM
+                            </text>
+                            <text x={xScale(45000)} y={svgHeight - 15} textAnchor="middle" fill="#a3e635" fontSize={18} fontFamily="monospace" fontWeight="bold">
+                                12 BPM
+                            </text>
+                        </>
+                    );
+                }
+
+                if (selectedExperiment === 'all-or-none') {
+                    const cycleDuration = params.periodMs + 4000;
+                    const labels = ["Sub threshold", "Threshold", "Maximal", "Supramaximal"];
+                    return (
+                        <>
+                            {labels.map((label, i) => {
+                                const x = xScale(i * cycleDuration);
+                                const isAlt = i % 2 === 1;
+                                const yPos = isAlt ? 35 : 75;
+                                const lineY1 = isAlt ? 50 : 90;
+                                return (
+                                    <g key={`all-none-${i}`}>
+                                        <text x={x} y={yPos} textAnchor={i === 0 ? "start" : "middle"} fill="#facc15" fontSize={22} fontFamily="monospace" fontWeight="bold" style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}>
+                                            {label}
+                                        </text>
+                                        <line x1={i === 0 ? x + 10 : x} y1={lineY1} x2={i === 0 ? x + 10 : x} y2={yScale(3.0) - 12} stroke="#facc15" strokeWidth={3} />
+                                        {/* Downward Arrowhead */}
+                                        <path d={`M ${(i === 0 ? x + 10 : x) - 7} ${yScale(3.0) - 24} L ${i === 0 ? x + 10 : x} ${yScale(3.0) - 10} L ${(i === 0 ? x + 10 : x) + 7} ${yScale(3.0) - 24}`} fill="none" stroke="#facc15" strokeWidth={3} />
+                                    </g>
+                                );
+                            })}
+                        </>
+                    );
+                }
+
+                return null;
+            })()}
+
             {/* Rate Info */}
             <text x={svgWidth - margin.right - 10} y={margin.top + 20} textAnchor="end" fill={traceColor} fontSize={14} fontFamily="monospace" fontWeight="bold">
-                HR: {getTemperatureParams(temperature).hr} BPM
+                HR: {heartRate} BPM
             </text>
             <text x={svgWidth - margin.right - 10} y={margin.top + 40} textAnchor="end" fill={gridColorMajor} fontSize={12} fontFamily="monospace">
                 T: {temperature}°C
             </text>
 
             {/* Recording Indicator */}
-            {isRecording && (
-                <text x={margin.left + 10} y={margin.top + 20} fill="#ef4444" fontSize={14} fontFamily="monospace" fontWeight="bold">
-                    ● REC
-                </text>
-            )}
-        </svg>
+            {
+                isRecording && (
+                    <text x={margin.left + 10} y={margin.top + 20} fill="#ef4444" fontSize={14} fontFamily="monospace" fontWeight="bold">
+                        ● REC
+                    </text>
+                )
+            }
+        </svg >
     );
 };
 
-// --- Waveform Legend Component ---
-const WaveformLegend = () => {
-    // Generate path data for the custom waveform
-    const width = 300;
-    const height = 120;
-    const padding = 20;
-    const plotW = width - padding * 2;
-    const plotH = height - padding * 2;
 
-    // Y scale: Input 0 to 3 -> Output height to padding (inverted Y)
-    // Range -0.5 to 3.5 covers 0, 1.5, 3, 1 comfortably
-    const yMin = -0.5;
-    const yMax = 3.5;
-    const yScale = (y: number) => {
-        const norm = (y - yMin) / (yMax - yMin);
-        return height - padding - norm * plotH;
-    };
-    const xScale = (t: number) => padding + t * plotW;
 
-    const points = [];
-    for (let i = 0; i <= 100; i++) {
-        const t = i / 100;
-        const y = cardiogramWaveform(t, 1.0);
-        points.push(`${xScale(t).toFixed(1)},${yScale(y).toFixed(1)}`);
-    }
-    const pathD = `M ${points.join(' L ')}`;
+// --- Tap Key (for Summation Experiment) ---
+const TapKey = ({ isPressed, onHoverChange }: { isPressed: boolean, onHoverChange?: (l: string | null) => void }) => {
+    const leverRef = useRef<THREE.Group>(null);
 
-    // Text labels helper
-    const Label = ({ t, y, text, align = "middle", dy = -10, color = "#94a3b8" }: any) => (
-        <g transform={`translate(${xScale(t)}, ${yScale(y)})`}>
-            <circle r="2" fill="#22c55e" />
-            <text x="0" y={dy} textAnchor={align} fill={color} fontSize="9" fontWeight="bold">
-                {text}
-            </text>
-            <text x="0" y={dy > 0 ? dy + 10 : dy + 10} textAnchor={align} fill="#22c55e" fontSize="8" opacity="0.8">
-                {y} units
-            </text>
-        </g>
-    );
+    useFrame((_, delta) => {
+        if (leverRef.current) {
+            // Animate key press
+            // Resting: rotation.z = 0.2 (up) - restored per user request
+            // Pressed: rotation.z = 0.05 (down, touching contact)
+            const targetRot = isPressed ? 0.05 : 0.2;
+            // Smoother response (delta * 10)
+            leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, targetRot, delta * 10);
+        }
+    });
 
     return (
-        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 mb-4 shadow-inner shadow-black">
-            <h4 className="text-xs font-bold text-green-400/80 uppercase mb-2 tracking-wider">Reference Waveform</h4>
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-lg select-none">
-                {/* Background CRT */}
-                <rect x="0" y="0" width={width} height={height} fill="#020617" />
+        <InteractiveObject label="Tap Key (Stimulus)" onHoverChange={onHoverChange}>
+            {/* Positioned on the table, to the right of the board */}
+            {/* Adjusted position to be clearer */}
+            <group position={[2.8, -0.68, 0.8]} rotation={[0, -0.2, 0]}>
 
-                {/* Baseline 0 and 1 (Grid) */}
-                <line x1={padding} y1={yScale(0)} x2={width - padding} y2={yScale(0)} stroke="#14532d" strokeWidth={1} />
-                <line x1={padding} y1={yScale(1)} x2={width - padding} y2={yScale(1)} stroke="#14532d" strokeWidth={1} />
-                <line x1={padding} y1={yScale(3)} x2={width - padding} y2={yScale(3)} stroke="#14532d" strokeWidth={1} />
+                {/* Base (Black Bakelite Rectangular Block) */}
+                <Box args={[1.4, 0.12, 0.7]} position={[0, 0.06, 0]}>
+                    <meshStandardMaterial color="#111" roughness={0.2} metalness={0.1} />
+                </Box>
 
-                {/* Oscilloscope Glow Filter */}
-                <defs>
-                    <filter id="refGlow">
-                        <feGaussianBlur stdDeviation="1.5" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                </defs>
+                {/* Terminals (Black Binding Posts) */}
+                {/* Left Post */}
+                <group position={[-0.5, 0.12, 0.15]}>
+                    {/* Base washer/nut */}
+                    <Cylinder args={[0.05, 0.05, 0.02]} position={[0, 0, 0]}> <meshStandardMaterial color="#d4af37" metalness={0.8} /> </Cylinder>
+                    {/* Post body (Black plastic cone/cylinder) */}
+                    <Cylinder args={[0.05, 0.07, 0.25]} position={[0, 0.12, 0]}>
+                        <meshStandardMaterial color="#1a1a1a" roughness={0.3} />
+                    </Cylinder>
+                    {/* Top screw head */}
+                    <Cylinder args={[0.02, 0.02, 0.05]} position={[0, 0.26, 0]}> <meshStandardMaterial color="#d4af37" metalness={0.8} /> </Cylinder>
+                </group>
 
-                {/* Trace */}
-                <path d={pathD} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" filter="url(#refGlow)" />
+                {/* Right Post */}
+                <group position={[0.5, 0.12, 0.15]}>
+                    <Cylinder args={[0.05, 0.05, 0.02]} position={[0, 0, 0]}> <meshStandardMaterial color="#d4af37" metalness={0.8} /> </Cylinder>
+                    <Cylinder args={[0.05, 0.07, 0.25]} position={[0, 0.12, 0]}>
+                        <meshStandardMaterial color="#1a1a1a" roughness={0.3} />
+                    </Cylinder>
+                    <Cylinder args={[0.02, 0.02, 0.05]} position={[0, 0.26, 0]}> <meshStandardMaterial color="#d4af37" metalness={0.8} /> </Cylinder>
+                </group>
 
-                {/* Labels */}
-                <Label t={0.10} y={1.5} text="Atrial (C1)" dy={-15} color="#4ade80" />
-                <Label t={0.22} y={0.0} text="AV Delay (T1)" dy={15} color="#4ade80" />
-                <Label t={0.45} y={3.0} text="Ventricular (C2)" dy={-15} color="#4ade80" />
-                <Label t={0.98} y={1.0} text="Diastole (T2)" dy={-15} align="end" color="#4ade80" />
-            </svg>
-        </div>
+                {/* Metal Strip Lever Mechanism */}
+                {/* Attached at left side */}
+                <group position={[-0.4, 0.12, -0.1]}>
+                    {/* Mounting Plate */}
+                    <Box args={[0.2, 0.01, 0.3]} position={[0, 0, 0]}>
+                        <meshStandardMaterial color="#c0c0c0" metalness={0.8} />
+                    </Box>
+                    {/* Screw holding the strip */}
+                    <Cylinder args={[0.02, 0.02, 0.05]} position={[0, 0.02, 0]}>
+                        <meshStandardMaterial color="#c0c0c0" metalness={0.8} />
+                    </Cylinder>
+
+                    {/* The Lever Arm */}
+                    <group ref={leverRef} rotation={[0, 0, 0.2]}>
+                        {/* The Metal Strip itself */}
+                        <Box args={[1.1, 0.015, 0.12]} position={[0.55, 0, 0]}>
+                            <meshStandardMaterial color="#e2e8f0" metalness={0.7} roughness={0.3} />
+                        </Box>
+
+                        {/* Knob Assembly at the end */}
+                        <group position={[1.0, 0.01, 0]}>
+                            {/* Stem */}
+                            <Cylinder args={[0.015, 0.015, 0.15]} position={[0, 0.08, 0]}>
+                                <meshStandardMaterial color="#111" />
+                            </Cylinder>
+                            {/* The Big Knob (Black, serrated) */}
+                            <Cylinder args={[0.15, 0.15, 0.08]} position={[0, 0.16, 0]}>
+                                <meshStandardMaterial color="#111" roughness={0.6} />
+                            </Cylinder>
+                            {/* Contact Point underneath strip */}
+                            <Cylinder args={[0.02, 0.02, 0.06]} position={[0, -0.04, 0]}>
+                                <meshStandardMaterial color="#d4af37" metalness={0.8} />
+                            </Cylinder>
+                        </group>
+                    </group>
+                </group>
+
+                {/* Contact Anvil on Base (where the key hits) */}
+                <group position={[0.6, 0.12, -0.1]}>
+                    {/* Base plate */}
+                    <Box args={[0.15, 0.01, 0.15]} position={[0, 0, 0]}>
+                        <meshStandardMaterial color="#d4af37" metalness={0.8} />
+                    </Box>
+                    {/* Contact stud */}
+                    <Cylinder args={[0.03, 0.03, 0.06]} position={[0, 0.03, 0]}>
+                        <meshStandardMaterial color="#d4af37" metalness={0.8} />
+                    </Cylinder>
+                </group>
+
+                {/* Wires (simplified visual connection) */}
+                <Tube args={[new THREE.CatmullRomCurve3([new THREE.Vector3(-0.5, 0.12, 0.15), new THREE.Vector3(-0.6, 0.12, 0.3)]), 8, 0.01, 8, false]}>
+                    <meshStandardMaterial color="#333" />
+                </Tube>
+                <Tube args={[new THREE.CatmullRomCurve3([new THREE.Vector3(0.5, 0.12, 0.15), new THREE.Vector3(0.6, 0.12, 0.3)]), 8, 0.01, 8, false]}>
+                    <meshStandardMaterial color="#333" />
+                </Tube>
+
+            </group>
+        </InteractiveObject>
     );
 };
 
 // --- Main Component ---
-export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [temperature, setTemperature] = useState(25);
+    const [selectedExperiment, setSelectedExperiment] = useState('heart-block');
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
     const [drumSpeed, setDrumSpeed] = useState(2.5); // mm/sec
@@ -1022,7 +1602,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const animationFrameRef = useRef<number>();
     const startTimeRef = useRef<number>(0);
     const dataRef = useRef<{ t: number; y: number }[]>([]);
-    const RECORDING_DURATION = 15000; // 15 seconds of recording
+
     const SAMPLE_INTERVAL = 20; // ms between data points (50 samples/sec)
     const lastSampleTimeRef = useRef<number>(0);
     const temperatureRef = useRef(temperature);
@@ -1040,6 +1620,17 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
         setTimeout(() => setIsDropperActive(false), 2000);
     };
 
+    // Enforce specific drum speeds for experiments
+    useEffect(() => {
+        if (selectedExperiment === 'heart-block') {
+            setDrumSpeed(1.0);
+        } else if (selectedExperiment === 'all-or-none') {
+            setDrumSpeed(1.5);
+        } else {
+            setDrumSpeed(2.5); // Default for Summation, Staircase, etc.
+        }
+    }, [selectedExperiment]);
+
     const handleStartRecording = () => {
         if (simState.isRecording) return;
         dataRef.current = [];
@@ -1049,7 +1640,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
             isRecording: true,
             data: [],
             currentContraction: 3.0,
-            heartRate: getTemperatureParams(temperature).hr,
+            heartRate: getTemperatureParams(temperature, selectedExperiment).hr,
             temperature
         });
         setResetKey(prev => prev + 1);
@@ -1069,7 +1660,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
             isRecording: false,
             data: [],
             currentContraction: 3.0,
-            heartRate: getTemperatureParams(temperature).hr,
+            heartRate: getTemperatureParams(temperature, selectedExperiment).hr,
             temperature
         });
         setResetKey(prev => prev + 1);
@@ -1081,7 +1672,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
         if (!simState.isRecording) {
             setSimState(prev => ({
                 ...prev,
-                heartRate: getTemperatureParams(temperature).hr
+                heartRate: getTemperatureParams(temperature, selectedExperiment).hr
             }));
             return;
         }
@@ -1096,14 +1687,78 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
             lastTime = now;
             simTime += dt;
 
-            if (simTime > RECORDING_DURATION) {
-                setSimState(prev => ({ ...prev, isRecording: false }));
-                return;
+            const params = getTemperatureParams(temperatureRef.current, selectedExperiment);
+
+            // Custom time/phase logic for Heart Block (Variable HR)
+            let cycleIndex = 0;
+            let phase = 0;
+            let currentHr = params.hr;
+
+            if (selectedExperiment === 'heart-block') {
+                const period1 = (60 / 36) * 1000; // 36 BPM
+                const limit1 = 8; // Cycles 0-7 (4 beat + 4 pause)
+                const splitTime1 = limit1 * period1;
+
+                const period2 = (60 / 24) * 1000; // 24 BPM
+                const limit2 = 8; // Cycles 8-15 (4 beat + 4 pause)
+                const splitTime2 = splitTime1 + (limit2 * period2);
+
+                if (simTime < splitTime1) {
+                    cycleIndex = Math.floor(simTime / period1);
+                    phase = (simTime % period1) / period1;
+                    currentHr = 36;
+                } else if (simTime < splitTime2) {
+                    const relTime = simTime - splitTime1;
+                    cycleIndex = limit1 + Math.floor(relTime / period2);
+                    phase = (relTime % period2) / period2;
+                    currentHr = 24;
+                } else {
+                    const period3 = (60 / 12) * 1000; // 12 BPM
+                    const relTime = simTime - splitTime2;
+                    cycleIndex = limit1 + limit2 + Math.floor(relTime / period3);
+                    phase = (relTime % period3) / period3;
+                    currentHr = 12;
+                }
+
+                if (cycleIndex >= 25) {
+                    setSimState(prev => ({ ...prev, isRecording: false }));
+                    return;
+                }
+            } else if (selectedExperiment === 'all-or-none') {
+                const beatMs = params.periodMs;
+                const pauseMs = 4000;
+                const cycleDuration = beatMs + pauseMs;
+
+                cycleIndex = Math.floor(simTime / cycleDuration);
+                const timeInCycle = simTime % cycleDuration;
+
+                if (timeInCycle < beatMs) {
+                    phase = timeInCycle / beatMs;
+                } else {
+                    phase = -1; // Signal pause
+                }
+
+                if (cycleIndex >= 4) {
+                    setSimState(prev => ({ ...prev, isRecording: false }));
+                    return;
+                }
+            } else {
+                // Standard logic
+                cycleIndex = Math.floor(simTime / params.periodMs);
+                phase = (simTime % params.periodMs) / params.periodMs;
+
+                let maxCycles = 10;
+                if (selectedExperiment === 'summation') {
+                    maxCycles = 5; // Stop after cycle 4
+                }
+
+                if (cycleIndex >= maxCycles) {
+                    setSimState(prev => ({ ...prev, isRecording: false }));
+                    return;
+                }
             }
 
-            const params = getTemperatureParams(temperatureRef.current);
-            const phase = (simTime % params.periodMs) / params.periodMs;
-            const waveValue = cardiogramWaveform(phase, params.amplitude);
+            const waveValue = cardiogramWaveform(phase, params.amplitude, cycleIndex, selectedExperiment);
             const contraction = Math.max(0, waveValue);
 
             // Sample data at fixed intervals to avoid overwhelming the graph
@@ -1116,8 +1771,10 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                 ...prev,
                 time: simTime,
                 currentContraction: contraction,
-                heartRate: params.hr,
-                data: dataRef.current
+                heartRate: currentHr,
+                data: dataRef.current,
+                ligature1: selectedExperiment === 'heart-block' && cycleIndex >= 4,
+                ligature2: selectedExperiment === 'heart-block' && cycleIndex >= 12
             }));
 
             animationFrameRef.current = requestAnimationFrame(loop);
@@ -1132,7 +1789,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                 <div className="flex items-center gap-4">
                     <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ArrowLeft className="w-5 h-5" /></button>
                     <div>
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-red-400 to-pink-500 bg-clip-text text-transparent">Normal Cardiogram</h1>
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-red-400 to-pink-500 bg-clip-text text-transparent">Properties of Cardiac Muscle</h1>
                         <p className="text-slate-400 text-xs">Amphibian / Frog Heart — Effect of Temperature</p>
                     </div>
                 </div>
@@ -1191,6 +1848,10 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                             contraction={simState.currentContraction}
                                             temperature={temperature}
                                             onHoverChange={setHoveredLabel}
+                                            showLigature1={!!simState.ligature1}
+                                            isTight1={simState.ligature1}
+                                            showLigature2={!!simState.ligature2}
+                                            isTight2={simState.ligature2}
                                         />
                                     </group>
                                 </group>
@@ -1208,6 +1869,47 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
 
 
+
+
+                                {/* Tap Key (Visible only for Summation experiment) */}
+                                {selectedExperiment === 'summation' && (
+                                    <TapKey
+                                        isPressed={
+                                            simState.isRecording && (() => {
+                                                const params = getTemperatureParams(temperature, selectedExperiment);
+                                                const periodMs = params.periodMs;
+
+                                                // Events (Same as Graph)
+                                                // Cycle 0: Threshold
+                                                // Cycle 1: Single Sub-threshold
+                                                // Cycle 3: Gap
+                                                // Cycle 4: Summation Start
+
+                                                const tSingleSub = periodMs * 2;
+                                                const tSummationStart = periodMs * 4;
+
+                                                // 1. Initial Threshold Click at t=0
+                                                const isThreshold = simState.time < 150;
+
+                                                // 2. Single Sub-threshold Click (Cycle 2)
+                                                // Duration 150ms
+                                                const isSingleSub = (simState.time > tSingleSub && simState.time < tSingleSub + 150);
+
+                                                // 3. Burst of Clicks BEFORE Cycle 4 (Summation)
+                                                // Ticks are at: tSummationStart - 1250, -1000, -750, -500, -250
+                                                // Start tapping 1.3s before Summation start
+                                                const burstStart = tSummationStart - 1300;
+                                                const burstEnd = tSummationStart;
+
+                                                // Rapid clicks (every 250ms), key down for 100ms
+                                                const isBurst = (simState.time > burstStart && simState.time < burstEnd && (simState.time % 250 < 100));
+
+                                                return isThreshold || isSingleSub || isBurst;
+                                            })()
+                                        }
+                                        onHoverChange={setHoveredLabel}
+                                    />
+                                )}
 
                                 {/* Kymograph Drum - Moved further back (X=4.2) for better clarity */}
                                 <group position={[4.395, 0.75, 0.05]}>
@@ -1244,6 +1946,9 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                 data={simState.data}
                                 temperature={temperature}
                                 isRecording={simState.isRecording}
+                                selectedExperiment={selectedExperiment}
+                                drumSpeed={drumSpeed}
+                                heartRate={simState.heartRate}
                             />
                         </div>
                     </div>
@@ -1251,39 +1956,39 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                     {/* Controls */}
                     <div className="p-4 lg:p-6 bg-slate-900 z-10 space-y-4 overflow-y-auto">
 
-                        {/* Temperature Presets */}
+
+                        {/* Experiment Selection */}
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2 mb-2">
-                                <Thermometer className="w-4 h-4 text-red-400" /> Ringer's Solution Temperature
+                                <Activity className="w-4 h-4 text-emerald-400" /> Select Experiment
                             </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {TEMPERATURE_PRESETS.map((preset) => (
-                                    <button
-                                        key={preset.value}
-                                        onClick={() => handleTemperatureChange(preset.value)}
-                                        className={`px-2 py-2.5 rounded-lg text-xs font-bold transition-all border text-center
-                                            ${temperature === preset.value
-                                                ? `${preset.bgColor} ${preset.borderColor} text-white shadow-lg`
-                                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
-                                    >
-                                        <div>{preset.value}°C</div>
-                                        <div className="text-[10px] opacity-75 mt-0.5">
-                                            {preset.value <= 15 ? 'Cold' : preset.value >= 35 ? 'Warm' : 'Normal'}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Heart Rate Display */}
-                        <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: TEMPERATURE_PRESETS.find(p => p.value === temperature)?.color || '#22c55e' }} />
-                                <span className="text-sm text-slate-300">Heart Rate</span>
-                            </div>
-                            <span className="text-lg font-mono font-bold" style={{ color: TEMPERATURE_PRESETS.find(p => p.value === temperature)?.color || '#22c55e' }}>
-                                {getTemperatureParams(temperature).hr} bpm
-                            </span>
+                            <select
+                                value={selectedExperiment}
+                                onChange={(e) => {
+                                    const newExp = e.target.value;
+                                    setSelectedExperiment(newExp);
+                                    // Reset simulation state when experiment changes
+                                    dataRef.current = [];
+                                    lastSampleTimeRef.current = 0;
+                                    setSimState({
+                                        time: 0,
+                                        isRecording: false,
+                                        data: [],
+                                        currentContraction: 3.0,
+                                        heartRate: getTemperatureParams(temperature, newExp).hr,
+                                        temperature
+                                    });
+                                    setResetKey(prev => prev + 1);
+                                    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+                                }}
+                                className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2.5 outline-none"
+                            >
+                                <option value="extra-systole">1. Extra systole and compensatory pause</option>
+                                <option value="heart-block">2. Heart block: Stannius ligatures</option>
+                                <option value="all-or-none">3. All or none law</option>
+                                <option value="staircase">4. Stair case phenomenon</option>
+                                <option value="summation">5. Summation of subliminal stimuli</option>
+                            </select>
                         </div>
 
                         {/* Drum Speed */}
@@ -1297,7 +2002,9 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                             <input
                                 type="range" min="1" max="10" step="0.5" value={drumSpeed}
                                 onChange={(e) => setDrumSpeed(Number(e.target.value))}
-                                className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                disabled={selectedExperiment === 'heart-block' || selectedExperiment === 'all-or-none'}
+                                className={`w-full h-2 rounded-lg appearance-none cursor-pointer accent-cyan-500 ${selectedExperiment === 'heart-block' || selectedExperiment === 'all-or-none' ? 'opacity-50 cursor-not-allowed bg-slate-700' : 'bg-slate-600'
+                                    }`}
                             />
                             <div className="flex justify-between text-[10px] text-slate-500 mt-1">
                                 <span>1 mm/s</span>

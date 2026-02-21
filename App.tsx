@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
+import { DLCQuiz } from './components/DLCQuiz';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls, Stage } from '@react-three/drei';
 import { Controls } from './components/Controls';
@@ -17,6 +18,7 @@ const EffectOfTemperature = lazy(() => import('./components/EffectOfTemperature'
 const EffectOfStimulusStrength = lazy(() => import('./components/EffectOfStimulusStrength').then(m => ({ default: m.EffectOfStimulusStrength })));
 const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').then(m => ({ default: m.ConductionVelocity })));
 const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })));
+const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })));
 
 
 
@@ -50,7 +52,8 @@ import {
   Loader,
   BatteryWarning,
   Thermometer,
-  Heart
+  Heart,
+  Target
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -62,7 +65,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle';
 
 // --- Loading Component ---
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Loading...' }) => (
@@ -125,16 +128,17 @@ interface MicroscopeStageProps {
   renderSlide: (zoom: number) => React.ReactNode;
   controls?: React.ReactNode;
   infoPanel: React.ReactNode;
+  initialPosition?: { x: number, y: number };
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition
 }) => {
   const [zoom, setZoom] = useState<4 | 10 | 40 | 100>(10);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [step, setStep] = useState<'intro' | 'microscope'>('intro');
+  const [position, setPosition] = useState(initialPosition || { x: 0, y: 0 });
 
-  // Pan limits vary by zoom slightly for feel, but keeping simple here
+
+  /* Restore Pan Logic */
   const MAX_PAN = 400;
 
   // Zoom scales: 4x -> 0.7, 10x -> 1.3, 40x -> 5, 100x -> 13
@@ -150,8 +154,6 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
   const currentScale = getScale(zoom);
 
   const handlePan = (dx: number, dy: number) => {
-    // Adjust speed based on scale to keep visual speed consistent
-    // Speed ~ 1/scale
     const speedFactor = 1.5 / currentScale;
     setPosition(prev => ({
       x: Math.max(-MAX_PAN, Math.min(MAX_PAN, prev.x + (dx * speedFactor))),
@@ -168,25 +170,8 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragStart.current) return;
-
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-
-    // Movement logic:
-    // Dragging screen RIGHT (positive dx) means looking LEFT into the slide.
-    // So we want to move the "Camera" LEFT.
-    // Position x implies the center point of the view relative to the slide origin.
-    // If I drag right, I want to see what is to the LEFT.
-    // So position.x should DECREASE.
-    // However, let's look at the transform logic:
-    // translate(calc(-50% + ${-position.x * currentScale}px)...
-    // If position.x increases, the slide moves LEFT (negative translate).
-    // If I drag MOUSE RIGHT (positive dx), I expect the slide to move RIGHT (dragging the slide).
-    // So positive dx should result in positive translation.
-    // -position.x * scale = translation.
-    // So -delta_pos * scale = dx
-    // delta_pos = -dx / scale.
-
     const deltaX = -dx / currentScale;
     const deltaY = -dy / currentScale;
 
@@ -202,33 +187,6 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
     dragStart.current = null;
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
-
-  if (step === 'intro') {
-    return (
-      <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
-        <header className="flex items-center gap-4 px-6 py-4 bg-slate-900 border-b border-slate-800">
-          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-bold">{title}</h1>
-        </header>
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
-          <div className="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(99,102,241,0.2)]">
-            <Microscope className="w-16 h-16 text-indigo-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>
-          <p className="text-slate-400 max-w-md mb-8">{subtitle}</p>
-          <button
-            onClick={() => setStep('microscope')}
-            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all hover:scale-105 flex items-center gap-2"
-          >
-            <Microscope className="w-5 h-5" />
-            Place Slide & Observe
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
@@ -529,11 +487,32 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return newCells;
   });
 
+  // Calculate initial position to center on Top Left WBC square
+  // Grid Logic:
+  // Top Left WBC Square is at (0,0) in grid coordinates.
+  // Center of Top Left WBC Square is at (squareSize/2, squareSize/2).
+  // Microscope view is centered at slide center (450, 450) by default when position is (0,0).
+  // We want the view to be centered at (150, 150) [because squareSize=300].
+  // So we need to shift the view by (150 - 450, 150 - 450) = (-300, -300).
+  // Wait, let's check the transform logic again:
+  // transform: `translate(calc(-50% + ${-position.x * currentScale}px), calc(-50% + ${-position.y * currentScale}px))`
+  // This means 'position' represents the offset from the CENTER of the slide that we want to look at.
+  // Slide Center is (450, 450).
+  // Top Left WBC Center is (150, 150).
+  // So position = (150 - 450, 150 - 450) = (-300, -300).
+
+  const GRID_SIZE = 900;
+  const squareSize = GRID_SIZE / 3;
+  const initialX = (squareSize / 2) - (GRID_SIZE / 2) + 35; // Shift +50 to move view down-right (placing W in top-left)
+  const initialY = (squareSize / 2) - (GRID_SIZE / 2) + 35; // Shift +50 to move view down-right (placing W in top-left)
+
+
   return (
     <MicroscopeStage
       title="WBC Count (TLC)"
       subtitle="Total Leukocyte Count • Neubauer Chamber"
       onBack={onBack}
+      initialPosition={{ x: initialX, y: initialY }}
       infoPanel={
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <h3 className="font-bold text-white mb-2 flex items-center gap-2">
@@ -2217,7 +2196,7 @@ const App: React.FC = () => {
             </div>
             <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
               <span>© 2026 Virtual Physiology Lab</span>
-              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Jan 16, 2026</span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Feb 19, 2026</span>
             </div>
           </div>
 
@@ -2252,7 +2231,7 @@ const App: React.FC = () => {
                     </ul>
                     <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-2">
                       <span>Developed by Dr. B. I Mario Raja using React, Three.js, and Capacitor.</span>
-                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.3.0 • Jan 16, 2026</span>
+                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.3.0 • Feb 19, 2026</span>
                     </p>
                   </div>
                 </div>
@@ -2276,7 +2255,17 @@ const App: React.FC = () => {
                   </h2>
                   <div className="space-y-6">
                     <div className="border-l-2 border-green-500 pl-4">
-                      <h3 className="text-lg font-semibold text-white">v1.3.0 (Current)</h3>
+                      <h3 className="text-lg font-semibold text-white">v1.4.0 (Current)</h3>
+                      <p className="text-slate-500 text-sm mb-2">February 19, 2026</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Added 5 new Cardiac Muscle experiments (Extra Systole, Heart Block, All-or-None, Staircase, Summation).</li>
+                        <li>Improved mobile layout and visualizations.</li>
+                        <li>Refined graph labels for better clarity.</li>
+                        <li>General UI polish and bug fixes.</li>
+                      </ul>
+                    </div>
+                    <div className="border-l-2 border-slate-700 pl-4 opacity-70">
+                      <h3 className="text-lg font-semibold text-white">v1.3.0</h3>
                       <p className="text-slate-500 text-sm mb-2">January 16, 2026</p>
                       <ul className="list-disc list-inside text-slate-300 space-y-1">
                         <li>Added "Effect of Two Successive Stimuli" experiment.</li>
@@ -2400,6 +2389,13 @@ const App: React.FC = () => {
                 colorClass="red"
                 onClick={() => setCurrentView('normal-cardiogram')}
               />
+              <MenuCard
+                title="Properties of Cardiac Muscle"
+                description="Study the properties of cardiac muscle using the frog heart preparation."
+                icon={<Activity className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => setCurrentView('properties-cardiac-muscle')}
+              />
             </div>
           </div>
         </div>
@@ -2435,6 +2431,13 @@ const App: React.FC = () => {
                 colorClass="purple"
                 onClick={() => navigateTo('dlc-count')}
               />
+              <MenuCard
+                title="DLC Quiz"
+                description="Identify blood cells from real microscope images."
+                icon={<Target className="w-8 h-8" />}
+                colorClass="pink"
+                onClick={() => navigateTo('dlc-quiz')}
+              />
             </div>
           </div>
         </div>
@@ -2453,6 +2456,7 @@ const App: React.FC = () => {
     case 'wbc-count': return <WBCExperiment onBack={() => window.history.back()} />;
     case 'rbc-count': return <RBCExperiment onBack={() => window.history.back()} />;
     case 'dlc-count': return <DLCExperiment onBack={() => window.history.back()} />;
+    case 'dlc-quiz': return <DLCQuiz onBack={() => window.history.back()} />;
 
     case 'two-stimuli':
       return (
@@ -2488,6 +2492,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Normal Cardiogram..." />}>
           <NormalCardiogram onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'properties-cardiac-muscle':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Properties of Cardiac Muscle..." />}>
+          <PropertiesOfCardiacMuscle onBack={() => setCurrentView('amphibian')} />
         </Suspense>
       );
     case 'effect-of-load':
