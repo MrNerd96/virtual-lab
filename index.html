@@ -75,7 +75,10 @@
     function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
 
-    gtag('config', 'G-RJ9XFF105J');
+    gtag('config', 'G-RJ9XFF105J', {
+      // Disable automatic page_view — we send virtual page views from the SPA
+      send_page_view: false
+    });
   </script>
 </head>
 

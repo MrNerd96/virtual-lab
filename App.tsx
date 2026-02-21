@@ -67,6 +67,121 @@ const EXPERIMENT_DURATION = 500; // ms
 // --- Shared Types ---
 type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle';
 
+// --- GA4 Analytics Helpers ---
+declare global {
+  interface Window {
+    gtag?: (...args: any[]) => void;
+  }
+}
+
+const MODULE_LABELS: Record<ViewState, string> = {
+  'home': 'Home',
+  'amphibian': 'Amphibian Menu',
+  'hematology': 'Hematology Menu',
+  'twitch': 'Simple Muscle Twitch',
+  'load': 'Effect of Load',
+  'fatigue': 'Genesis of Fatigue',
+  'two-stimuli': 'Two Successive Stimuli',
+  'effect-of-load': 'Effect of Load',
+  'wbc-count': 'WBC Count (TLC)',
+  'rbc-count': 'RBC Count',
+  'dlc-count': 'DLC Count',
+  'dlc-quiz': 'DLC Quiz',
+  'genesis-tetanus': 'Genesis of Tetanus',
+  'effect-of-temperature': 'Effect of Temperature',
+  'microscope': 'Microscope Master',
+  'stimulus-strength': 'Effect of Stimulus Strength',
+  'conduction-velocity': 'Conduction Velocity',
+  'normal-cardiogram': 'Normal Cardiogram',
+  'properties-cardiac-muscle': 'Properties of Cardiac Muscle',
+};
+
+const MODULE_CATEGORIES: Record<ViewState, string> = {
+  'home': 'Navigation',
+  'amphibian': 'Navigation',
+  'hematology': 'Navigation',
+  'twitch': 'Amphibian',
+  'load': 'Amphibian',
+  'fatigue': 'Amphibian',
+  'two-stimuli': 'Amphibian',
+  'effect-of-load': 'Amphibian',
+  'genesis-tetanus': 'Amphibian',
+  'effect-of-temperature': 'Amphibian',
+  'stimulus-strength': 'Amphibian',
+  'conduction-velocity': 'Amphibian',
+  'normal-cardiogram': 'Amphibian',
+  'properties-cardiac-muscle': 'Amphibian',
+  'wbc-count': 'Hematology',
+  'rbc-count': 'Hematology',
+  'dlc-count': 'Hematology',
+  'dlc-quiz': 'Hematology',
+  'microscope': 'Microscope',
+};
+
+let _moduleEntryTime: number | null = null;
+let _currentModule: ViewState | null = null;
+
+function _sendTimeSpent() {
+  if (_currentModule && _moduleEntryTime) {
+    const timeSpent = Math.round((Date.now() - _moduleEntryTime) / 1000);
+    if (timeSpent > 0) {
+      window.gtag?.('event', 'module_time_spent', {
+        module_id: _currentModule,
+        module_name: MODULE_LABELS[_currentModule],
+        module_category: MODULE_CATEGORIES[_currentModule],
+        time_seconds: timeSpent,
+        value: timeSpent, // GA4 uses 'value' for aggregation
+      });
+    }
+  }
+}
+
+function trackModuleView(view: ViewState) {
+  // Send time_spent for previous module
+  _sendTimeSpent();
+
+  // Update current module tracking
+  _currentModule = view;
+  _moduleEntryTime = Date.now();
+
+  // 1) Virtual page view — powers GA4's Pages & Screens reports
+  window.gtag?.('event', 'page_view', {
+    page_title: MODULE_LABELS[view],
+    page_location: window.location.origin + '/virtual-lab/' + view,
+    page_path: '/virtual-lab/' + view,
+  });
+
+  // 2) Custom module_view event — for custom reports & funnels
+  window.gtag?.('event', 'module_view', {
+    module_id: view,
+    module_name: MODULE_LABELS[view],
+    module_category: MODULE_CATEGORIES[view],
+  });
+}
+
+// Track experiment interactions (start, complete, etc.)
+export function trackExperiment(action: string, details: Record<string, any> = {}) {
+  window.gtag?.('event', 'experiment_interaction', {
+    action,
+    module_id: _currentModule,
+    module_name: _currentModule ? MODULE_LABELS[_currentModule] : 'unknown',
+    module_category: _currentModule ? MODULE_CATEGORIES[_currentModule] : 'unknown',
+    ...details,
+  });
+}
+
+// Send time_spent when user leaves / switches tab / closes browser
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      _sendTimeSpent();
+    }
+  });
+  window.addEventListener('beforeunload', () => {
+    _sendTimeSpent();
+  });
+}
+
 // --- Loading Component ---
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Loading...' }) => (
   <div className="flex flex-col items-center justify-center w-full h-full min-h-[200px] bg-slate-900/50">
@@ -2130,6 +2245,11 @@ const App: React.FC = () => {
       setCurrentView(view);
     }
   };
+
+  // Track module views in GA4
+  useEffect(() => {
+    trackModuleView(currentView);
+  }, [currentView]);
 
   switch (currentView) {
     case 'home':

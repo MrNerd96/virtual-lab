@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, Trophy, Flame, RotateCcw, ChevronRight, Target, Zap, Star, X, Clock, Timer, AlertTriangle } from 'lucide-react';
+import { trackExperiment } from '../App';
 
 // --- CELL DATA ---
 // Maps cell type names to their folder and image filenames
@@ -227,6 +228,16 @@ export const DLCQuiz: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setHighScore(score);
             localStorage.setItem('dlc-quiz-high-score', score.toString());
         }
+        // Track quiz complete (time ran out)
+        const answered = currentIndex + (correctFound ? 1 : 0);
+        trackExperiment('quiz_complete', {
+            quiz: 'DLC Quiz',
+            score,
+            total_questions: QUESTIONS_PER_ROUND,
+            questions_answered: answered,
+            percentage: answered > 0 ? Math.round((score / answered) * 100) : 0,
+            reason: 'time_up',
+        });
         setGameState('result');
     }, [timeRemaining, gameState, score, highScore]);
 
@@ -256,6 +267,9 @@ export const DLCQuiz: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setCellStats({});
         setMissedQuestions([]);
         setGameState('playing');
+
+        // Track quiz start
+        trackExperiment('quiz_start', { quiz: 'DLC Quiz', total_questions: QUESTIONS_PER_ROUND });
 
         // Start overall countdown timer
         setTimeRemaining(TOTAL_TIME_LIMIT);
@@ -320,6 +334,15 @@ export const DLCQuiz: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         localStorage.setItem('dlc-quiz-high-score', finalScore.toString());
                     }
                     setGameState('result');
+                    // Track quiz complete (all answered)
+                    trackExperiment('quiz_complete', {
+                        quiz: 'DLC Quiz',
+                        score: finalScore,
+                        total_questions: QUESTIONS_PER_ROUND,
+                        questions_answered: QUESTIONS_PER_ROUND,
+                        percentage: Math.round((finalScore / QUESTIONS_PER_ROUND) * 100),
+                        reason: 'completed',
+                    });
                 } else {
                     setCurrentIndex(i => i + 1);
                     setWrongOptions(new Set());
