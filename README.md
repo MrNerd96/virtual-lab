@@ -5,6 +5,11 @@
 
 # Virtual Physiology Lab
 
+[![Live Demo](https://img.shields.io/badge/🔬_Live_Demo-Visit_Virtual_Lab-blue?style=for-the-badge)](https://mrnerd96.github.io/virtual-lab/)
+[![GitHub Pages](https://img.shields.io/badge/Deployed_on-GitHub_Pages-222?style=for-the-badge&logo=github)](https://mrnerd96.github.io/virtual-lab/)
+
+> **🌐 Try it now: [https://mrnerd96.github.io/virtual-lab/](https://mrnerd96.github.io/virtual-lab/)**
+
 A comprehensive, interactive simulation suite designed for performing and visualizing physiological experiments in a virtual environment. This application leverages modern web technologies to provide realistic simulations of amphibian skeletal muscle, amphibian heart, and hematology experiments.
 
 ## 🚀 Key Features

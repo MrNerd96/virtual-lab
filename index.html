@@ -10,6 +10,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#0f172a" />
 
+  <!-- SEO Meta Tags -->
+  <meta name="description"
+    content="Virtual Physiology Lab - Free interactive simulations for Hematology and Amphibian Physiology experiments. Explore blood cell identification, cardiac muscle properties, cardiogram analysis, and frog heart experiments online." />
+  <meta name="keywords"
+    content="virtual physiology lab, physiology simulation, hematology lab, amphibian physiology, blood cell identification, cardiac muscle experiment, frog heart experiment, cardiogram simulation, online physiology lab, virtual lab, medical education, biology simulation" />
+  <meta name="author" content="MrNerd96" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://mrnerd96.github.io/virtual-lab/" />
+
   <!-- Social Media Preview (Open Graph) -->
   <meta property="og:title" content="Virtual Physiology Lab" />
   <meta property="og:description"
@@ -83,6 +92,35 @@
 </head>
 
 <body>
+  <!-- Structured Data (JSON-LD) for Google Rich Results -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Virtual Physiology Lab",
+    "url": "https://mrnerd96.github.io/virtual-lab/",
+    "description": "Free interactive simulations for Hematology and Amphibian Physiology experiments. Explore blood cell identification, cardiac muscle properties, and frog heart experiments online.",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web Browser",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "MrNerd96",
+      "url": "https://github.com/MrNerd96"
+    },
+    "educationalUse": "Interactive Simulation",
+    "learningResourceType": "Simulation",
+    "audience": {
+      "@type": "EducationalAudience",
+      "educationalRole": "student"
+    }
+  }
+  </script>
+
   <div id="root">
     <div style="padding: 20px; color: white; text-align: center;">
       <p>Loading application...</p>
@@ -90,6 +128,34 @@
       </p>
     </div>
   </div>
+
+  <!-- SEO: Noscript fallback content for search engine crawlers -->
+  <noscript>
+    <div
+      style="padding: 40px; max-width: 800px; margin: 0 auto; font-family: sans-serif; color: #e2e8f0; background: #0f172a;">
+      <h1>Virtual Physiology Lab</h1>
+      <p>Welcome to the Virtual Physiology Lab — a free, interactive online platform for learning physiology through
+        realistic simulations.</p>
+      <h2>Hematology Experiments</h2>
+      <ul>
+        <li>Blood Cell Identification Quiz — identify different types of blood cells from microscope images</li>
+        <li>Differential Leukocyte Count (DLC)</li>
+        <li>Hemoglobin Estimation</li>
+        <li>RBC Count</li>
+        <li>Blood Group Determination</li>
+      </ul>
+      <h2>Amphibian Physiology Experiments</h2>
+      <ul>
+        <li>Normal Cardiogram of Frog Heart</li>
+        <li>Properties of Cardiac Muscle — Extra Systole, Heart Block, Stannius Ligatures, All-or-None Law, Staircase
+          Phenomenon</li>
+        <li>Effect of Temperature on Frog Heart</li>
+        <li>Effect of Drugs on Frog Heart</li>
+      </ul>
+      <p>This application requires JavaScript to run. Please enable JavaScript in your browser to use the Virtual
+        Physiology Lab.</p>
+    </div>
+  </noscript>
 
   <script type="module" src="./index.tsx"></script>
 </body>
