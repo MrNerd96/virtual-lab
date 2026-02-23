@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Environment, Tube, Torus, Circle, Cone } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Volume2, VolumeX } from 'lucide-react';
 import * as THREE from 'three';
+import { useHeartbeatSound } from './useHeartbeatSound';
 
 // --- Types & Constants ---
 
@@ -1009,6 +1010,8 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const [drumSpeed, setDrumSpeed] = useState(2.5); // mm/sec
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
     const [isDropperActive, setIsDropperActive] = useState(false);
+    const [soundMuted, setSoundMuted] = useState(false);
+    const [currentPhase, setCurrentPhase] = useState(0);
 
     const [simState, setSimState] = useState<CardiogramState>({
         time: 0,
@@ -1027,6 +1030,14 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const lastSampleTimeRef = useRef<number>(0);
     const temperatureRef = useRef(temperature);
 
+    // Heartbeat sound hook
+    const { ensureAudioContext } = useHeartbeatSound({
+        isRecording: simState.isRecording,
+        phase: currentPhase,
+        volume: 1.0,
+        muted: soundMuted,
+    });
+
     // Keep temperature ref in sync
     useEffect(() => {
         temperatureRef.current = temperature;
@@ -1042,6 +1053,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
     const handleStartRecording = () => {
         if (simState.isRecording) return;
+        ensureAudioContext(); // Initialize audio on user gesture
         dataRef.current = [];
         lastSampleTimeRef.current = 0;
         setSimState({
@@ -1105,6 +1117,9 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
             const phase = (simTime % params.periodMs) / params.periodMs;
             const waveValue = cardiogramWaveform(phase, params.amplitude);
             const contraction = Math.max(0, waveValue);
+
+            // Update phase for heartbeat sound
+            setCurrentPhase(phase);
 
             // Sample data at fixed intervals to avoid overwhelming the graph
             if (simTime - lastSampleTimeRef.current >= SAMPLE_INTERVAL) {
@@ -1275,15 +1290,27 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                             </div>
                         </div>
 
-                        {/* Heart Rate Display */}
+                        {/* Heart Rate Display + Sound Toggle */}
                         <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: TEMPERATURE_PRESETS.find(p => p.value === temperature)?.color || '#22c55e' }} />
                                 <span className="text-sm text-slate-300">Heart Rate</span>
                             </div>
-                            <span className="text-lg font-mono font-bold" style={{ color: TEMPERATURE_PRESETS.find(p => p.value === temperature)?.color || '#22c55e' }}>
-                                {getTemperatureParams(temperature).hr} bpm
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg font-mono font-bold" style={{ color: TEMPERATURE_PRESETS.find(p => p.value === temperature)?.color || '#22c55e' }}>
+                                    {getTemperatureParams(temperature).hr} bpm
+                                </span>
+                                <button
+                                    onClick={() => { ensureAudioContext(); setSoundMuted(m => !m); }}
+                                    className={`p-1.5 rounded-lg transition-all border ${soundMuted
+                                        ? 'bg-slate-700 border-slate-600 text-slate-500'
+                                        : 'bg-red-900/40 border-red-700/50 text-red-400 hover:bg-red-900/60'
+                                        }`}
+                                    title={soundMuted ? 'Unmute heartbeat sound' : 'Mute heartbeat sound'}
+                                >
+                                    {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Drum Speed */}

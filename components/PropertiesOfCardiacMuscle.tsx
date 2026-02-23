@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Environment, Tube, Torus, Circle, Cone } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Activity } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Activity, Volume2, VolumeX } from 'lucide-react';
 import * as THREE from 'three';
+import { useHeartbeatSound } from './useHeartbeatSound';
 
 // --- Types & Constants ---
 
@@ -1589,6 +1590,9 @@ export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ on
     const [drumSpeed, setDrumSpeed] = useState(2.5); // mm/sec
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
     const [isDropperActive, setIsDropperActive] = useState(false);
+    const [soundMuted, setSoundMuted] = useState(false);
+    const [currentPhase, setCurrentPhase] = useState(0);
+    const [heartSilent, setHeartSilent] = useState(false);
 
     const [simState, setSimState] = useState<CardiogramState>({
         time: 0,
@@ -1606,6 +1610,15 @@ export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ on
     const SAMPLE_INTERVAL = 20; // ms between data points (50 samples/sec)
     const lastSampleTimeRef = useRef<number>(0);
     const temperatureRef = useRef(temperature);
+
+    // Heartbeat sound hook
+    const { ensureAudioContext } = useHeartbeatSound({
+        isRecording: simState.isRecording,
+        phase: currentPhase,
+        volume: 1.0,
+        muted: soundMuted,
+        silent: heartSilent,
+    });
 
     // Keep temperature ref in sync
     useEffect(() => {
@@ -1633,6 +1646,7 @@ export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ on
 
     const handleStartRecording = () => {
         if (simState.isRecording) return;
+        ensureAudioContext(); // Initialize audio on user gesture
         dataRef.current = [];
         lastSampleTimeRef.current = 0;
         setSimState({
@@ -1760,6 +1774,23 @@ export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ on
 
             const waveValue = cardiogramWaveform(phase, params.amplitude, cycleIndex, selectedExperiment);
             const contraction = Math.max(0, waveValue);
+
+            // Update phase and silent flag for heartbeat sound
+            setCurrentPhase(phase);
+
+            // Determine if heart is in a silent/flatline period
+            let isSilent = false;
+            if (selectedExperiment === 'heart-block') {
+                // Stannius ligatures: pause during cycles 4-7 (1st ligature) and 12-15 (2nd ligature)
+                isSilent = (cycleIndex >= 4 && cycleIndex <= 7) || (cycleIndex >= 12 && cycleIndex <= 15);
+            } else if (selectedExperiment === 'summation') {
+                // Gap cycles 1-3 and after cycle 5
+                isSilent = (cycleIndex >= 1 && cycleIndex <= 3) || cycleIndex >= 6;
+            } else if (selectedExperiment === 'all-or-none') {
+                // Sub-threshold cycle 0 produces no contraction
+                isSilent = cycleIndex === 0 || phase < 0;
+            }
+            setHeartSilent(isSilent);
 
             // Sample data at fixed intervals to avoid overwhelming the graph
             if (simTime - lastSampleTimeRef.current >= SAMPLE_INTERVAL) {
@@ -1989,6 +2020,29 @@ export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ on
                                 <option value="staircase">4. Stair case phenomenon</option>
                                 <option value="summation">5. Summation of subliminal stimuli</option>
                             </select>
+                        </div>
+
+                        {/* Heart Rate & Sound Toggle */}
+                        <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full animate-pulse bg-emerald-500" />
+                                <span className="text-sm text-slate-300">Heart Rate</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg font-mono font-bold text-emerald-400">
+                                    {simState.heartRate} bpm
+                                </span>
+                                <button
+                                    onClick={() => { ensureAudioContext(); setSoundMuted(m => !m); }}
+                                    className={`p-1.5 rounded-lg transition-all border ${soundMuted
+                                        ? 'bg-slate-700 border-slate-600 text-slate-500'
+                                        : 'bg-red-900/40 border-red-700/50 text-red-400 hover:bg-red-900/60'
+                                        }`}
+                                    title={soundMuted ? 'Unmute heartbeat sound' : 'Mute heartbeat sound'}
+                                >
+                                    {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Drum Speed */}

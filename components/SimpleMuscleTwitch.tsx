@@ -3,8 +3,8 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube } from '@react-three/drei';
 import { ArrowLeft, Eye, LineChart } from 'lucide-react';
 import * as THREE from 'three';
-import { Controls } from './Controls'; // Reuse existing Controls
-import { Oscilloscope } from './Oscilloscope'; // Reuse existing Oscilloscope
+import { Controls } from './Controls';
+import { Oscilloscope } from './Oscilloscope';
 
 // --- Types & Constants ---
 const LATENT_DURATION = 10;
@@ -474,7 +474,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
     const [stimulationType, setStimulationType] = useState<'Indirect' | 'Direct'>('Indirect');
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
-    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
 
     const [simState, setSimState] = useState<SimulationState>({
         time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest'
@@ -648,6 +648,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
 
                     {/* Controls - Bottom */}
                     <div className="p-6 bg-slate-900 z-10">
+
                         {/* Stimulation Mode Toggle */}
                         <div className="mb-6 bg-slate-800 p-1 rounded-lg flex">
                             <button
