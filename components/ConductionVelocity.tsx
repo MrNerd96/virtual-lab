@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Zap, RotateCcw, Activity } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Zap, RotateCcw, Activity, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -672,6 +672,7 @@ export const ConductionVelocity: React.FC<{ onBack: () => void }> = ({ onBack })
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
     const [stimPoint, setStimPoint] = useState<'muscle' | 'vertebral'>('muscle');
 
     const [simState, setSimState] = useState<SimulationState>({
@@ -757,6 +758,13 @@ export const ConductionVelocity: React.FC<{ onBack: () => void }> = ({ onBack })
                         <p className="text-slate-500 text-xs">Sciatic Nerve — Frog</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -786,8 +794,8 @@ export const ConductionVelocity: React.FC<{ onBack: () => void }> = ({ onBack })
 
                 {/* 3D View */}
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -806,7 +814,7 @@ export const ConductionVelocity: React.FC<{ onBack: () => void }> = ({ onBack })
                             />
                         </group>
 
-                        <OrbitControls makeDefault minPolarAngle={0} />
+                        <OrbitControls makeDefault target={[-0.74, -0.60, 3.39]} minPolarAngle={0} />
                     </Canvas>
 
                     {/* Hover Label */}

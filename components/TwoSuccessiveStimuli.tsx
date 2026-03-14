@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useTexture, Cylinder, Box, Sphere, Circle, RoundedBox, Text, Environment } from '@react-three/drei';
-import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle, Eye, LineChart } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -12,7 +12,7 @@ const CONTRACTION_DURATION = 40;
 const RELAXATION_DURATION = 50;
 
 // Simulation
-const TOTAL_WINDOW_MS = 200; // Total X-axis time
+const TOTAL_WINDOW_MS = 150; // Reduced from 200 to fill space better
 
 interface SimulationState {
     time: number;
@@ -484,6 +484,8 @@ interface PhasePreset {
     label: string;
     description: string;
     isi: number;
+    min: number;
+    max: number;
 }
 
 const PHASE_PRESETS: PhasePreset[] = [
@@ -491,44 +493,90 @@ const PHASE_PRESETS: PhasePreset[] = [
         id: 'A',
         label: 'Latent Period',
         description: 'S₂ in second half of latent period',
-        isi: 8 // Second half of latent: ~5-10ms after S1
+        isi: 8,
+        min: 0,
+        max: 10
     },
     {
         id: 'B',
         label: 'Contraction Period',
         description: 'S₂ in second half of contraction period',
-        isi: 35 // Second half of contraction: latent(10) + half contraction(20-40)
+        isi: 35,
+        min: 10,
+        max: 50
     },
     {
         id: 'C',
         label: 'Early Relaxation Period',
         description: 'S₂ in early relaxation period',
-        isi: 60 // Early relaxation: latent(10) + contraction(40) + early relax(10)
+        isi: 60,
+        min: 50,
+        max: 75
     },
     {
         id: 'D',
         label: 'Late Relaxation Period',
         description: 'S₂ in late relaxation period',
-        isi: 85 // Late relaxation: latent(10) + contraction(40) + late relax(35)
+        isi: 85,
+        min: 75,
+        max: 100
     }
 ];
 
 export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     // --- State ---
     const [isi, setIsi] = useState<number>(30);
-    const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
-    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
+    const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
+
+    const sliderAnimationRef = useRef<number>();
+
+    // Derived active preset based on current isi value
+    const currentActivePreset = useMemo(() => {
+        const preset = PHASE_PRESETS.find(p => isi >= p.min && isi < p.max);
+        return preset ? preset.id : null;
+    }, [isi]);
+
+    const animateToIsi = (target: number) => {
+        if (sliderAnimationRef.current) cancelAnimationFrame(sliderAnimationRef.current);
+
+        const start = isi;
+        const startTime = performance.now();
+        const duration = 600; // ms
+
+        const animate = (time: number) => {
+            const elapsed = time - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Cubic ease out
+            const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+            const currentVal = start + (target - start) * easedProgress;
+            setIsi(Math.round(currentVal));
+
+            if (progress < 1) {
+                sliderAnimationRef.current = requestAnimationFrame(animate);
+            }
+        };
+
+        sliderAnimationRef.current = requestAnimationFrame(animate);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (sliderAnimationRef.current) cancelAnimationFrame(sliderAnimationRef.current);
+        };
+    }, []);
 
     // Handler for preset selection
     const handlePresetSelect = (preset: PhasePreset) => {
-        setSelectedPreset(preset.id);
-        setIsi(preset.isi);
+        animateToIsi(preset.isi);
     };
 
     // Handler for manual slider change - clears preset selection
     const handleSliderChange = (value: number) => {
-        setSelectedPreset(null);
+        if (sliderAnimationRef.current) cancelAnimationFrame(sliderAnimationRef.current);
         setIsi(value);
     };
 
@@ -601,7 +649,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
             }
 
             // --- PHYSIOLOGY CALCULATION ---
-            const S1_TIME = 20;
+            const S1_TIME = 25;
             const t1 = simTime - S1_TIME;
             let tension1 = calculateTwitch(t1);
 
@@ -667,16 +715,17 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
 
         const width = canvas.width;
         const height = canvas.height;
-        const padding = 20; // Reduced top/side padding
-        const bottomMargin = 60; // Increased bottom space for stacking
+        const padding = 25;
+        const topPadding = 25;
+        const bottomMargin = 60; 
         const plotWidth = width - padding * 2;
-        const plotHeight = height - padding - bottomMargin;
+        const plotHeight = height - topPadding - bottomMargin;
 
         ctx.fillStyle = '#1e293b';
         ctx.fillRect(0, 0, width, height);
 
         const getX = (t: number) => padding + (Math.max(0, Math.min(TOTAL_WINDOW_MS, t)) / TOTAL_WINDOW_MS) * plotWidth;
-        const getY = (v: number) => (height - bottomMargin) - (v / 2.5) * plotHeight;
+        const getY = (v: number) => (height - bottomMargin) - (v / 2.0) * plotHeight;
 
         // --- Reference Curve (Normal S1) Text-Book Style ---
         ctx.beginPath();
@@ -685,7 +734,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
         // ctx.setLineDash([5, 5]); // Solid line for textbook look? Or dashed? Image shows solid but user said reference. Let's keep dashed for "background" feel to distinguish from live data.
         ctx.setLineDash([4, 4]);
 
-        const S1_REF_TIME = 20;
+        const S1_REF_TIME = 25;
 
         // Draw normal twitch curve
         for (let t = 0; t <= TOTAL_WINDOW_MS; t += 2) {
@@ -710,9 +759,9 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
         ctx.setLineDash([]); // Reset
 
         // -- Textbook Annotations (Vertical Lines & Bottom Arrows) --
-        const axisY = height - bottomMargin; // Axis is at bottom of plot area
-        const markerY = axisY + 14; // S1/S2 dots just below axis
-        const arrowY = axisY + 35; // Dimensions further down
+        const axisY = height - bottomMargin;
+        const markerBaseY = axisY + 10;
+        const arrowY = axisY + 30;
 
         const t0 = S1_REF_TIME;
         const t1 = t0 + LATENT_DURATION;
@@ -733,7 +782,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
 
         // Helper for vertical line
         const drawVert = (x: number, topY: number) => {
-            const bottomY = arrowY + 20; // Extend down past the labels
+            const bottomY = arrowY + 18;
             ctx.beginPath();
             ctx.moveTo(x, bottomY);
             ctx.lineTo(x, topY);
@@ -774,20 +823,12 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
         drawDimension(x2, x3, 'RP');
 
 
-        // Grid
+        // Baseline
         ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        for (let t = 0; t <= TOTAL_WINDOW_MS; t += 25) {
-            const x = padding + (t / TOTAL_WINDOW_MS) * plotWidth;
-            ctx.moveTo(x, padding);
-            ctx.lineTo(x, axisY);
-        }
-        for (let y = 0; y <= 2.5; y += 0.5) {
-            const vy = axisY - (y / 2.5) * plotHeight;
-            ctx.moveTo(padding, vy);
-            ctx.lineTo(width - padding, vy);
-        }
+        ctx.moveTo(padding, axisY);
+        ctx.lineTo(width - padding, axisY);
         ctx.stroke();
 
 
@@ -804,39 +845,38 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
             ctx.stroke();
         }
 
-        const S1_TIME = 20;
+        const S1_TIME = 25;
         const S2_TIME = S1_TIME + isi;
 
         // S1 marker dot and label
-        // Use axisY defined above
-        const markerBaseY = axisY + 14;
+        // markerBaseY is already defined above
 
         ctx.fillStyle = '#facc15';
-        ctx.beginPath(); ctx.arc(getX(S1_TIME), markerBaseY, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(getX(S1_TIME), markerBaseY, 5, 0, Math.PI * 2); ctx.fill();
         // Glow effect for S1
         ctx.shadowColor = '#facc15';
         ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(getX(S1_TIME), markerBaseY, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(getX(S1_TIME), markerBaseY, 5, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
         // S1 label 
-        ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+        ctx.font = 'bold 11px Inter, system-ui, sans-serif';
         ctx.fillStyle = '#fef08a';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText('S₁', getX(S1_TIME), markerBaseY + 8); // Below dot
+        ctx.fillText('S₁', getX(S1_TIME), markerBaseY + 6); // Below dot
 
         // S2 marker dot and label
         ctx.fillStyle = '#f472b6';
-        ctx.beginPath(); ctx.arc(getX(S2_TIME), markerBaseY, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(getX(S2_TIME), markerBaseY, 5, 0, Math.PI * 2); ctx.fill();
         // Glow effect for S2
         ctx.shadowColor = '#f472b6';
         ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(getX(S2_TIME), markerBaseY, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(getX(S2_TIME), markerBaseY, 5, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
         // S2 label
-        ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+        ctx.font = 'bold 11px Inter, system-ui, sans-serif';
         ctx.fillStyle = '#fbcfe8';
-        ctx.fillText('S₂', getX(S2_TIME), markerBaseY + 8);
+        ctx.fillText('S₂', getX(S2_TIME), markerBaseY + 6);
 
         ctx.textAlign = 'left'; // Reset
         ctx.textBaseline = 'alphabetic';
@@ -857,7 +897,13 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
 
                     </div>
                 </div>
-
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
@@ -887,19 +933,14 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
 
                 {/* 3D Visualization Area - Hidden on mobile when graph is selected */}
                 <div className={`relative bg-[#09090b] shrink-0 ${mobileView === 'graph' ? 'hidden lg:flex lg:flex-1' : 'h-[40vh] lg:h-auto lg:flex-1 flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#09090b']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color key={sceneBgColor} attach="background" args={[sceneBgColor]} />
 
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow shadow-bias={-0.0001} />
                         <pointLight position={[-5, 5, -5]} intensity={1} color="#38bdf8" />
                         <pointLight position={[5, 2, -5]} intensity={0.8} color="#fbbf24" />
-
-                        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-                            <planeGeometry args={[100, 100]} />
-                            <meshStandardMaterial color="#0f172a" roughness={0.5} metalness={0.2} />
-                        </mesh>
 
                         <group position={[0, -1, 0]}>
                             {/* Muscle Experiment Setup Group - adjust SETUP_ROTATION to rotate whole setup */}
@@ -923,9 +964,9 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                         </group>
 
                         <OrbitControls
-                            target={[1.5, 0, 0]} /* Shift focus slightly right to encompass new drum pos */
-                            minDistance={1}
-                            maxDistance={15}
+                            makeDefault
+                            target={[-0.74, -0.60, 3.39]}
+                            minPolarAngle={0}
                         />
                     </Canvas>
 
@@ -986,9 +1027,9 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                                         onClick={() => handlePresetSelect(preset)}
                                         disabled={simState.isRunning}
                                         className={`
-                                            p-3 rounded-lg border text-left transition-all
-                                            ${selectedPreset === preset.id
-                                                ? 'bg-cyan-900/40 border-cyan-500 text-cyan-200'
+                                            p-3 rounded-lg border text-left transition-all duration-300
+                                            ${currentActivePreset === preset.id
+                                                ? 'bg-cyan-900/40 border-cyan-500 text-cyan-200 ring-1 ring-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
                                                 : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700/50 hover:border-slate-600'
                                             }
                                             disabled:opacity-50 disabled:cursor-not-allowed
@@ -996,9 +1037,9 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                                     >
                                         <div className="flex items-center gap-2">
                                             <span className={`
-                                                w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs font-bold
-                                                ${selectedPreset === preset.id
-                                                    ? 'border-cyan-400 bg-cyan-500 text-white'
+                                                w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300
+                                                ${currentActivePreset === preset.id
+                                                    ? 'border-cyan-400 bg-cyan-500 text-white shadow-[0_0_10px_rgba(6,182,212,0.5)]'
                                                     : 'border-slate-500 text-slate-400'
                                                 }
                                             `}>

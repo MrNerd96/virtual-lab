@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Environment } from '@react-three/drei';
-import { ArrowLeft, Timer, RefreshCw, Eye, LineChart } from 'lucide-react';
+import { ArrowLeft, Timer, RefreshCw, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
 import { Oscilloscope } from './Oscilloscope';
@@ -435,6 +435,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     const calculateParameters = (v: number, l: number, f: number, sc: number) => {
         let maxForce = v < THRESHOLD_VOLTAGE ? 0 : (v >= MAX_VOLTAGE ? 10 : 10 * ((v - THRESHOLD_VOLTAGE) / (MAX_VOLTAGE - THRESHOLD_VOLTAGE)));
@@ -720,6 +721,13 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Genesis of Fatigue</h1>
                     </div>
                 </div>
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
@@ -749,8 +757,8 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
                 {/* 3D Visualization Area */}
                 <div className={`relative bg-black shrink-0 ${mobileView === 'graph' ? 'hidden lg:flex lg:flex-1' : 'h-[40vh] lg:h-auto lg:flex-1 flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -770,7 +778,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                             />
                         </group>
 
-                        <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2.2} />
+                        <OrbitControls makeDefault target={[-0.74, -0.60, 3.39]} minPolarAngle={0} />
                     </Canvas>
 
                     {hoveredLabel && (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, useTexture, RoundedBox } from '@react-three/drei';
-import { ArrowLeft, Activity, Scale, CheckCircle, Eye, LineChart } from 'lucide-react';
+import { ArrowLeft, Activity, Scale, CheckCircle, Eye, LineChart, Moon, Sun, RotateCcw } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -326,25 +326,27 @@ const StarlingLever = ({ angle, load, onHoverChange, mode }: { angle: number, lo
 
                                 {/* Attach Weights to the furthest hole (0.45) */}
                                 {load > 0 && (
-                                    <group position={[0.45, 0, 0]}> {/* At hole position */}
-                                        {/* Wire/Hook for weights - rotates with lever naturally as it's child */}
-                                        <group rotation={[0, Math.PI / 2, 0]} position={[0, 0, 0]}>
-                                            <Cylinder args={[0.005, 0.005, 0.3]} position={[0, -0.15, 0]}>
-                                                <meshStandardMaterial color="#333" />
-                                            </Cylinder>
-                                            {/* Weight Stack */}
-                                            <group position={[0, -0.3, 0]}>
-                                                {Array.from({ length: Math.ceil(load / 10) }).map((_, i) => (
-                                                    <Cylinder key={i} args={[0.12, 0.12, 0.04, 16]} position={[0, -i * 0.045, 0]}>
-                                                        <meshStandardMaterial color="#475569" metalness={0.8} />
-                                                    </Cylinder>
-                                                ))}
-                                                <group position={[0, -(Math.ceil(load / 10) * 0.045) - 0.02, 0]}>
-                                                    <Sphere args={[0.02]}><meshStandardMaterial color="#333" /></Sphere>
+                                    <InteractiveObject label={`Weights (${load}g)`} onHoverChange={onHoverChange}>
+                                        <group position={[0.45, 0, 0]}> {/* At hole position */}
+                                            {/* Wire/Hook for weights - rotates with lever naturally as it's child */}
+                                            <group rotation={[0, Math.PI / 2, 0]} position={[0, 0, 0]}>
+                                                <Cylinder args={[0.005, 0.005, 0.3]} position={[0, -0.15, 0]}>
+                                                    <meshStandardMaterial color="#333" />
+                                                </Cylinder>
+                                                {/* Weight Stack */}
+                                                <group position={[0, -0.3, 0]}>
+                                                    {Array.from({ length: Math.ceil(load / 10) }).map((_, i) => (
+                                                        <Cylinder key={i} args={[0.12, 0.12, 0.04, 16]} position={[0, -i * 0.045, 0]}>
+                                                            <meshStandardMaterial color="#475569" metalness={0.8} />
+                                                        </Cylinder>
+                                                    ))}
+                                                    <group position={[0, -(Math.ceil(load / 10) * 0.045) - 0.02, 0]}>
+                                                        <Sphere args={[0.02]}><meshStandardMaterial color="#333" /></Sphere>
+                                                    </group>
                                                 </group>
                                             </group>
                                         </group>
-                                    </group>
+                                    </InteractiveObject>
                                 )}
                             </group>
                         </group>
@@ -400,6 +402,8 @@ const Kymograph = ({
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
     const lastDrawState = useRef<{ x: number, y: number } | null>(null);
+    const strokePoints = useRef<{ x: number, y: number }[]>([]);
+
     const texture = useMemo(() => {
         const canvas = canvasRef.current;
         canvas.width = 1024;
@@ -446,7 +450,27 @@ const Kymograph = ({
     }, [drumOffset, tension, texture, historyLength]);
 
     useFrame(() => {
-        if (!isRunning) { lastDrawState.current = null; return; }
+        if (!isRunning) {
+            if (strokePoints.current.length >= 2) {
+                const ctx = canvasRef.current.getContext('2d');
+                if (ctx) {
+                    const pts = strokePoints.current;
+                    const p1 = pts[pts.length - 2];
+                    const p2 = pts[pts.length - 1];
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(midX, midY);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                    texture.needsUpdate = true;
+                }
+            }
+            strokePoints.current = [];
+            lastDrawState.current = null;
+            return;
+        }
+
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
 
@@ -467,11 +491,47 @@ const Kymograph = ({
         // Reduced scaling from 80 to 40 to accommodate larger peaks in Effect of Load (up to ~6cm)
         const y = (512 * 0.5) - (tension * 40);
 
-        if (lastDrawState.current) {
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(lastDrawState.current.x, lastDrawState.current.y); ctx.lineTo(x, y); ctx.stroke();
+        strokePoints.current.push({ x, y });
+        const pts = strokePoints.current;
+
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        if (pts.length >= 3) {
+            const p0 = pts[pts.length - 3];
+            const p1 = pts[pts.length - 2];
+            const p2 = pts[pts.length - 1];
+
+            const mid1X = (p0.x + p1.x) / 2;
+            const mid1Y = (p0.y + p1.y) / 2;
+            const mid2X = (p1.x + p2.x) / 2;
+            const mid2Y = (p1.y + p2.y) / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(mid1X, mid1Y);
+            ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y);
+            ctx.stroke();
+
+            if (pts.length === 3) {
+                // Draw connecting segment from the very first point to the first midpoint
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                ctx.lineTo(mid1X, mid1Y);
+                ctx.stroke();
+            }
+
             texture.needsUpdate = true;
+        } else if (pts.length === 2 && drumMode === 'Stationary') {
+            // In stationary mode, we just draw lines straight up and down, so midpoints don't matter as much,
+            // but we can just draw the segment directly if it's perfectly vertical, or wait. 
+            // Better to just wait for 3 points for all curves.
+
+            // Wait, for stationary mode, if length is small, maybe just draw it.
+            // When moving very fast, drawing 3 points is fine.
         }
+
         lastDrawState.current = { x, y };
     });
 
@@ -529,13 +589,13 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [load, setLoad] = useState(10);
     const [mode, setMode] = useState<'After-Loaded' | 'Free-Loaded'>('After-Loaded');
     const [drumMode, setDrumMode] = useState<'Moving' | 'Stationary'>('Moving');
-    const [barModeType, setBarModeType] = useState<'Automatic' | 'Manual'>('Automatic');
     const [drumOffset, setDrumOffset] = useState(0);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [history, setHistory] = useState<ExperimentHistory[]>([]);
     const [simReseter, setSimReseter] = useState(0);
     const [clearKey, setClearKey] = useState(0);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     const [simState, setSimState] = useState<SimulationState>({
         time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest'
@@ -660,16 +720,63 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     // Auto-advance drum in Stationary + Automatic mode
     useEffect(() => {
         if (!simState.isRunning && simState.time >= TOTAL_WINDOW_MS &&
-            drumMode === 'Stationary' && barModeType === 'Automatic') {
+            drumMode === 'Stationary') {
             // Experiment finished naturally (didn't just start or reset)
-            // We can use history length to check if we just added a run
+            // We can use history length to check if we already added a run
             // Or simpler: check if we are in 'Rest' phase after having been running.
             // Relying on simState transition: when it goes to Rest at TOTAL_WINDOW_MS
             setDrumOffset(prev => prev + 1);
         }
-    }, [simState.isRunning, simState.time, drumMode, barModeType]);
-    // 2D History Canvas
+    }, [simState.isRunning, simState.time, drumMode]);
+    // 2D History Canvas - stores completed curves for smooth redrawing
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const completedCurvesRef = useRef<{ data: DataPoint[], color: string }[]>([]);
+
+    // Clear completed curves when history is cleared
+    useEffect(() => {
+        if (history.length === 0) {
+            completedCurvesRef.current = [];
+        }
+    }, [history.length]);
+
+    // Save completed curve when simulation ends
+    useEffect(() => {
+        if (!simState.isRunning && simState.data.length > 2) {
+            const currentHistoryEntry = history[history.length - 1];
+            const strokeColor = currentHistoryEntry && currentHistoryEntry.mode === 'Free-Loaded' ? '#f472b6' : '#4ade80';
+            completedCurvesRef.current.push({ data: [...simState.data], color: strokeColor });
+        }
+    }, [simState.isRunning]);
+
+    // Helper to draw a smooth curve on canvas
+    const drawSmoothCurve = (ctx: CanvasRenderingContext2D, data: DataPoint[], color: string, w: number, h: number) => {
+        if (data.length < 2) return;
+        const mapX = (t: number) => (t / TOTAL_WINDOW_MS) * w;
+        const mapY = (y: number) => {
+            const zeroY = h - 50;
+            const scale = 30;
+            return zeroY - (y * scale);
+        };
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(mapX(data[0].t), mapY(data[0].y));
+
+        // Draw smooth curve using quadratic bezier through midpoints
+        for (let i = 1; i < data.length - 1; i++) {
+            const xc = (mapX(data[i].t) + mapX(data[i + 1].t)) / 2;
+            const yc = (mapY(data[i].y) + mapY(data[i + 1].y)) / 2;
+            ctx.quadraticCurveTo(mapX(data[i].t), mapY(data[i].y), xc, yc);
+        }
+        // Draw the last segment
+        const lastPt = data[data.length - 1];
+        ctx.lineTo(mapX(lastPt.t), mapY(lastPt.y));
+        ctx.stroke();
+    };
+
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -677,38 +784,24 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!ctx) return;
         const w = canvas.width; const h = canvas.height;
 
-        // Clear only on clearKey change
-        if (history.length === 0) { // If history cleared
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1; ctx.beginPath();
-            const zeroY = h - (0 / 8) * h - 50;
-            ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
+        // Clear canvas
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+
+        // Draw baseline
+        ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1; ctx.beginPath();
+        const zeroY = h - 50;
+        ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
+
+        // Redraw all completed curves smoothly
+        for (const curve of completedCurvesRef.current) {
+            drawSmoothCurve(ctx, curve.data, curve.color, w, h);
         }
 
-        if (simState.data.length > 1) {
-            const last = simState.data[simState.data.length - 1];
-            const prev = simState.data[simState.data.length - 2];
-            const mapX = (t: number) => (t / TOTAL_WINDOW_MS) * w;
-            const mapY = (y: number) => {
-                const zeroY = h - 50;
-                const scale = 30;
-                return zeroY - (y * scale);
-            };
-
-            ctx.beginPath();
-            ctx.strokeStyle = mode === 'After-Loaded' ? '#4ade80' : '#f472b6'; // Keep color consistent
-            ctx.lineWidth = 3;
-            // 2D Plot is always stationary mode logical wise (time based), but we are in Drum Bar Mode?
-            // User requested Kymograph Bar Mode. The 2D plot "History" below is usually time-series.
-            // Let's keep 2D plot as time-series (superimposed or sequential).
-            // Actually, for Bar mode, maybe 2D plot should also reflect bars?
-            // The prompt specifically said "Kymograph turns". Kymograph is the 3D object.
-            // The bottom pane is "Experiment Data" / history view.
-            // Let's keep 2D canvas as time-series for now unless requested.
-
-            ctx.moveTo(mapX(prev.t), mapY(prev.y));
-            ctx.lineTo(mapX(last.t), mapY(last.y));
-            ctx.stroke();
+        // Draw current active curve smoothly
+        if (simState.data.length > 2) {
+            const currentHistoryEntry = history[history.length - 1];
+            const strokeColor = currentHistoryEntry && currentHistoryEntry.mode === 'Free-Loaded' ? '#f472b6' : '#4ade80';
+            drawSmoothCurve(ctx, simState.data, strokeColor, w, h);
         }
     }, [simState.data, clearKey]); // Re-run when data changes or clearKey triggers a clear
 
@@ -773,10 +866,19 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
                     </div>
                 </div>
-                <div className="flex gap-4 text-right">
-                    <div><div className="text-xs text-slate-400">Current Load</div><div className="text-xl font-mono font-bold">{load}g</div></div>
-                    <div className="h-8 w-px bg-slate-700"></div>
-                    <div><div className="text-xs text-slate-400">Mode</div><div className={`text-sm font-bold ${mode === 'After-Loaded' ? 'text-green-400' : 'text-pink-400'}`}>{mode}</div></div>
+                <div className="flex items-center gap-6">
+                    <div className="flex gap-4 text-right">
+                        <div><div className="text-xs text-slate-400">Current Load</div><div className="text-xl font-mono font-bold">{load}g</div></div>
+                        <div className="h-8 w-px bg-slate-700"></div>
+                        <div><div className="text-xs text-slate-400">Mode</div><div className={`text-sm font-bold ${mode === 'After-Loaded' ? 'text-green-400' : 'text-pink-400'}`}>{mode}</div></div>
+                    </div>
+                    <button
+                        onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center h-10 w-10 shrink-0"
+                        title="Toggle Canvas Background"
+                    >
+                        {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                    </button>
                 </div>
             </header>
 
@@ -807,8 +909,8 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
                 {/* 3D View - Hidden on mobile when graph is selected */}
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -821,7 +923,7 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             </group>
                             <Kymograph simTime={simState.time} tension={simState.currentHeight} isRunning={simState.isRunning} onHoverChange={setHoveredLabel} resetKey={clearKey} drumMode={drumMode} drumOffset={drumOffset} historyLength={history.length} />
                         </group>
-                        <OrbitControls target={[1.5, 0, 0]} minDistance={1} maxDistance={15} />
+                        <OrbitControls makeDefault target={[-0.74, -0.60, 3.39]} minPolarAngle={0} />
                     </Canvas>
                     {hoveredLabel && <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full border border-white/10 text-white font-bold text-sm pointer-events-none">{hoveredLabel}</div>}
                 </div>
@@ -835,54 +937,25 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         ) : (
                             renderStationary()
                         )}
-                        <div className="absolute top-2 right-2 flex flex-col items-end gap-2">
-                            <div className="flex gap-2">
-                                {/* Clear Button */}
-                                <button onClick={handleClear} className="text-[10px] px-2 py-1 rounded border bg-red-900/50 border-red-700 text-red-200 hover:bg-red-800">Clear</button>
-                                <button onClick={() => setDrumMode('Moving')} className={`text-[10px] px-2 py-1 rounded border ${drumMode === 'Moving' ? 'bg-blue-600 border-blue-500' : 'bg-slate-800 border-slate-700'}`}>Trace</button>
-                                <button onClick={() => setDrumMode('Stationary')} className={`text-[10px] px-2 py-1 rounded border ${drumMode === 'Stationary' ? 'bg-blue-600 border-blue-500' : 'bg-slate-800 border-slate-700'}`}>Bar</button>
-                            </div>
-
-                            {drumMode === 'Stationary' && (
-                                <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded border border-slate-700 animate-in fade-in slide-in-from-top-1">
-                                    <div className="flex bg-slate-800 rounded p-0.5">
-                                        <button
-                                            onClick={() => setBarModeType('Automatic')}
-                                            className={`px-2 py-0.5 text-[10px] rounded ${barModeType === 'Automatic' ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                                        >
-                                            Auto
-                                        </button>
-                                        <button
-                                            onClick={() => setBarModeType('Manual')}
-                                            className={`px-2 py-0.5 text-[10px] rounded ${barModeType === 'Manual' ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                                        >
-                                            Manual
-                                        </button>
-                                    </div>
-                                    {barModeType === 'Manual' && (
-                                        <div className="flex items-center gap-1 border-l border-slate-700 pl-2">
-                                            <button
-                                                onClick={() => setDrumOffset(prev => Math.max(0, prev - 1))}
-                                                className="w-4 h-4 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-[10px]"
-                                            >
-                                                &lt;
-                                            </button>
-                                            <span className="text-[10px] font-mono w-4 text-center">{drumOffset}</span>
-                                            <button
-                                                onClick={() => setDrumOffset(prev => prev + 1)}
-                                                className="w-4 h-4 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-[10px]"
-                                            >
-                                                &gt;
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
                     </div>
 
                     {/* Controls - Bottom (Always Visible) */}
                     <div className="p-6 space-y-6 overflow-y-auto z-10 bg-slate-900 border-t lg:border-t-0 border-slate-800">
+                        <div className="flex gap-2 p-1 bg-slate-800 rounded-lg">
+                            <button
+                                onClick={() => { if (drumMode !== 'Moving') { setDrumMode('Moving'); handleClear(); } }}
+                                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${drumMode === 'Moving' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                Curve Mode
+                            </button>
+                            <button
+                                onClick={() => { if (drumMode !== 'Stationary') { setDrumMode('Stationary'); handleClear(); } }}
+                                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${drumMode === 'Stationary' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                Line Mode
+                            </button>
+                        </div>
+
                         <div className="flex gap-2 p-1 bg-slate-800 rounded-lg">
                             <button onClick={() => setMode('After-Loaded')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'After-Loaded' ? 'bg-green-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>After-Loaded</button>
                             <button onClick={() => setMode('Free-Loaded')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'Free-Loaded' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Free-Loaded</button>
@@ -897,9 +970,15 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             </div>
                         </div>
 
-                        <button onClick={handleStimulate} disabled={simState.isRunning} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                            {simState.isRunning ? 'In Progress...' : <><Activity className="w-5 h-5" /> Stimulate</>}
-                        </button>
+                        <div className="space-y-3">
+                            <button onClick={handleStimulate} disabled={simState.isRunning} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
+                                {simState.isRunning ? 'In Progress...' : <><Activity className="w-5 h-5" /> Stimulate</>}
+                            </button>
+
+                            <button onClick={handleClear} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all">
+                                <RotateCcw className="w-4 h-4" /> Reset
+                            </button>
+                        </div>
 
 
                     </div>

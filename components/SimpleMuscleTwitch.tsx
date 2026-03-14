@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart } from 'lucide-react';
+import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube, useProgress } from '@react-three/drei';
+import { ArrowLeft, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
 import { Oscilloscope } from './Oscilloscope';
@@ -41,6 +41,25 @@ const calculateInstantaneousHeight = (t: number, peakHeight: number) => {
     }
 
     return contraction;
+};
+
+// --- Scene Loading Notifier ---
+const SceneReadyNotifier = ({ onReady }: { onReady: () => void }) => {
+    const { progress, active } = useProgress();
+    const hasNotified = useRef(false);
+
+    useEffect(() => {
+        if (progress === 100 && !active && !hasNotified.current) {
+            // Small delay to ensure the first frame has rendered
+            const timeout = setTimeout(() => {
+                hasNotified.current = true;
+                onReady();
+            }, 400);
+            return () => clearTimeout(timeout);
+        }
+    }, [progress, active, onReady]);
+
+    return null;
 };
 
 // --- 3D Components (Ported from EffectOfLoad) ---
@@ -475,6 +494,14 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
+    const [sceneReady, setSceneReady] = useState(false);
+    const [fadeOut, setFadeOut] = useState(false);
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
+
+    const handleSceneReady = React.useCallback(() => {
+        setFadeOut(true);
+        setTimeout(() => setSceneReady(true), 600);
+    }, []);
 
     const [simState, setSimState] = useState<SimulationState>({
         time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest'
@@ -572,6 +599,13 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                         <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">Simple Muscle Twitch</h1>
                     </div>
                 </div>
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -601,11 +635,12 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
 
                 {/* 3D View - Hidden on mobile when graph is selected */}
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
+                        <SceneReadyNotifier onReady={handleSceneReady} />
 
                         <group position={[0, -1, 0]}>
                             <group rotation={[0, Math.PI / 2, 0]}>
@@ -622,8 +657,37 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                             />
                         </group>
 
-                        <OrbitControls makeDefault minPolarAngle={0} />
+                        {(() => {
+                            const orbitTarget: [number, number, number] = [-0.74, -0.60, 3.39];
+                            return (
+                                <OrbitControls makeDefault target={orbitTarget} minPolarAngle={0} />
+                            );
+                        })()}
                     </Canvas>
+
+                    {/* 3D Loading Overlay */}
+                    {!sceneReady && (
+                        <div
+                            className={`absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+                        >
+                            {/* Animated pulse ring */}
+                            <div className="relative w-20 h-20 mb-6">
+                                <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-ping" />
+                                <div className="absolute inset-2 rounded-full border-2 border-emerald-400/50 animate-ping" style={{ animationDelay: '0.3s' }} />
+                                <div className="absolute inset-4 rounded-full border-2 border-emerald-300/70 animate-ping" style={{ animationDelay: '0.6s' }} />
+                                {/* Center dot */}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-4 h-4 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50" />
+                                </div>
+                            </div>
+                            <p className="text-emerald-400 text-sm font-semibold tracking-widest uppercase animate-pulse">
+                                Loading 3D Scene
+                            </p>
+                            <p className="text-slate-500 text-xs mt-2">
+                                Preparing the experiment apparatus…
+                            </p>
+                        </div>
+                    )}
 
                     {/* Hover Label Overlay */}
                     {hoveredLabel && (
@@ -631,6 +695,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                             {hoveredLabel}
                         </div>
                     )}
+
                 </div>
 
                 {/* Controls & Graph Panel */}

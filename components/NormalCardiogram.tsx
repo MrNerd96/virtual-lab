@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Environment, Tube, Torus, Circle, Cone } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Volume2, VolumeX, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { useHeartbeatSound } from './useHeartbeatSound';
 
@@ -1012,6 +1012,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const [isDropperActive, setIsDropperActive] = useState(false);
     const [soundMuted, setSoundMuted] = useState(false);
     const [currentPhase, setCurrentPhase] = useState(0);
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     const [simState, setSimState] = useState<CardiogramState>({
         time: 0,
@@ -1142,7 +1143,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
     }, [simState.isRecording]); // Removed temperature from dependency array
 
     return (
-        <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans">
+        <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans relative">
             <header className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800">
                 <div className="flex items-center gap-4">
                     <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ArrowLeft className="w-5 h-5" /></button>
@@ -1151,6 +1152,13 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                         <p className="text-slate-400 text-xs">Amphibian / Frog Heart — Effect of Temperature</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -1180,8 +1188,8 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
                 {/* 3D View */}
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
-                    <Canvas shadows camera={{ position: [2, 2, 7], fov: 38 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [-3.82, 2.79, -4.95], fov: 38 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -1238,7 +1246,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                             </group>
                         </group>
 
-                        <OrbitControls makeDefault minPolarAngle={0} />
+                        <OrbitControls makeDefault target={[0.20, -0.36, -0.44]} minPolarAngle={0} />
                     </Canvas>
 
                     {/* Hover Label */}

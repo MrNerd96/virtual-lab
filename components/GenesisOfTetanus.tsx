@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube } from '@react-three/drei';
-import { ArrowLeft, Play, RotateCcw, Settings, Activity, Eye, LineChart } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Settings, Activity, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -371,6 +371,7 @@ export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const [isRunning, setIsRunning] = useState(false);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d'); // Toggle for mobile view
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     const stateRef = useRef<SimulationState>({
         time: 0,
@@ -460,6 +461,13 @@ export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) =
                         </h1>
                     </div>
                 </div>
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
@@ -489,8 +497,8 @@ export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
                 {/* 3D Visualization Area */}
                 <div className={`relative bg-black shrink-0 ${mobileView === 'graph' ? 'hidden lg:flex lg:flex-1' : 'h-[40vh] lg:h-auto lg:flex-1 flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -507,7 +515,7 @@ export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                 onHoverChange={setHoveredLabel}
                             />
                         </group>
-                        <OrbitControls makeDefault minPolarAngle={0} />
+                        <OrbitControls makeDefault target={[-0.74, -0.60, 3.39]} minPolarAngle={0} />
                     </Canvas>
 
                     {hoveredLabel && (
@@ -590,10 +598,22 @@ export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) =
 
                                     {/* Labels Line */}
                                     <div className="relative w-full text-sm font-medium h-12 mt-1 transition-colors duration-300">
-                                        <span className={`absolute left-0 transition-colors leading-tight ${frequency <= 10 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Treppe<br /><span className="text-[10px] font-normal text-slate-500">(5-10 Hz)</span></span>
-                                        <span className={`absolute left-[28%] text-center transition-colors leading-tight ${frequency > 10 && frequency <= 20 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Clonus<br /><span className="text-[10px] font-normal text-slate-500">(15-20 Hz)</span></span>
-                                        <span className={`absolute left-[65%] text-center leading-tight -translate-x-1/2 transition-colors ${frequency > 20 && frequency <= 35 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Incomplete<br />Tetanus<br /><span className="text-[10px] font-normal text-slate-500">(30 Hz)</span></span>
-                                        <span className={`absolute right-0 text-right leading-tight transition-colors ${frequency > 35 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Complete<br />Tetanus<br /><span className="text-[10px] font-normal text-slate-500">(40+ Hz)</span></span>
+                                        <button
+                                            disabled={isRunning}
+                                            onClick={() => setFrequency(5)}
+                                            className={`absolute left-0 transition-colors leading-tight text-left disabled:cursor-not-allowed hover:text-teal-300 ${frequency <= 10 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Treppe<br /><span className="text-[10px] font-normal text-slate-500">(5-10 Hz)</span></button>
+                                        <button
+                                            disabled={isRunning}
+                                            onClick={() => setFrequency(15)}
+                                            className={`absolute left-[28%] text-center transition-colors leading-tight disabled:cursor-not-allowed hover:text-teal-300 ${frequency > 10 && frequency <= 20 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Clonus<br /><span className="text-[10px] font-normal text-slate-500">(15-20 Hz)</span></button>
+                                        <button
+                                            disabled={isRunning}
+                                            onClick={() => setFrequency(30)}
+                                            className={`absolute left-[65%] text-center leading-tight -translate-x-1/2 transition-colors disabled:cursor-not-allowed hover:text-teal-300 ${frequency > 20 && frequency <= 35 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Incomplete<br />Tetanus<br /><span className="text-[10px] font-normal text-slate-500">(30 Hz)</span></button>
+                                        <button
+                                            disabled={isRunning}
+                                            onClick={() => setFrequency(40)}
+                                            className={`absolute right-0 text-right leading-tight transition-colors disabled:cursor-not-allowed hover:text-teal-300 ${frequency > 35 ? 'text-teal-400 font-bold' : 'text-slate-600'}`}>Complete<br />Tetanus<br /><span className="text-[10px] font-normal text-slate-500">(40+ Hz)</span></button>
                                     </div>
                                 </div>
                             </div>

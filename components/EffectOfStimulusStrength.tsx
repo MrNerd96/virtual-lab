@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube, Torus, Ring } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Zap, Pause, Play, Download, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Zap, Pause, Play, Download, RotateCcw, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
 
@@ -730,6 +730,7 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
     const [distance, setDistance] = useState(15); // Start far away (weak)
     const [history, setHistory] = useState<DataPoint[]>([]);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     // Animation state for 3D muscle
     const [muscleShortening, setMuscleShortening] = useState(0);
@@ -815,7 +816,13 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
                     </div>
                 </div>
 
-
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center shrink-0"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </div>
 
             {/* Main Content */}
@@ -854,8 +861,8 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
                         </div>
                     )}
 
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -879,7 +886,7 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
                             />
                         </group>
 
-                        <OrbitControls makeDefault minPolarAngle={0} maxDistance={15} />
+                        <OrbitControls makeDefault target={[-0.74, -0.60, 3.39]} minPolarAngle={0} />
                     </Canvas>
                 </div>
 

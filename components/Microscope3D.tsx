@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, Box, Cylinder, Torus, Text } from '@react-three/drei';
 import * as THREE from 'three';
-import { ArrowLeft, Move, Eye, Ruler, Sun } from 'lucide-react';
+import { ArrowLeft, Move, Eye, Ruler, Sun, Moon } from 'lucide-react';
 
 // --- Types ---
 interface MicroscopeState {
@@ -188,11 +188,20 @@ const CondenserSystem = ({ height, iris, intensity, onHover }: { height: number,
                 </mesh>
             </group>
 
-            {/* Iris Lever */}
-            <mesh position={[0.6, 0.35, 0]} rotation={[0, 0, Math.PI / 2 - iris * 0.5]}>
-                <boxGeometry args={[0.3, 0.05, 0.05]} />
-                <meshStandardMaterial color="#444" metalness={0.8} />
-            </mesh>
+            {/* Iris Lever (Rotates around the track) */}
+            {(() => {
+                const angle = (iris - 0.1) * (Math.PI / 1.5) - Math.PI / 4;
+                const radius = 0.55;
+                return (
+                    <mesh
+                        position={[Math.cos(angle) * radius, 0.35, Math.sin(angle) * radius]}
+                        rotation={[0, -angle, 0]}
+                    >
+                        <boxGeometry args={[0.2, 0.04, 0.04]} />
+                        <meshStandardMaterial color="#555" metalness={0.9} roughness={0.1} />
+                    </mesh>
+                );
+            })()}
 
             {/* Condenser Height Knob (Left side only) */}
             <group position={[-0.5, 0, 0]}>
@@ -333,55 +342,81 @@ const CurvedArm = ({ coarsePos, finePos, onHover }: { coarsePos: number, finePos
                 </Box>
             </group>
 
-            {/* Focus Knobs on the Side (Mounted horizontally along X axis) */}
-            {/* Right Side Knobs */}
-            <group position={[0.4, 2.0, -0.1]}>
-                {/* Horizontal Shaft Joint */}
-                <Box args={[0.6, 0.2, 0.2]} position={[0.2, 0, 0]}>
-                    <meshStandardMaterial color="#333" />
-                </Box>
-                {/* Coarse (Large) */}
-                <group
-                    onPointerOver={(e) => { e.stopPropagation(); onHover("Coarse Adjustment Knob"); }}
-                    onPointerOut={() => onHover(null)}
-                >
-                    <KnurledKnob radius={0.6} height={0.3} rotation={coarseRot} position={[0.4, 0, 0]} />
+            {/* Focus Knob System (Move this group to reposition both sides at once) */}
+            <group position={[0, 0.5, -0.1]}>
+                {/* Right Side Knobs */}
+                <group position={[0.4, 0, 0]}>
+                    <Box args={[0.3, 0.1, 0.1]} position={[0.1, 0, 0]}>
+                        <meshStandardMaterial color="#333" />
+                    </Box>
+                    <group
+                        onPointerOver={(e) => { e.stopPropagation(); onHover("Coarse Adjustment Knob"); }}
+                        onPointerOut={() => onHover(null)}
+                    >
+                        <KnurledKnob radius={0.6} height={0.3} rotation={coarseRot} position={[0.15, 0, 0]} />
+                    </group>
+                    <group
+                        onPointerOver={(e) => { e.stopPropagation(); onHover("Fine Adjustment Knob"); }}
+                        onPointerOut={() => onHover(null)}
+                    >
+                        <KnurledKnob radius={0.35} height={0.25} rotation={fineRot} position={[0.4, 0, 0]} />
+                    </group>
                 </group>
-                {/* Fine (Small) */}
-                <group
-                    onPointerOver={(e) => { e.stopPropagation(); onHover("Fine Adjustment Knob"); }}
-                    onPointerOut={() => onHover(null)}
-                >
-                    <KnurledKnob radius={0.35} height={0.25} rotation={fineRot} position={[0.7, 0, 0]} />
-                </group>
-            </group>
 
-            {/* Left Side Knobs */}
-            <group position={[-0.4, 2.0, -0.1]}>
-                {/* Horizontal Shaft Joint */}
-                <Box args={[0.6, 0.2, 0.2]} position={[-0.2, 0, 0]}>
-                    <meshStandardMaterial color="#333" />
-                </Box>
-                {/* Coarse (Large) */}
-                <group
-                    onPointerOver={(e) => { e.stopPropagation(); onHover("Coarse Adjustment Knob"); }}
-                    onPointerOut={() => onHover(null)}
-                >
-                    <KnurledKnob radius={0.6} height={0.3} rotation={coarseRot} position={[-0.4, 0, 0]} />
-                </group>
-                {/* Fine (Small) */}
-                <group
-                    onPointerOver={(e) => { e.stopPropagation(); onHover("Fine Adjustment Knob"); }}
-                    onPointerOut={() => onHover(null)}
-                >
-                    <KnurledKnob radius={0.35} height={0.25} rotation={fineRot} position={[-0.7, 0, 0]} />
+                {/* Left Side Knobs */}
+                <group position={[-0.4, 0, 0]}>
+                    <Box args={[0.3, 0.1, 0.1]} position={[-0.1, 0, 0]}>
+                        <meshStandardMaterial color="#333" />
+                    </Box>
+                    <group
+                        onPointerOver={(e) => { e.stopPropagation(); onHover("Coarse Adjustment Knob"); }}
+                        onPointerOut={() => onHover(null)}
+                    >
+                        <KnurledKnob radius={0.6} height={0.3} rotation={coarseRot} position={[-0.15, 0, 0]} />
+                    </group>
+                    <group
+                        onPointerOver={(e) => { e.stopPropagation(); onHover("Fine Adjustment Knob"); }}
+                        onPointerOut={() => onHover(null)}
+                    >
+                        <KnurledKnob radius={0.35} height={0.25} rotation={fineRot} position={[-0.4, 0, 0]} />
+                    </group>
                 </group>
             </group>
         </group>
     );
 };
 
+// Reusable sub-component for the elevated control knobs (Y and X share the same structure)
+const StageControlKnob = ({ position, postHeight, discY, rotationValue, label, onHover }: {
+    position: [number, number, number], postHeight: number, discY: number,
+    rotationValue: number, label: string, onHover: (n: string | null) => void
+}) => (
+    <group
+        position={position}
+        onPointerOver={(e) => { e.stopPropagation(); onHover(label); }}
+        onPointerOut={() => onHover(null)}
+    >
+        <mesh position={[0, postHeight / 2, 0]}>
+            <cylinderGeometry args={[0.04, 0.04, postHeight, 16]} />
+            <meshStandardMaterial color="#c0c0c0" metalness={0.9} roughness={0.2} />
+        </mesh>
+        <group position={[0, discY, 0]} rotation={[0, rotationValue * 0.15, 0]}>
+            <mesh>
+                <cylinderGeometry args={[0.15, 0.15, 0.08, 32]} />
+                <meshStandardMaterial color="#e0e0e0" metalness={0.9} roughness={0.3} />
+            </mesh>
+            <mesh position={[0, 0, 0.15]}>
+                <boxGeometry args={[0.03, 0.08, 0.03]} />
+                <meshStandardMaterial color="#444" />
+            </mesh>
+        </group>
+    </group>
+);
+
 const ClassicStage = ({ height, x, y, onHover }: { height: number, x: number, y: number, onHover: (n: string | null) => void }) => {
+    // Memoize shared materials to avoid re-creation on every render
+    const silverMat = useMemo(() => <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.3} />, []);
+
     return (
         <group position={[0, height, OPTICAL_Z]}>
             <Box
@@ -391,26 +426,65 @@ const ClassicStage = ({ height, x, y, onHover }: { height: number, x: number, y:
             >
                 <meshStandardMaterial color="#111" />
             </Box>
-            {/* Slide Clips */}
-            <Box args={[0.1, 0.05, 1.2]} position={[0.8, 0.1, 0.3]} rotation={[0, 0.3, 0]}>
-                <meshStandardMaterial color="#ccc" metalness={0.8} />
-            </Box>
-            <Box args={[0.1, 0.05, 1.2]} position={[-0.8, 0.1, 0.3]} rotation={[0, -0.3, 0]}>
-                <meshStandardMaterial color="#ccc" metalness={0.8} />
-            </Box>
 
-            {/* Slide */}
-            <group
-                position={[x * 0.015, 0.1, y * 0.015]}
-                onPointerOver={(e) => { e.stopPropagation(); onHover("Specimen Slide"); }}
-                onPointerOut={() => onHover(null)}
-            >
-                <Box args={[2.5, 0.02, 0.8]}>
-                    <meshPhysicalMaterial color="white" transmission={0.9} opacity={0.5} transparent />
-                </Box>
-                <Box args={[0.8, 0.03, 0.5]} position={[0, 0.01, 0]}>
-                    <meshBasicMaterial color="#db2777" opacity={0.6} transparent />
-                </Box>
+            {/* Attachable Mechanical Stage Mechanism */}
+            <group position={[0, 0.075, 0]}>
+                {/* Movable Assembly (Moves Left/Right as a unit for X) */}
+                <group position={[x * 0.015, 0.075, 0]}>
+
+                    {/* Vertical Y-Track (Stationary for Y movement) */}
+                    <Box args={[0.3, 0.05, 2.8]} position={[1.3, 0.125, 0]}>
+                        {silverMat}
+                    </Box>
+
+                    {/* Forward/Backward Movable Carriage (Slides along Y-Track for Y) */}
+                    <group position={[0, 0, y * 0.015]}>
+                        {/* Connection block */}
+                        <Box args={[0.6, 0.12, 0.4]} position={[1.2, 0.11, -0.6]}>
+                            <meshStandardMaterial color="#a0a0a0" metalness={0.7} />
+                        </Box>
+
+                        {/* Y-Axis Control Knob */}
+                        <StageControlKnob
+                            position={[1.1, 0.15, -0.6]}
+                            postHeight={0.5} discY={0.5}
+                            rotationValue={y} label="Y-Axis Control Knob" onHover={onHover}
+                        />
+
+                        {/* X-Axis Control Knob */}
+                        <StageControlKnob
+                            position={[1.5, 0.15, -0.6]}
+                            postHeight={0.3} discY={0.3}
+                            rotationValue={x} label="X-Axis Control Knob" onHover={onHover}
+                        />
+
+                        {/* Horizontal X-Track Bar */}
+                        <Box args={[3.0, 0.05, 0.3]} position={[-0.1, 0.05, -0.6]}>
+                            {silverMat}
+                        </Box>
+
+                        {/* Glass Slide */}
+                        <group position={[0, 0.05, -0.04]} onPointerOver={(e) => { e.stopPropagation(); onHover("Specimen Slide"); }} onPointerOut={() => onHover(null)}>
+                            <Box args={[2.5, 0.02, 0.8]}>
+                                <meshPhysicalMaterial color="white" transmission={0.9} opacity={0.5} transparent />
+                            </Box>
+                            <Box args={[0.8, 0.03, 0.5]} position={[0, 0.01, 0]}>
+                                <meshBasicMaterial color="#db2777" opacity={0.6} transparent />
+                            </Box>
+                        </group>
+
+                        {/* Spring-Loaded Lever Mechanism */}
+                        <group position={[-1.4, 0.05, -0.54]} rotation={[0, 3.33, 0]}>
+                            <mesh position={[0, 0.05, 0]}>
+                                <cylinderGeometry args={[0.1, 0.1, 0.15, 32]} />
+                                <meshStandardMaterial color="#e0e0e0" metalness={0.9} roughness={0.2} />
+                            </mesh>
+                            <Box args={[0.05, 0.08, 1]} position={[0.05, 0.04, -0.45]}>
+                                <meshStandardMaterial color="#c0c0c0" metalness={0.8} />
+                            </Box>
+                        </group>
+                    </group>
+                </group>
             </group>
         </group>
     );
@@ -527,7 +601,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="red" />
                         </mesh>
-                        <Text position={[0.22, 0, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="red" anchorX="center" anchorY="middle">4x</Text>
+                        <Text position={[0.21, -0.05, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">4x</Text>
                     </group>
 
                     {/* 10x (Yellow) */}
@@ -549,7 +623,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="#fbbf24" />
                         </mesh>
-                        <Text position={[0.25, 0, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="#fbbf24" anchorX="center" anchorY="middle">10x</Text>
+                        <Text position={[0.23, -0.1, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">10x</Text>
                     </group>
 
                     {/* 40x (Blue) */}
@@ -571,7 +645,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="#3b82f6" />
                         </mesh>
-                        <Text position={[0.25, 0, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="#3b82f6" anchorX="center" anchorY="middle">40x</Text>
+                        <Text position={[0.23, -0.15, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">40x</Text>
                     </group>
 
                     {/* 100x (White) */}
@@ -593,7 +667,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="white" />
                         </mesh>
-                        <Text position={[0.25, 0, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="white" anchorX="center" anchorY="middle">100x</Text>
+                        <Text position={[0.23, -0.2, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">100x</Text>
                     </group>
                 </group>
             </group>
@@ -789,6 +863,7 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     });
     const [viewMode, setViewMode] = useState<'3d' | 'eyepiece'>('3d');
     const [hoveredPart, setHoveredPart] = useState<string | null>(null);
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     const totalFocus = state.coarseFocus + (state.fineFocus - 50) * 0.1;
 
@@ -866,6 +941,14 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <button onClick={() => setViewMode('3d')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-full text-[10px] sm:text-xs font-bold transition-all ${viewMode === '3d' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>3D VIEW</button>
                     <button onClick={() => setViewMode('eyepiece')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-full text-[10px] sm:text-xs font-bold transition-all ${viewMode === 'eyepiece' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}>EYEPIECE</button>
                 </div>
+
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center sm:ml-4"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             {/* MAIN CONTENT AREA */}
@@ -874,6 +957,7 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="flex-1 relative bg-[#020617] order-1 min-h-[50vh]">
                     <div className={`absolute inset-0 transition-opacity duration-500 ${viewMode === '3d' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                         <Canvas shadows camera={{ position: [7, 5, 7], fov: 35 }}>
+                            <color key={sceneBgColor} attach="background" args={[sceneBgColor]} />
                             <Environment preset="studio" />
                             <ambientLight intensity={0.5} />
                             <directionalLight position={[10, 10, 10]} intensity={1} castShadow />

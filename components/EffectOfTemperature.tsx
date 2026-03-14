@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Environment } from '@react-three/drei';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw } from 'lucide-react';
+import { OrbitControls, Cylinder, Box, Sphere, Environment, Text } from '@react-three/drei';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -125,31 +125,104 @@ const InteractiveObject = ({
 
 // Temperature indicator showing the Ringer's solution temperature
 const TemperatureIndicator = ({ temperature }: { temperature: number }) => {
-    // Color gradient based on temperature
-    const getColor = (temp: number) => {
-        if (temp < 15) return '#3b82f6'; // Blue - cold
-        if (temp < 20) return '#06b6d4'; // Cyan - cool
-        if (temp <= 30) return '#22c55e'; // Green - optimal
-        if (temp <= 37) return '#f59e0b'; // Amber - warm
-        return '#ef4444'; // Red - hot
-    };
+    const redColor = '#ef4444';
+    const glassColor = '#e2e8f0';
+    const plateColor = '#f8fafc';
+    const metalColor = '#94a3b8';
+
+    // Temperature mapping: 0-50 C maps to -0.5 to 0.5 height
+    const getCHeight = (c: number) => (c / 50) - 0.5;
+    const getFFromC = (c: number) => (c * 9 / 5) + 32;
+    const getFHeight = (f: number) => (((f - 32) * 5 / 9) / 50) - 0.5;
 
     return (
-        <group position={[-3.5, 0.5, 0]}>
-            {/* Thermometer body */}
-            <Cylinder args={[0.08, 0.08, 1.2]} position={[0, 0, 0]}>
-                <meshStandardMaterial color="#f1f5f9" />
+        <group position={[-3, 0.8, -0.56]} rotation={[0, 0, 0]}>
+            {/* Backing Plate */}
+            <Box args={[0.50, 1.7, 0.05]} position={[0.01, 0, -0.02]}>
+                <meshStandardMaterial color={plateColor} roughness={0.5} />
+            </Box>
+
+            <Text position={[0, 0.78, 0.01]} fontSize={0.05} color="#475569" fontWeight="bold">
+                THERMOMETER
+            </Text>
+
+            {/* Glass Tube (outer) - Extended to cover bulb area */}
+            <Cylinder args={[0.04, 0.04, 1.3]} position={[0, -0.05, 0]}>
+                <meshPhysicalMaterial
+                    color={glassColor}
+                    transmission={0.9}
+                    thickness={0.02}
+                    roughness={0.1}
+                    transparent
+                    opacity={0.4}
+                />
             </Cylinder>
-            {/* Mercury bulb */}
-            <Sphere args={[0.12, 16, 16]} position={[0, -0.7, 0]}>
-                <meshStandardMaterial color={getColor(temperature)} emissive={getColor(temperature)} emissiveIntensity={0.3} />
+
+            {/* Red Fluid Bulb reservoir - Moved slightly up to connect */}
+            <Sphere args={[0.1, 16, 16]} position={[0, -0.7, 0]}>
+                <meshStandardMaterial color={redColor} emissive={redColor} emissiveIntensity={0.4} />
             </Sphere>
-            {/* Mercury level (dynamic) */}
+
+            {/* Static Red Fluid (Reservoir-to-scale junction) */}
+            <Cylinder args={[0.02, 0.02, 0.2]} position={[0, -0.6, 0]}>
+                <meshStandardMaterial color={redColor} emissive={redColor} emissiveIntensity={0.3} />
+            </Cylinder>
+
+            {/* Red Fluid Column (dynamic, starts from zero at -0.5) */}
             <Cylinder
-                args={[0.05, 0.05, Math.min(1.0, (temperature / 50) * 1.0)]}
-                position={[0, -0.5 + (Math.min(1.0, (temperature / 50) * 1.0) / 2), 0]}
+                args={[0.02, 0.02, Math.max(0.001, (temperature / 50) * 1.0)]}
+                position={[0, -0.5 + (Math.max(0.001, (temperature / 50) * 1.0) / 2), 0]}
             >
-                <meshStandardMaterial color={getColor(temperature)} emissive={getColor(temperature)} emissiveIntensity={0.2} />
+                <meshStandardMaterial color={redColor} emissive={redColor} emissiveIntensity={0.4} />
+            </Cylinder>
+
+            {/* Scale Headers - Adjusted position for better spacing */}
+            <Text position={[-0.12, 0.65, 0.01]} fontSize={0.08} color="#475569" fontWeight="bold">C</Text>
+            <Text position={[0.12, 0.65, 0.01]} fontSize={0.08} color="#475569" fontWeight="bold">F</Text>
+
+            {/* Celsius Scale (Left side) */}
+            {Array.from({ length: 26 }).map((_, i) => {
+                const tempC = i * 2;
+                const h = getCHeight(tempC);
+                const isMajor = tempC % 10 === 0;
+                return (
+                    <group key={`c-${i}`} position={[-0.04, h, 0.01]}>
+                        <Box args={[isMajor ? 0.08 : 0.04, 0.005, 0.01]} position={[isMajor ? -0.04 : -0.02, 0, 0]}>
+                            <meshStandardMaterial color="#64748b" />
+                        </Box>
+                        {isMajor && (
+                            <Text position={[-0.11, 0, 0]} fontSize={0.06} color="#1e293b" anchorX="right">
+                                {tempC}
+                            </Text>
+                        )}
+                    </group>
+                );
+            })}
+
+            {/* Fahrenheit Scale (Right side) */}
+            {[32, 40, 50, 60, 70, 80, 90, 100, 110, 122].map((tempF, i) => {
+                const h = getFHeight(tempF);
+                const isMajor = tempF % 20 === 0 || tempF === 32 || tempF === 122;
+                return (
+                    <group key={`f-${i}`} position={[0.04, h, 0.01]}>
+                        <Box args={[isMajor ? 0.08 : 0.04, 0.005, 0.01]} position={[isMajor ? 0.04 : 0.02, 0, 0]}>
+                            <meshStandardMaterial color="#64748b" />
+                        </Box>
+                        {isMajor && (
+                            <Text position={[0.10, 0, 0]} fontSize={0.06} color="#1e293b" anchorX="left">
+                                {tempF}
+                            </Text>
+                        )}
+                    </group>
+                );
+            })}
+
+            {/* Metal clamps - Repositioned for cleaner area */}
+            <Cylinder args={[0.045, 0.045, 0.02]} position={[0, 0.6, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+                <meshStandardMaterial color={metalColor} metalness={0.8} />
+            </Cylinder>
+            <Cylinder args={[0.045, 0.045, 0.02]} position={[0, -0.68, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+                <meshStandardMaterial color={metalColor} metalness={0.8} />
             </Cylinder>
         </group>
     );
@@ -682,10 +755,14 @@ const TemperatureComparisonGraph = ({
 // --- Temperature Control Component ---
 const TemperatureControl = ({
     temperature,
-    setTemperature
+    setTemperature,
+    targetTemperature,
+    setTargetTemperature
 }: {
     temperature: number,
-    setTemperature: (t: number) => void
+    setTemperature: (t: number) => void,
+    targetTemperature: number | null,
+    setTargetTemperature: (t: number | null) => void
 }) => {
     const getTemperatureLabel = (temp: number) => {
         if (temp <= 10) return 'Cold';
@@ -701,21 +778,22 @@ const TemperatureControl = ({
         return 'text-green-400'; // Default color for intermediate
     };
 
-    const isHeatRigor = temperature >= 43;
-    const label = getTemperatureLabel(temperature);
+    const displayTemp = Math.round(temperature);
+    const isHeatRigor = displayTemp >= 43;
+    const label = getTemperatureLabel(displayTemp);
 
     return (
         <div className={`p-4 rounded-xl border ${isHeatRigor ? 'bg-red-950 border-red-700' : 'bg-slate-800 border-slate-700'}`}>
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                    <Thermometer className={`w-5 h-5 ${getTemperatureColor(temperature)}`} />
+                    <Thermometer className={`w-5 h-5 ${getTemperatureColor(displayTemp)}`} />
                     <span className="text-sm font-medium text-slate-300">Ringer's Solution Temperature</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className={`text-lg font-bold ${getTemperatureColor(temperature)}`}>{temperature}°C</span>
+                    <span className={`text-lg font-bold ${getTemperatureColor(displayTemp)}`}>{displayTemp}°C</span>
                     {label && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${temperature <= 10 ? 'bg-blue-900 text-blue-300' :
-                            temperature >= 43 ? 'bg-red-600 text-white animate-pulse' :
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${displayTemp <= 10 ? 'bg-blue-900 text-blue-300' :
+                            displayTemp >= 43 ? 'bg-red-600 text-white animate-pulse' :
                                 'bg-amber-900 text-amber-300'
                             }`}>
                             {label}
@@ -727,9 +805,12 @@ const TemperatureControl = ({
                 type="range"
                 min="5"
                 max="45"
-                step="1"
+                step="0.1"
                 value={temperature}
-                onChange={(e) => setTemperature(Number(e.target.value))}
+                onChange={(e) => {
+                    setTargetTemperature(null);
+                    setTemperature(Number(e.target.value));
+                }}
                 className="w-full h-2 bg-gradient-to-r from-blue-500 via-green-500 to-red-500 rounded-lg appearance-none cursor-pointer"
             />
             <div className="flex justify-between text-xs text-slate-500 mt-1">
@@ -741,8 +822,8 @@ const TemperatureControl = ({
             {/* Preset Temperature Buttons */}
             <div className="flex gap-2 mt-3">
                 <button
-                    onClick={() => setTemperature(10)}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${temperature === 10
+                    onClick={() => setTargetTemperature(10)}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${(targetTemperature === 10 || (targetTemperature === null && displayTemp === 10))
                         ? 'bg-blue-600 text-white'
                         : 'bg-slate-700 text-blue-300 hover:bg-slate-600 border border-slate-600'
                         }`}
@@ -750,8 +831,8 @@ const TemperatureControl = ({
                     ❄️ Cold (10°C)
                 </button>
                 <button
-                    onClick={() => setTemperature(40)}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${temperature === 40
+                    onClick={() => setTargetTemperature(40)}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${(targetTemperature === 40 || (targetTemperature === null && displayTemp === 40))
                         ? 'bg-amber-600 text-white'
                         : 'bg-slate-700 text-amber-300 hover:bg-slate-600 border border-slate-600'
                         }`}
@@ -775,17 +856,42 @@ const TemperatureControl = ({
 
 export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [temperature, setTemperature] = useState(25);
+    const [targetTemperature, setTargetTemperature] = useState<number | null>(null);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
     const [traceHistory, setTraceHistory] = useState<TraceHistory[]>([]);
     const [activeTemperature, setActiveTemperature] = useState(25); // Temperature used for current trace
+    const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
 
     const [simState, setSimState] = useState<SimulationState>({
         time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest'
     });
 
     const animationFrameRef = useRef<number>();
+
+    // Smooth temperature transition
+    useEffect(() => {
+        if (targetTemperature === null) return;
+
+        let frameId: number;
+        const animate = () => {
+            setTemperature(prev => {
+                const diff = targetTemperature - prev;
+                const step = Math.sign(diff) * Math.min(Math.abs(diff), 0.5); // 0.5 degrees per frame
+
+                if (Math.abs(diff) <= 0.5) {
+                    setTargetTemperature(null);
+                    return targetTemperature;
+                }
+                return prev + step;
+            });
+            frameId = requestAnimationFrame(animate);
+        };
+
+        frameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(frameId);
+    }, [targetTemperature]);
 
     // Get color for temperature
     const getTraceColor = (temp: number) => {
@@ -817,15 +923,15 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
         }
 
         // Set the active temperature to the currently selected temperature for the new trace
-        setActiveTemperature(temperature);
+        setActiveTemperature(Math.round(temperature));
         setSimState({ time: 0, isRunning: true, data: [], currentHeight: 0, phase: 'Latent' });
-        setResetKey(prev => prev + 1);
     };
 
     const handleReset = () => {
         setSimState({ time: 0, isRunning: false, data: [], currentHeight: 0, phase: 'Rest' });
         setTraceHistory([]);
-        setActiveTemperature(temperature);
+        setActiveTemperature(Math.round(temperature));
+        setTargetTemperature(25); // Set back to normal temperature on reset
         setResetKey(prev => prev + 1);
     };
 
@@ -883,6 +989,13 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
                         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 via-green-400 to-red-400 bg-clip-text text-transparent">Effect of Temperature</h1>
                     </div>
                 </div>
+                <button
+                    onClick={() => setSceneBgColor(prev => prev === '#CBD5E1' ? '#2F3E46' : '#CBD5E1')}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors flex items-center justify-center"
+                    title="Toggle Canvas Background"
+                >
+                    {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -912,8 +1025,8 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
 
                 {/* 3D View */}
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
-                    <Canvas shadows camera={{ position: [1, 2, 8], fov: 35 }}>
-                        <color attach="background" args={['#0f172a']} />
+                    <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
+                        <color attach="background" args={[sceneBgColor]} />
                         <Environment preset="city" />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
@@ -933,7 +1046,7 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
                             />
                         </group>
 
-                        <OrbitControls makeDefault minPolarAngle={0} />
+                        <OrbitControls makeDefault target={[-0.74, -0.60, 3.39]} minPolarAngle={0} />
                     </Canvas>
 
                     {hoveredLabel && (
@@ -961,7 +1074,12 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
                     {/* Controls */}
                     <div className="p-6 bg-slate-900 z-10 space-y-4">
                         {/* Temperature Control */}
-                        <TemperatureControl temperature={temperature} setTemperature={setTemperature} />
+                        <TemperatureControl
+                            temperature={temperature}
+                            setTemperature={setTemperature}
+                            targetTemperature={targetTemperature}
+                            setTargetTemperature={setTargetTemperature}
+                        />
 
                         {/* Simple Stimulate/Reset Buttons */}
                         <div className="flex gap-3">
