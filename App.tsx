@@ -2316,7 +2316,7 @@ const App: React.FC = () => {
             </div>
             <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
               <span>© 2026 Virtual Physiology Lab</span>
-              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Feb 25, 2026</span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Mar 18, 2026</span>
             </div>
           </div>
 
@@ -2351,7 +2351,7 @@ const App: React.FC = () => {
                     </ul>
                     <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-2">
                       <span>Developed by Dr. B. I Mario Raja using React, Three.js, and Capacitor.</span>
-                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.4.0 • Feb 25, 2026</span>
+                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.5.0 • Mar 18, 2026</span>
                     </p>
                   </div>
                 </div>
@@ -2375,7 +2375,17 @@ const App: React.FC = () => {
                   </h2>
                   <div className="space-y-6">
                     <div className="border-l-2 border-green-500 pl-4">
-                      <h3 className="text-lg font-semibold text-white">v1.4.0 (Current)</h3>
+                      <h3 className="text-lg font-semibold text-white">v1.5.0 (Current)</h3>
+                      <p className="text-slate-500 text-sm mb-2">March 18, 2026</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Realistic Microscope controls — Mechanical stage knobs now match real-world microscopes.</li>
+                        <li>Smoother kymograph tracings — Curves are now smooth and traces preserved for comparison.</li>
+                        <li>Improved Two Successive Stimuli graphs with better layout and clearer S1/S2 markers.</li>
+                        <li>Added Feedback form — Rate and share suggestions directly from the app.</li>
+                      </ul>
+                    </div>
+                    <div className="border-l-2 border-slate-700 pl-4 opacity-70">
+                      <h3 className="text-lg font-semibold text-white">v1.4.0</h3>
                       <p className="text-slate-500 text-sm mb-2">February 25, 2026</p>
                       <ul className="list-disc list-inside text-slate-300 space-y-1">
                         <li>Added 5 new Cardiac Muscle experiments (Extra Systole, Heart Block, All-or-None, Staircase, Summation).</li>
