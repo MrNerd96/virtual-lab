@@ -12,7 +12,7 @@ const CONTRACTION_DURATION = 40;
 const RELAXATION_DURATION = 50;
 
 // Simulation
-const TOTAL_WINDOW_MS = 150; // Reduced from 200 to fill space better
+const TOTAL_WINDOW_MS = 250; // Extended to allow the second wave to fully relax back to baseline
 
 interface SimulationState {
     time: number;
@@ -1006,7 +1006,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                             </div>
                             <input
                                 type="range"
-                                min="0" max="150" step="1"
+                                min="0" max="125" step="1"
                                 value={isi}
                                 onChange={(e) => handleSliderChange(Number(e.target.value))}
                                 disabled={simState.isRunning}

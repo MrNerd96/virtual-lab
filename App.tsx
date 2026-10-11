@@ -1018,7 +1018,7 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
           {/* Real Cells Button */}
           <button
-            onClick={() => window.open('https://biolucida.net:443/image?c=MTk4Ny1jb2wtOTEtMC0wLTEtMA%3D%3D', '_blank')}
+            onClick={() => window.open('https://histologyguide.com/slideview/MH-033hr-blood-smear/07-slide-1.html?x=6650&y=6922&z=41.552', '_blank')}
             className="mt-4 w-full py-3 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:via-purple-500 hover:to-fuchsia-500 rounded-xl font-bold text-white border border-purple-400/50 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center gap-2 animate-pulse hover:animate-none"
           >
             <Microscope className="w-5 h-5" />
@@ -2316,7 +2316,7 @@ const App: React.FC = () => {
             </div>
             <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
               <span>© 2026 Virtual Physiology Lab</span>
-              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Mar 18, 2026</span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Oct 11, 2026</span>
             </div>
           </div>
 
@@ -2350,8 +2350,8 @@ const App: React.FC = () => {
                       <li>Real-time data visualization with Oscilloscope.</li>
                     </ul>
                     <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-2">
-                      <span>Developed by Dr. B. I Mario Raja using React, Three.js, and Capacitor.</span>
-                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.5.0 • Mar 18, 2026</span>
+                      <span>Developed by Dr. B. I. Mario Raja, MBBS, MD (Physiology) using React, Three.js, and Capacitor.</span>
+                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.5.0 • Oct 11, 2026</span>
                     </p>
                   </div>
                 </div>
@@ -2376,11 +2376,12 @@ const App: React.FC = () => {
                   <div className="space-y-6">
                     <div className="border-l-2 border-green-500 pl-4">
                       <h3 className="text-lg font-semibold text-white">v1.5.0 (Current)</h3>
-                      <p className="text-slate-500 text-sm mb-2">March 18, 2026</p>
+                      <p className="text-slate-500 text-sm mb-2">October 11, 2026</p>
                       <ul className="list-disc list-inside text-slate-300 space-y-1">
                         <li>Realistic Microscope controls — Mechanical stage knobs now match real-world microscopes.</li>
                         <li>Smoother kymograph tracings — Curves are now smooth and traces preserved for comparison.</li>
-                        <li>Improved Two Successive Stimuli graphs with better layout and clearer S1/S2 markers.</li>
+                        <li>Improved Two Successive Stimuli graphs with better layout, extended relaxation window, and clearer S1/S2 markers.</li>
+                        <li>Updated real blood smear microscope slide link to Histology Guide.</li>
                         <li>Added Feedback form — Rate and share suggestions directly from the app.</li>
                       </ul>
                     </div>
