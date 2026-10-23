@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube, useProgress } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere, Text, Tube, useProgress } from '@react-three/drei';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
@@ -45,19 +46,20 @@ const calculateInstantaneousHeight = (t: number, peakHeight: number) => {
 
 // --- Scene Loading Notifier ---
 const SceneReadyNotifier = ({ onReady }: { onReady: () => void }) => {
-    const { progress, active } = useProgress();
+    const { progress, active, total } = useProgress();
     const hasNotified = useRef(false);
 
     useEffect(() => {
-        if (progress === 100 && !active && !hasNotified.current) {
+        // Ready once every asset has loaded, or straight away when the scene has nothing to download
+        if ((progress === 100 || total === 0) && !active && !hasNotified.current) {
             // Small delay to ensure the first frame has rendered
             const timeout = setTimeout(() => {
                 hasNotified.current = true;
                 onReady();
-            }, 400);
+            }, 100);
             return () => clearTimeout(timeout);
         }
-    }, [progress, active, onReady]);
+    }, [progress, active, total, onReady]);
 
     return null;
 };
@@ -500,7 +502,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
 
     const handleSceneReady = React.useCallback(() => {
         setFadeOut(true);
-        setTimeout(() => setSceneReady(true), 600);
+        setTimeout(() => setSceneReady(true), 300);
     }, []);
 
     const [simState, setSimState] = useState<SimulationState>({
@@ -637,7 +639,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
                         <SceneReadyNotifier onReady={handleSceneReady} />
@@ -668,7 +670,7 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                     {/* 3D Loading Overlay */}
                     {!sceneReady && (
                         <div
-                            className={`absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+                            className={`absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-300 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
                         >
                             {/* Animated pulse ring */}
                             <div className="relative w-20 h-20 mb-6">

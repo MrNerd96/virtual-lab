@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere, Text, Tube } from '@react-three/drei';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Eye, LineChart, Zap, RotateCcw, Activity, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
@@ -796,7 +797,7 @@ export const ConductionVelocity: React.FC<{ onBack: () => void }> = ({ onBack })
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Environment, Tube, Torus, Circle, Cone } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere, Tube, Torus, Circle, Cone } from '@react-three/drei';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Activity, Volume2, VolumeX, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { useHeartbeatSound } from './useHeartbeatSound';
@@ -1863,7 +1864,7 @@ export const PropertiesOfCardiacMuscle: React.FC<{ onBack: () => void }> = ({ on
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [-3.82, 2.79, -4.95], fov: 38 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
                         <pointLight position={[-5, 5, -3]} intensity={0.5} color="#ffeedd" />

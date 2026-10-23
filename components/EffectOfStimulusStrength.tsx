@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Text, Environment, Tube, Torus, Ring } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere, Text, Tube, Torus, Ring } from '@react-three/drei';
+import { LABEL_FONT_BOLD } from './labelFonts';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Eye, LineChart, Zap, Pause, Play, Download, RotateCcw, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
@@ -303,7 +305,7 @@ const DuBoisReymondCoil = ({ distance, onHoverChange }: { distance: number, onHo
                 </group>
 
                 {/* Distance indicator */}
-                <Text
+                <Text font={LABEL_FONT_BOLD}
                     position={[0.5, 0.9, 0]}
                     fontSize={0.13}
                     color="#22d3ee"
@@ -800,7 +802,7 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
     return (
         <div className="flex flex-col h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
             {/* Header */}
-            <div className="h-14 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 relative z-20 backdrop-blur-md">
+            <header className="h-14 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 relative z-20 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onBack}
@@ -823,7 +825,7 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
                 >
                     {sceneBgColor === '#CBD5E1' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
                 </button>
-            </div>
+            </header>
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -863,7 +865,7 @@ export const EffectOfStimulusStrength: React.FC<{ onBack?: () => void }> = ({ on
 
                     <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
 

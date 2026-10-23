@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, useTexture, Cylinder, Box, Sphere, Circle, RoundedBox, Text, Environment } from '@react-three/drei';
+import { OrbitControls, useTexture, Cylinder, Box, Sphere, Circle, RoundedBox, Text } from '@react-three/drei';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
@@ -936,7 +937,7 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                     <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
                         <color key={sceneBgColor} attach="background" args={[sceneBgColor]} />
 
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow shadow-bias={-0.0001} />
                         <pointLight position={[-5, 5, -5]} intensity={1} color="#38bdf8" />

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, Box, Cylinder, Torus, Text } from '@react-three/drei';
+import { OrbitControls, Box, Cylinder, Torus, Text } from '@react-three/drei';
+import { LABEL_FONT } from './labelFonts';
+import { LabEnvironment } from './LabEnvironment';
 import * as THREE from 'three';
 import { ArrowLeft, Move, Eye, Ruler, Sun, Moon } from 'lucide-react';
 
@@ -601,7 +603,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="red" />
                         </mesh>
-                        <Text position={[0.21, -0.05, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">4x</Text>
+                        <Text font={LABEL_FONT} position={[0.21, -0.05, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">4x</Text>
                     </group>
 
                     {/* 10x (Yellow) */}
@@ -623,7 +625,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="#fbbf24" />
                         </mesh>
-                        <Text position={[0.23, -0.1, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">10x</Text>
+                        <Text font={LABEL_FONT} position={[0.23, -0.1, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">10x</Text>
                     </group>
 
                     {/* 40x (Blue) */}
@@ -645,7 +647,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="#3b82f6" />
                         </mesh>
-                        <Text position={[0.23, -0.15, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">40x</Text>
+                        <Text font={LABEL_FONT} position={[0.23, -0.15, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">40x</Text>
                     </group>
 
                     {/* 100x (White) */}
@@ -667,7 +669,7 @@ const BodyTubeAndTurret = ({ objective, focus, onHover }: { objective: number, f
                             <torusGeometry args={[0.18, 0.03, 16, 32]} />
                             <meshBasicMaterial color="white" />
                         </mesh>
-                        <Text position={[0.23, -0.2, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">100x</Text>
+                        <Text font={LABEL_FONT} position={[0.23, -0.2, 0]} rotation={[0, Math.PI / 2, 0]} fontSize={0.14} color="black" anchorX="center" anchorY="middle">100x</Text>
                     </group>
                 </group>
             </group>
@@ -958,7 +960,7 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className={`absolute inset-0 transition-opacity duration-500 ${viewMode === '3d' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                         <Canvas shadows camera={{ position: [7, 5, 7], fov: 35 }}>
                             <color key={sceneBgColor} attach="background" args={[sceneBgColor]} />
-                            <Environment preset="studio" />
+                            <LabEnvironment variant="studio" />
                             <ambientLight intensity={0.5} />
                             <directionalLight position={[10, 10, 10]} intensity={1} castShadow />
 

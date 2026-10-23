@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Environment, Tube, Torus, Circle, Cone } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere, Tube, Torus, Circle, Cone } from '@react-three/drei';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Volume2, VolumeX, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { useHeartbeatSound } from './useHeartbeatSound';
@@ -61,7 +62,7 @@ function cardiogramWaveform(phase: number, amplitude: number): number {
 
 // --- 3D Components ---
 
-const InteractiveObject = ({
+export const InteractiveObject = ({
     label,
     children,
     onHoverChange
@@ -85,7 +86,7 @@ const InteractiveObject = ({
 };
 
 // --- Myograph Board ---
-const MyographBoard = ({ onHoverChange }: { onHoverChange?: (l: string | null) => void }) => {
+export const MyographBoard = ({ onHoverChange }: { onHoverChange?: (l: string | null) => void }) => {
     return (
         <InteractiveObject label="Myograph Board" onHoverChange={onHoverChange}>
             <group position={[0, -0.9, 0]}>
@@ -122,7 +123,7 @@ const MyographBoard = ({ onHoverChange }: { onHoverChange?: (l: string | null) =
 
 // --- Frog Heart (3-chambered: 2 atria + 1 ventricle) ---
 // Procedural model: Lathe geometry for ventricle, deformed spheres for atria
-const FrogHeart = ({ contraction, temperature, onHoverChange }: {
+export const FrogHeart = ({ contraction, temperature, onHoverChange }: {
     contraction: number,
     temperature: number,
     onHoverChange?: (l: string | null) => void
@@ -344,7 +345,7 @@ const RingerDropper = ({ temperature, isActive, onHoverChange }: {
 };
 
 // --- Frog Body (Procedural) ---
-const FrogBody = ({ onHoverChange }: { onHoverChange?: (l: string | null) => void }) => {
+export const FrogBody = ({ onHoverChange }: { onHoverChange?: (l: string | null) => void }) => {
     return (
         <InteractiveObject label="Frog (Pithed)" onHoverChange={onHoverChange}>
             <group position={[0, -0.4, 0.2]} rotation={[-0.1, 0, 0]}>
@@ -481,7 +482,7 @@ const HelicalSpring = ({ length, radius, coils, color, thickness }: { length: nu
 };
 
 // --- Spring Loaded Lever (Starling Heart Lever) ---
-const SpringLoadedLever = ({ angle, onHoverChange }: { angle: number, onHoverChange?: (l: string | null) => void }) => {
+export const SpringLoadedLever = ({ angle, onHoverChange }: { angle: number, onHoverChange?: (l: string | null) => void }) => {
     const metalColor = "#e2e8f0";
     const standColor = "#94a3b8";
     const knobColor = "#475569";
@@ -609,7 +610,7 @@ const SpringLoadedLever = ({ angle, onHoverChange }: { angle: number, onHoverCha
 };
 
 // --- Thread connecting heart to lever ---
-const HeartThread = ({ contraction }: { contraction: number }) => {
+export const HeartThread = ({ contraction }: { contraction: number }) => {
     // Lever angle multiplier — must match the value used in <SpringLoadedLever>
     const LEVER_ANGLE_SCALE = 0.036;
 
@@ -1190,7 +1191,7 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [-3.82, 2.79, -4.95], fov: 38 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
                         <pointLight position={[-5, 5, -3]} intensity={0.5} color="#ffeedd" />

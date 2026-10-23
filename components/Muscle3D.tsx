@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Cylinder, Sphere, Box, Text } from '@react-three/drei';
+import { LABEL_FONT } from './labelFonts';
 import * as THREE from 'three';
 
 interface Muscle3DProps {
@@ -67,7 +68,7 @@ export const Muscle3D: React.FC<Muscle3DProps> = ({ contraction }) => {
          <Box args={[0.4, 0.4, 0.4]}>
             <meshStandardMaterial color="#475569" metalness={0.6} />
          </Box>
-         <Text 
+         <Text font={LABEL_FONT} 
             position={[0, 0, 0.21]} 
             fontSize={0.2} 
             color="white"

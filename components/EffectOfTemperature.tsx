@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Environment, Text } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere, Text } from '@react-three/drei';
+import { LABEL_FONT, LABEL_FONT_BOLD } from './labelFonts';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 
@@ -142,7 +144,7 @@ const TemperatureIndicator = ({ temperature }: { temperature: number }) => {
                 <meshStandardMaterial color={plateColor} roughness={0.5} />
             </Box>
 
-            <Text position={[0, 0.78, 0.01]} fontSize={0.05} color="#475569" fontWeight="bold">
+            <Text font={LABEL_FONT_BOLD} position={[0, 0.78, 0.01]} fontSize={0.05} color="#475569" fontWeight="bold">
                 THERMOMETER
             </Text>
 
@@ -177,8 +179,8 @@ const TemperatureIndicator = ({ temperature }: { temperature: number }) => {
             </Cylinder>
 
             {/* Scale Headers - Adjusted position for better spacing */}
-            <Text position={[-0.12, 0.65, 0.01]} fontSize={0.08} color="#475569" fontWeight="bold">C</Text>
-            <Text position={[0.12, 0.65, 0.01]} fontSize={0.08} color="#475569" fontWeight="bold">F</Text>
+            <Text font={LABEL_FONT_BOLD} position={[-0.12, 0.65, 0.01]} fontSize={0.08} color="#475569" fontWeight="bold">C</Text>
+            <Text font={LABEL_FONT_BOLD} position={[0.12, 0.65, 0.01]} fontSize={0.08} color="#475569" fontWeight="bold">F</Text>
 
             {/* Celsius Scale (Left side) */}
             {Array.from({ length: 26 }).map((_, i) => {
@@ -191,7 +193,7 @@ const TemperatureIndicator = ({ temperature }: { temperature: number }) => {
                             <meshStandardMaterial color="#64748b" />
                         </Box>
                         {isMajor && (
-                            <Text position={[-0.11, 0, 0]} fontSize={0.06} color="#1e293b" anchorX="right">
+                            <Text font={LABEL_FONT} position={[-0.11, 0, 0]} fontSize={0.06} color="#1e293b" anchorX="right">
                                 {tempC}
                             </Text>
                         )}
@@ -209,7 +211,7 @@ const TemperatureIndicator = ({ temperature }: { temperature: number }) => {
                             <meshStandardMaterial color="#64748b" />
                         </Box>
                         {isMajor && (
-                            <Text position={[0.10, 0, 0]} fontSize={0.06} color="#1e293b" anchorX="left">
+                            <Text font={LABEL_FONT} position={[0.10, 0, 0]} fontSize={0.06} color="#1e293b" anchorX="left">
                                 {tempF}
                             </Text>
                         )}
@@ -1027,7 +1029,7 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
                 <div className={`flex-1 relative bg-black ${mobileView === 'graph' ? 'hidden lg:flex' : 'flex'}`}>
                     <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
 

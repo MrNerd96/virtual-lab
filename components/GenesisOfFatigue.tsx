@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Cylinder, Box, Sphere, Environment } from '@react-three/drei';
+import { OrbitControls, Cylinder, Box, Sphere } from '@react-three/drei';
+import { LabEnvironment } from './LabEnvironment';
 import { ArrowLeft, Timer, RefreshCw, Eye, LineChart, Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import { Controls } from './Controls';
@@ -759,7 +760,7 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                 <div className={`relative bg-black shrink-0 ${mobileView === 'graph' ? 'hidden lg:flex lg:flex-1' : 'h-[40vh] lg:h-auto lg:flex-1 flex'}`}>
                     <Canvas shadows camera={{ position: [2.95, 4.04, 8.23], fov: 35 }}>
                         <color attach="background" args={[sceneBgColor]} />
-                        <Environment preset="city" />
+                        <LabEnvironment />
                         <ambientLight intensity={0.6} color="#ffffff" />
                         <spotLight position={[10, 10, 5]} angle={0.3} penumbra={0.5} intensity={2} castShadow />
 
