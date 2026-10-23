@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { DLCQuiz } from './components/DLCQuiz';
 import { Canvas } from '@react-three/fiber';
-import { Environment, OrbitControls, Stage } from '@react-three/drei';
+import { OrbitControls, Stage } from '@react-three/drei';
+import { LabEnvironment } from './components/LabEnvironment';
 import { Controls } from './components/Controls';
 import { SimpleMuscleTwitch } from './components/SimpleMuscleTwitch';
 import { GenesisOfFatigue } from './components/GenesisOfFatigue';
@@ -19,6 +20,11 @@ const EffectOfStimulusStrength = lazy(() => import('./components/EffectOfStimulu
 const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').then(m => ({ default: m.ConductionVelocity })));
 const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })));
 const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })));
+const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })));
+const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })));
+const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })));
+const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then(m => ({ default: m.OsmoticFragility })));
+const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })));
 
 
 
@@ -53,7 +59,8 @@ import {
   BatteryWarning,
   Thermometer,
   Heart,
-  Target
+  Target,
+  TestTubes
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -65,7 +72,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -87,6 +94,10 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'rbc-count': 'RBC Count',
   'dlc-count': 'DLC Count',
   'dlc-quiz': 'DLC Quiz',
+  'specific-gravity': 'Specific Gravity of Blood',
+  'hb-estimation': 'Haemoglobin Estimation',
+  'osmotic-fragility': 'Osmotic Fragility of RBCs',
+  'esr': 'Erythrocyte Sedimentation Rate',
   'genesis-tetanus': 'Genesis of Tetanus',
   'effect-of-temperature': 'Effect of Temperature',
   'microscope': 'Microscope Master',
@@ -94,6 +105,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'conduction-velocity': 'Conduction Velocity',
   'normal-cardiogram': 'Normal Cardiogram',
   'properties-cardiac-muscle': 'Properties of Cardiac Muscle',
+  'vagus-wcl': 'Vagus & White Crescentic Line',
 };
 
 const MODULE_CATEGORIES: Record<ViewState, string> = {
@@ -111,10 +123,15 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'conduction-velocity': 'Amphibian',
   'normal-cardiogram': 'Amphibian',
   'properties-cardiac-muscle': 'Amphibian',
+  'vagus-wcl': 'Amphibian',
   'wbc-count': 'Hematology',
   'rbc-count': 'Hematology',
   'dlc-count': 'Hematology',
   'dlc-quiz': 'Hematology',
+  'specific-gravity': 'Hematology',
+  'hb-estimation': 'Hematology',
+  'osmotic-fragility': 'Hematology',
+  'esr': 'Hematology',
   'microscope': 'Microscope',
 };
 
@@ -1402,7 +1419,7 @@ const MuscleLab: React.FC<MuscleLabProps> = ({ mode, title, subtitle, onBack }) 
           <div className="relative h-[250px] lg:h-auto lg:flex-1 bg-gradient-to-b from-slate-800 to-slate-900 shrink-0">
             <Suspense fallback={<LoadingSpinner message="Loading 3D model..." />}>
               <Canvas shadows camera={{ position: [4, 2, 5], fov: 45 }}>
-                <Environment preset="city" />
+                <LabEnvironment />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} castShadow />
                 <Stage intensity={0.5} environment="city" adjustCamera={false}>
@@ -1974,9 +1991,10 @@ const GOOGLE_FORM_CONFIG = {
 
 interface FeedbackModalProps {
   onClose: () => void;
+  screen?: string; // the screen the feedback was sent from, added to the message
 }
 
-const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
+const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose, screen }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [rating, setRating] = useState(0);
@@ -2017,7 +2035,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
       formData.append(GOOGLE_FORM_CONFIG.fields.name, name);
       formData.append(GOOGLE_FORM_CONFIG.fields.email, email);
       formData.append(GOOGLE_FORM_CONFIG.fields.rating, rating.toString());
-      formData.append(GOOGLE_FORM_CONFIG.fields.feedback, feedback);
+      formData.append(GOOGLE_FORM_CONFIG.fields.feedback, screen ? `[${screen}] ${feedback}` : feedback);
 
       // Create hidden iframe for submission
       const iframe = document.createElement('iframe');
@@ -2251,6 +2269,7 @@ const App: React.FC = () => {
     trackModuleView(currentView);
   }, [currentView]);
 
+  const screen = (() => {
   switch (currentView) {
     case 'home':
       return (
@@ -2527,6 +2546,13 @@ const App: React.FC = () => {
                 colorClass="red"
                 onClick={() => setCurrentView('properties-cardiac-muscle')}
               />
+              <MenuCard
+                title="Vagus & White Crescentic Line"
+                description="Vagal inhibition, vagal escape, WCL stimulation, and effect of nicotine & atropine."
+                icon={<Zap className="w-8 h-8" />}
+                colorClass="yellow"
+                onClick={() => setCurrentView('vagus-wcl')}
+              />
             </div>
           </div>
         </div>
@@ -2569,6 +2595,34 @@ const App: React.FC = () => {
                 colorClass="pink"
                 onClick={() => navigateTo('dlc-quiz')}
               />
+              <MenuCard
+                title="Specific Gravity of Blood"
+                description="Copper sulphate falling drop method (Philips & Van Slyke) and donor Hb screening."
+                icon={<Droplet className="w-8 h-8" />}
+                colorClass="blue"
+                onClick={() => navigateTo('specific-gravity')}
+              />
+              <MenuCard
+                title="Haemoglobin Estimation"
+                description="Sahli's acid haematin method: dilute and match the colour with the standard."
+                icon={<FlaskConical className="w-8 h-8" />}
+                colorClass="orange"
+                onClick={() => navigateTo('hb-estimation')}
+              />
+              <MenuCard
+                title="Osmotic Fragility of RBCs"
+                description="Hemolysis of red cells in saline from 0.88% down to distilled water."
+                icon={<TestTubes className="w-8 h-8" />}
+                colorClass="teal"
+                onClick={() => navigateTo('osmotic-fragility')}
+              />
+              <MenuCard
+                title="ESR"
+                description="Erythrocyte sedimentation rate by the Westergren and Wintrobe methods."
+                icon={<Timer className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => navigateTo('esr')}
+              />
             </div>
           </div>
         </div>
@@ -2588,6 +2642,30 @@ const App: React.FC = () => {
     case 'rbc-count': return <RBCExperiment onBack={() => window.history.back()} />;
     case 'dlc-count': return <DLCExperiment onBack={() => window.history.back()} />;
     case 'dlc-quiz': return <DLCQuiz onBack={() => window.history.back()} />;
+    case 'specific-gravity':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Specific Gravity of Blood..." />}>
+          <SpecificGravity onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'hb-estimation':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Haemoglobin Estimation..." />}>
+          <HaemoglobinEstimation onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'osmotic-fragility':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Osmotic Fragility..." />}>
+          <OsmoticFragility onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'esr':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading ESR..." />}>
+          <ESR onBack={() => window.history.back()} />
+        </Suspense>
+      );
 
     case 'two-stimuli':
       return (
@@ -2631,6 +2709,12 @@ const App: React.FC = () => {
           <PropertiesOfCardiacMuscle onBack={() => setCurrentView('amphibian')} />
         </Suspense>
       );
+    case 'vagus-wcl':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Vagus & White Crescentic Line..." />}>
+          <VagusAndWCL onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
     case 'effect-of-load':
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Effect of Load..." />}>
@@ -2649,6 +2733,26 @@ const App: React.FC = () => {
 
     default: return null;
   }
+  })();
+
+  // Home has its own feedback icon; every other screen gets a small "Feedback" button at the top right.
+  // The app-has-feedback class lets headers keep room for it (index.css).
+  if (currentView === 'home') return screen;
+  return (
+    <div className="app-has-feedback contents">
+      {screen}
+      {!showFeedback && (
+        <button
+          onClick={() => setShowFeedback(true)}
+          title="Report a problem or send feedback"
+          className="fixed top-2 sm:top-5 right-2.5 z-[60] px-2 py-[3px] rounded-[10px] bg-slate-900/85 border border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white text-[11px] leading-[1.15] font-semibold text-center shadow-lg"
+        >
+          Feed<br />back
+        </button>
+      )}
+      {showFeedback && <FeedbackModal screen={MODULE_LABELS[currentView]} onClose={() => setShowFeedback(false)} />}
+    </div>
+  );
 };
 
 export default App;

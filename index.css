@@ -7,3 +7,25 @@
   width: 100%;
   min-height: 100vh;
 }
+
+/* Feedback button (App.tsx) sits at the top right of every screen except home: headers keep room for it,
+   and on phones they are made compact (one row, no subtitle) so the button costs no extra height. */
+.app-has-feedback header {
+  padding-right: 72px !important;
+}
+@media (max-width: 640px) {
+  .app-has-feedback header {
+    padding: 8px 60px 8px 12px !important;
+  }
+  .app-has-feedback header h1 {
+    font-size: 17px !important;
+    line-height: 1.25 !important;
+  }
+  .app-has-feedback header h1 + p,
+  .app-has-feedback header h1 + span {
+    display: none !important;
+  }
+  .app-has-feedback header > div {
+    gap: 8px !important;
+  }
+}
