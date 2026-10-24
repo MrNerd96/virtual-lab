@@ -7,6 +7,9 @@ export default {
         "./components/**/*.{js,ts,jsx,tsx}",
         "./services/**/*.{js,ts,jsx,tsx}",
     ],
+    // dark: classes apply inside an element with the "dark" class (used by the quiz, which follows the
+    // device setting and has its own light/dark switch)
+    darkMode: 'selector',
     theme: {
         extend: {},
     },

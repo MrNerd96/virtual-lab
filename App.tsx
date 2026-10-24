@@ -25,6 +25,7 @@ const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m
 const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })));
 const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then(m => ({ default: m.OsmoticFragility })));
 const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })));
+const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })));
 
 
 
@@ -72,7 +73,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'question-bank';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -98,6 +99,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'hb-estimation': 'Haemoglobin Estimation',
   'osmotic-fragility': 'Osmotic Fragility of RBCs',
   'esr': 'Erythrocyte Sedimentation Rate',
+  'question-bank': 'Question Bank',
   'genesis-tetanus': 'Genesis of Tetanus',
   'effect-of-temperature': 'Effect of Temperature',
   'microscope': 'Microscope Master',
@@ -132,6 +134,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'hb-estimation': 'Hematology',
   'osmotic-fragility': 'Hematology',
   'esr': 'Hematology',
+  'question-bank': 'Navigation',
   'microscope': 'Microscope',
 };
 
@@ -2310,7 +2313,7 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MenuCard
                 title="Hematology"
                 description="WBC, RBC, and Differential Counts using Virtual Microscopy."
@@ -2331,6 +2334,13 @@ const App: React.FC = () => {
                 icon={<Microscope className="w-8 h-8" />}
                 colorClass="blue"
                 onClick={() => navigateTo('microscope')}
+              />
+              <MenuCard
+                title="Question Bank"
+                description="MCQs for each practical, with explanations and book references."
+                icon={<ListChecks className="w-8 h-8" />}
+                colorClass="purple"
+                onClick={() => navigateTo('question-bank')}
               />
             </div>
             <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
@@ -2658,6 +2668,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Osmotic Fragility..." />}>
           <OsmoticFragility onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'question-bank':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Question Bank..." />}>
+          <QuestionBank onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'esr':
