@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { DLCQuiz } from './components/DLCQuiz';
+import { Quiz } from './components/Quiz';
+import { questionSetFor } from './questions';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stage } from '@react-three/drei';
 import { LabEnvironment } from './components/LabEnvironment';
@@ -264,13 +266,16 @@ interface MicroscopeStageProps {
   controls?: React.ReactNode;
   infoPanel: React.ReactNode;
   initialPosition?: { x: number, y: number };
+  quizId?: string; // view id of the practical's MCQ set, shown as a "Test yourself" button
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, quizId
 }) => {
   const [zoom, setZoom] = useState<4 | 10 | 40 | 100>(10);
   const [position, setPosition] = useState(initialPosition || { x: 0, y: 0 });
+  const [quizOpen, setQuizOpen] = useState(false);
+  const questionSet = quizId ? questionSetFor(quizId) : undefined;
 
 
   /* Restore Pan Logic */
@@ -440,8 +445,15 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
           </div>
 
           {controls}
+          {questionSet && (
+            <button onClick={() => setQuizOpen(true)}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+              <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+            </button>
+          )}
         </div>
       </main>
+      {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
     </div>
   );
 };
@@ -648,6 +660,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       subtitle="Total Leukocyte Count • Neubauer Chamber"
       onBack={onBack}
       initialPosition={{ x: initialX, y: initialY }}
+      quizId="wbc-count"
       infoPanel={
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <h3 className="font-bold text-white mb-2 flex items-center gap-2">
@@ -789,6 +802,7 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="RBC Count"
       subtitle="Total Erythrocyte Count • Center Square"
       onBack={onBack}
+      quizId="rbc-count"
       infoPanel={
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <h3 className="font-bold text-white mb-2 flex items-center gap-2">
@@ -1018,6 +1032,7 @@ const DLCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="DLC Count"
       subtitle="Differential Leucocyte Count • Blood Smear"
       onBack={onBack}
+      quizId="dlc-count"
       infoPanel={
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div className="flex justify-between items-center mb-4">
