@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Droplet, FlaskConical, RefreshCw, CheckCircle2, XCircle, Timer, Pipette, Search } from 'lucide-react';
+import { ArrowLeft, Droplet, FlaskConical, RefreshCw, CheckCircle2, XCircle, Timer, Pipette, Search, ListChecks } from 'lucide-react';
 import { useHoverLabel, HoverLabel, HoverZone } from './HoverLabel';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 
 // --- Types & Constants ---
 
@@ -307,7 +309,9 @@ export const OsmoticFragility: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const [fragility, setFragility] = useState<Fragility | ''>('');
     const [checked, setChecked] = useState(false);
     const [blend, setBlend] = useState<{ from: number[]; start: number; end: number } | null>(null);
+    const [quizOpen, setQuizOpen] = useState(false);
     const { label: hoverLabel, hover } = useHoverLabel();
+    const questionSet = questionSetFor('osmotic-fragility');
 
     const isUnknown = sampleId === 'unknown';
     const sample = isUnknown ? SAMPLES[unknownIndex] : SAMPLES.find(s => s.id === sampleId)!;
@@ -680,8 +684,15 @@ export const OsmoticFragility: React.FC<{ onBack: () => void }> = ({ onBack }) =
                         className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2">
                         <RefreshCw className="w-4 h-4" /> Reset
                     </button>
+                    {questionSet && (
+                        <button onClick={() => setQuizOpen(true)}
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                            <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                        </button>
+                    )}
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };
