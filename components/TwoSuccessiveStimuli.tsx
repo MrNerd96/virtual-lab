@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useTexture, Cylinder, Box, Sphere, Circle, RoundedBox, Text } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle, Eye, LineChart, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Activity, Info, HelpCircle, Eye, LineChart, Moon, Sun, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -525,6 +527,8 @@ const PHASE_PRESETS: PhasePreset[] = [
 ];
 
 export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('two-stimuli');
     // --- State ---
     const [isi, setIsi] = useState<number>(30);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
@@ -1070,11 +1074,18 @@ export const TwoSuccessiveStimuli: React.FC<{ onBack: () => void }> = ({ onBack 
                                 <RotateCcw className="w-4 h-4" /> Reset
                             </button>
                         </div>
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full mt-4 bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
 
 
                     </div>
                 </div >
             </main >
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div >
     );
 };

@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Tube } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Play, RotateCcw, Settings, Activity, Eye, LineChart, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Settings, Activity, Eye, LineChart, Moon, Sun, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -368,6 +370,8 @@ const Kymograph = ({ simTime, tension, onHoverChange, isRunning }: any) => {
 // --- Main Component ---
 
 export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('genesis-tetanus');
     const [frequency, setFrequency] = useState(5);
     const [isRunning, setIsRunning] = useState(false);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
@@ -659,9 +663,16 @@ export const GenesisOfTetanus: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                 )}
                             </button>
                         </div>
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full mt-4 bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div >
     );
 };

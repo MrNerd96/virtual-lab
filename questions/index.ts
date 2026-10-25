@@ -13,6 +13,10 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'load', title: 'Effect of Load', section: 'Amphibian', load: () => import('./effect-of-load').then(m => m.LOAD_QUESTIONS) },
     { id: 'effect-of-temperature', title: 'Effect of Temperature', section: 'Amphibian', load: () => import('./effect-of-temperature').then(m => m.TEMP_QUESTIONS) },
     { id: 'fatigue', title: 'Genesis of Fatigue', section: 'Amphibian', load: () => import('./fatigue').then(m => m.FATIGUE_QUESTIONS) },
+    { id: 'stimulus-strength', title: 'Effect of Stimulus Strength', section: 'Amphibian', load: () => import('./stimulus-strength').then(m => m.STRENGTH_QUESTIONS) },
+    { id: 'two-stimuli', title: 'Effect of Two Successive Stimuli', section: 'Amphibian', load: () => import('./two-stimuli').then(m => m.TWO_STIMULI_QUESTIONS) },
+    { id: 'genesis-tetanus', title: 'Genesis of Tetanus', section: 'Amphibian', load: () => import('./tetanus').then(m => m.TETANUS_QUESTIONS) },
+    { id: 'conduction-velocity', title: 'Conduction Velocity', section: 'Amphibian', load: () => import('./conduction-velocity').then(m => m.CV_QUESTIONS) },
 ];
 
 export const questionSetFor = (id: string) => QUESTION_SETS.find(s => s.id === id);
