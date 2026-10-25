@@ -17,6 +17,7 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'two-stimuli', title: 'Effect of Two Successive Stimuli', section: 'Amphibian', load: () => import('./two-stimuli').then(m => m.TWO_STIMULI_QUESTIONS) },
     { id: 'genesis-tetanus', title: 'Genesis of Tetanus', section: 'Amphibian', load: () => import('./tetanus').then(m => m.TETANUS_QUESTIONS) },
     { id: 'conduction-velocity', title: 'Conduction Velocity', section: 'Amphibian', load: () => import('./conduction-velocity').then(m => m.CV_QUESTIONS) },
+    { id: 'microscope', title: 'Compound Microscope', section: 'Microscope', load: () => import('./microscope').then(m => m.MICROSCOPE_QUESTIONS) },
 ];
 
 export const questionSetFor = (id: string) => QUESTION_SETS.find(s => s.id === id);

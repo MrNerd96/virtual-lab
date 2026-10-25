@@ -4,7 +4,9 @@ import { OrbitControls, Box, Cylinder, Torus, Text } from '@react-three/drei';
 import { LABEL_FONT } from './labelFonts';
 import { LabEnvironment } from './LabEnvironment';
 import * as THREE from 'three';
-import { ArrowLeft, Move, Eye, Ruler, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Move, Eye, Ruler, Sun, Moon, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 
 // --- Types ---
 interface MicroscopeState {
@@ -866,6 +868,8 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [viewMode, setViewMode] = useState<'3d' | 'eyepiece'>('3d');
     const [hoveredPart, setHoveredPart] = useState<string | null>(null);
     const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('microscope');
 
     const totalFocus = state.coarseFocus + (state.fineFocus - 50) * 0.1;
 
@@ -1080,9 +1084,17 @@ export const Microscope3D: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
                     </div>
                 </aside>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };
