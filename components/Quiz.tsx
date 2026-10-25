@@ -57,6 +57,11 @@ const readTheme = (): Theme | null => {
 };
 const systemPrefersDark = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 
+// Google Analytics (GA4) events for quiz use; does nothing if analytics is not loaded
+const track = (event: string, params: Record<string, string | number>) => {
+    (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag?.('event', event, params);
+};
+
 const LETTERS = ['A', 'B', 'C', 'D'];
 const PRIMARY = 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all';
 
@@ -99,6 +104,7 @@ export const Quiz: React.FC<{ set: QuestionSet; onClose: () => void }> = ({ set,
         setFinished(false);
         setReviewing(false);
         setPreviousBest(readBestScore(set.id));
+        track('quiz_start', { quiz_id: set.id, quiz_name: set.title, quiz_section: set.section, question_count: prepared.length });
     };
 
     useEffect(() => {
@@ -123,6 +129,16 @@ export const Quiz: React.FC<{ set: QuestionSet; onClose: () => void }> = ({ set,
             setIndex(index + 1);
         } else {
             saveBestScore(set.id, percent);
+            track('quiz_complete', {
+                quiz_id: set.id,
+                quiz_name: set.title,
+                quiz_section: set.section,
+                score_percent: percent,
+                correct: score,
+                skipped: answers.filter(a => a === null).length,
+                total,
+                value: percent, // GA4 aggregates 'value'
+            });
             setFinished(true);
         }
     };
