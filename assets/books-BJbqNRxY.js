@@ -1,0 +1,1 @@
+const o="GK Pal, Textbook of Practical Physiology, 5th ed.",a="CL Ghai, A Textbook of Practical Physiology, 8th ed.",t="AK Jain, Essentials of MD/DNB Physiology Practical Examination";export{a as G,t as J,o as P};
