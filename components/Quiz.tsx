@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, ListChecks, Trophy, BookOpen, Sun, Moon } from 'lucide-react';
 import type { MCQ, QuestionSet } from '../questions/types';
+import { reloadForNewVersion } from './chunkReload';
 
 // Full-screen MCQ quiz for one question set: questions and options shuffled, instant feedback with the
 // explanation and source, score at the end, review of wrong answers. The best score is kept on the device.
@@ -109,7 +110,7 @@ export const Quiz: React.FC<{ set: QuestionSet; onClose: () => void }> = ({ set,
 
     useEffect(() => {
         let cancelled = false;
-        set.load().then(all => { if (!cancelled) start(all); });
+        set.load().then(all => { if (!cancelled) start(all); }).catch(err => reloadForNewVersion(err).catch(() => {}));
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [set]);

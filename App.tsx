@@ -9,25 +9,26 @@ import { Controls } from './components/Controls';
 import { SimpleMuscleTwitch } from './components/SimpleMuscleTwitch';
 import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
+import { reloadForNewVersion } from './components/chunkReload';
 
 // Lazy load heavy components
-const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })));
-const Microscope3D = lazy(() => import('./components/Microscope3D').then(m => ({ default: m.Microscope3D })));
-const Oscilloscope = lazy(() => import('./components/Oscilloscope').then(m => ({ default: m.Oscilloscope })));
-const TwoSuccessiveStimuli = lazy(() => import('./components/TwoSuccessiveStimuli').then(m => ({ default: m.TwoSuccessiveStimuli })));
-const EffectOfLoad = lazy(() => import('./components/EffectOfLoad').then(m => ({ default: m.EffectOfLoad })));
-const GenesisOfTetanus = lazy(() => import('./components/GenesisOfTetanus').then(m => ({ default: m.GenesisOfTetanus })));
-const EffectOfTemperature = lazy(() => import('./components/EffectOfTemperature').then(m => ({ default: m.EffectOfTemperature })));
-const EffectOfStimulusStrength = lazy(() => import('./components/EffectOfStimulusStrength').then(m => ({ default: m.EffectOfStimulusStrength })));
-const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').then(m => ({ default: m.ConductionVelocity })));
-const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })));
-const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })));
-const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })));
-const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })));
-const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })));
-const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then(m => ({ default: m.OsmoticFragility })));
-const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })));
-const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })));
+const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })).catch(reloadForNewVersion));
+const Microscope3D = lazy(() => import('./components/Microscope3D').then(m => ({ default: m.Microscope3D })).catch(reloadForNewVersion));
+const Oscilloscope = lazy(() => import('./components/Oscilloscope').then(m => ({ default: m.Oscilloscope })).catch(reloadForNewVersion));
+const TwoSuccessiveStimuli = lazy(() => import('./components/TwoSuccessiveStimuli').then(m => ({ default: m.TwoSuccessiveStimuli })).catch(reloadForNewVersion));
+const EffectOfLoad = lazy(() => import('./components/EffectOfLoad').then(m => ({ default: m.EffectOfLoad })).catch(reloadForNewVersion));
+const GenesisOfTetanus = lazy(() => import('./components/GenesisOfTetanus').then(m => ({ default: m.GenesisOfTetanus })).catch(reloadForNewVersion));
+const EffectOfTemperature = lazy(() => import('./components/EffectOfTemperature').then(m => ({ default: m.EffectOfTemperature })).catch(reloadForNewVersion));
+const EffectOfStimulusStrength = lazy(() => import('./components/EffectOfStimulusStrength').then(m => ({ default: m.EffectOfStimulusStrength })).catch(reloadForNewVersion));
+const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').then(m => ({ default: m.ConductionVelocity })).catch(reloadForNewVersion));
+const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })).catch(reloadForNewVersion));
+const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })).catch(reloadForNewVersion));
+const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })).catch(reloadForNewVersion));
+const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })).catch(reloadForNewVersion));
+const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })).catch(reloadForNewVersion));
+const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then(m => ({ default: m.OsmoticFragility })).catch(reloadForNewVersion));
+const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })).catch(reloadForNewVersion));
+const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })).catch(reloadForNewVersion));
 
 
 
