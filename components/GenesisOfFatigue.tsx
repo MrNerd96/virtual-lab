@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Timer, RefreshCw, Eye, LineChart, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Timer, RefreshCw, Eye, LineChart, Moon, Sun, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import * as THREE from 'three';
 import { Controls } from './Controls';
 import { Oscilloscope } from './Oscilloscope';
@@ -414,6 +416,8 @@ const FATIGUE_WAVE_CONFIG = [
 ];
 
 export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('fatigue');
     const [voltage, setVoltage] = useState(3.5);
     const [data, setData] = useState<DataPoint[]>([]);
     const dataRef = useRef<DataPoint[]>([]);
@@ -840,9 +844,16 @@ export const GenesisOfFatigue: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                 <span className="text-xl font-mono text-white">{stimulusCount}</span>
                             </div>
                         </div>
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full mt-4 bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };

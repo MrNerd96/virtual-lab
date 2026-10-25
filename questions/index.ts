@@ -9,6 +9,10 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'wbc-count', title: 'Total Leucocyte Count (TLC)', section: 'Hematology', load: () => import('./wbc-count').then(m => m.WBC_QUESTIONS) },
     { id: 'rbc-count', title: 'Total RBC Count', section: 'Hematology', load: () => import('./rbc-count').then(m => m.RBC_QUESTIONS) },
     { id: 'dlc-count', title: 'Differential Leucocyte Count (DLC)', section: 'Hematology', load: () => import('./dlc').then(m => m.DLC_QUESTIONS) },
+    { id: 'twitch', title: 'Simple Muscle Twitch', section: 'Amphibian', load: () => import('./twitch').then(m => m.TWITCH_QUESTIONS) },
+    { id: 'load', title: 'Effect of Load', section: 'Amphibian', load: () => import('./effect-of-load').then(m => m.LOAD_QUESTIONS) },
+    { id: 'effect-of-temperature', title: 'Effect of Temperature', section: 'Amphibian', load: () => import('./effect-of-temperature').then(m => m.TEMP_QUESTIONS) },
+    { id: 'fatigue', title: 'Genesis of Fatigue', section: 'Amphibian', load: () => import('./fatigue').then(m => m.FATIGUE_QUESTIONS) },
 ];
 
 export const questionSetFor = (id: string) => QUESTION_SETS.find(s => s.id === id);

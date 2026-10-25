@@ -3,7 +3,9 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text } from '@react-three/drei';
 import { LABEL_FONT, LABEL_FONT_BOLD } from './labelFonts';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Moon, Sun, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -857,6 +859,8 @@ const TemperatureControl = ({
 // --- Main Component ---
 
 export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('effect-of-temperature');
     const [temperature, setTemperature] = useState(25);
     const [targetTemperature, setTargetTemperature] = useState<number | null>(null);
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
@@ -1104,9 +1108,16 @@ export const EffectOfTemperature: React.FC<{ onBack: () => void }> = ({ onBack }
                                 Reset
                             </button>
                         </div>
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };

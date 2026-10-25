@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, useTexture, RoundedBox } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Activity, Scale, CheckCircle, Eye, LineChart, Moon, Sun, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Activity, Scale, CheckCircle, Eye, LineChart, Moon, Sun, RotateCcw, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import * as THREE from 'three';
 
 // --- Types & Constants ---
@@ -587,6 +589,8 @@ const Kymograph = ({
 // --- Main Component ---
 
 export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('load');
     const [load, setLoad] = useState(10);
     const [mode, setMode] = useState<'After-Loaded' | 'Free-Loaded'>('After-Loaded');
     const [drumMode, setDrumMode] = useState<'Moving' | 'Stationary'>('Moving');
@@ -979,12 +983,19 @@ export const EffectOfLoad: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <button onClick={handleClear} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all">
                                 <RotateCcw className="w-4 h-4" /> Reset
                             </button>
+                            {questionSet && (
+                                <button onClick={() => setQuizOpen(true)}
+                                    className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                    <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                                </button>
+                            )}
                         </div>
 
 
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };

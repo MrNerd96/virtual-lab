@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Text, Tube, useProgress } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Eye, LineChart, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Moon, Sun, ListChecks } from 'lucide-react';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import * as THREE from 'three';
 import { Controls } from './Controls';
 import { Oscilloscope } from './Oscilloscope';
@@ -491,6 +493,8 @@ const Kymograph = ({
 // --- Main Component ---
 
 export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('twitch');
     const [voltage, setVoltage] = useState(3.5);
     const [stimulationType, setStimulationType] = useState<'Indirect' | 'Direct'>('Indirect');
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
@@ -741,9 +745,16 @@ export const SimpleMuscleTwitch: React.FC<{ onBack: () => void }> = ({ onBack })
                             thresholdValue={stimulationType === 'Indirect' ? 0.3 : 1.5}
                             maximalValue={stimulationType === 'Indirect' ? 4.0 : 8.0}
                         />
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full mt-4 bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };
