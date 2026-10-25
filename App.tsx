@@ -2360,7 +2360,7 @@ const App: React.FC = () => {
             </div>
             <div className="text-center text-slate-600 text-sm mt-12 flex flex-col items-center gap-1">
               <span>© 2026 Virtual Physiology Lab</span>
-              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Oct 11, 2026</span>
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider">Last Updated: Oct 25, 2026</span>
             </div>
           </div>
 
@@ -2395,7 +2395,7 @@ const App: React.FC = () => {
                     </ul>
                     <p className="text-sm text-slate-500 mt-6 pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-2">
                       <span>Developed by Dr. B. I. Mario Raja, MBBS, MD (Physiology) using React, Three.js, and Capacitor.</span>
-                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v1.5.0 • Oct 11, 2026</span>
+                      <span className="text-[10px] opacity-70 uppercase tracking-widest">v2.0.0 • Oct 25, 2026</span>
                     </p>
                   </div>
                 </div>
@@ -2419,7 +2419,19 @@ const App: React.FC = () => {
                   </h2>
                   <div className="space-y-6">
                     <div className="border-l-2 border-green-500 pl-4">
-                      <h3 className="text-lg font-semibold text-white">v1.5.0 (Current)</h3>
+                      <h3 className="text-lg font-semibold text-white">v2.0.0 (Current)</h3>
+                      <p className="text-slate-500 text-sm mb-2">October 25, 2026</p>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        <li>Question Bank: MCQs with explanations and textbook page references for every practical, with a "Test yourself" button in each module.</li>
+                        <li>New Hematology modules: Specific Gravity of Blood, Haemoglobin Estimation (Sahli), Osmotic Fragility of RBCs and ESR (Westergren and Wintrobe).</li>
+                        <li>New Amphibian module: Vagus and White Crescentic Line.</li>
+                        <li>Part names shown on hover in the hematology modules, and the blood sample can be changed at any time.</li>
+                        <li>Feedback button on every screen and compact headers on phones.</li>
+                        <li>Faster loading of the 3D experiments.</li>
+                      </ul>
+                    </div>
+                    <div className="border-l-2 border-slate-700 pl-4 opacity-70">
+                      <h3 className="text-lg font-semibold text-white">v1.5.0</h3>
                       <p className="text-slate-500 text-sm mb-2">October 11, 2026</p>
                       <ul className="list-disc list-inside text-slate-300 space-y-1">
                         <li>Realistic Microscope controls — Mechanical stage knobs now match real-world microscopes.</li>
