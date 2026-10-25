@@ -2511,7 +2511,7 @@ const App: React.FC = () => {
             <ArrowLeft className="w-5 h-5" /> <span>Back</span>
           </button>
           <div className="max-w-4xl w-full space-y-8">
-            <h2 className="text-3xl font-bold text-white text-center mb-8">Amphibian Physiology</h2>
+            <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Amphibian Physiology</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="Simple Muscle Twitch"
@@ -2602,7 +2602,7 @@ const App: React.FC = () => {
             <ArrowLeft className="w-5 h-5" /> <span>Back</span>
           </button>
           <div className="max-w-4xl w-full space-y-8">
-            <h2 className="text-3xl font-bold text-white text-center mb-8">Hematology Lab</h2>
+            <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Hematology Lab</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="WBC Count (TLC)"
@@ -2778,9 +2778,9 @@ const App: React.FC = () => {
   }
   })();
 
-  // Home has its own feedback icon; every other screen gets a small "Feedback" button at the top right.
-  // The app-has-feedback class lets headers keep room for it (index.css).
-  if (currentView === 'home') return screen;
+  // Home has its own feedback icon and the section menus stay uncluttered; every other screen gets a small
+  // "Feedback" button at the top right. The app-has-feedback class lets headers keep room for it (index.css).
+  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology') return screen;
   return (
     <div className="app-has-feedback contents">
       {screen}
