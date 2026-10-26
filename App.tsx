@@ -2789,7 +2789,7 @@ const App: React.FC = () => {
         <button
           onClick={() => setShowFeedback(true)}
           title="Report a problem or send feedback"
-          className="fixed top-2 sm:top-5 right-2.5 z-[60] px-2 py-[3px] rounded-[10px] bg-slate-900/85 border border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white text-[11px] leading-[1.15] font-semibold text-center shadow-lg"
+          className="absolute top-2 sm:top-5 right-2.5 z-[60] px-2 py-[3px] rounded-[10px] bg-slate-900/85 border border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white text-[11px] leading-[1.15] font-semibold text-center shadow-lg"
         >
           Feed<br />back
         </button>
