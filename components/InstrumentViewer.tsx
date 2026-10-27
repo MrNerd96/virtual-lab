@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { ArrowLeft, Sun, Moon, BookOpen } from 'lucide-react';
+import { ArrowLeft, Sun, Moon } from 'lucide-react';
 import { LabEnvironment } from './LabEnvironment';
 import { DilutingPipette } from './DilutingPipette';
+import { NeubauerChamber } from './NeubauerChamber';
 import { instrumentById, type InstrumentId } from '../instruments';
 
 // One screen for every instrument: a 3D model to turn and explore on the left (top on phones), and the
@@ -15,30 +16,58 @@ const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: st
     switch (id) {
         case 'rbc-pipette': return <DilutingPipette kind="rbc" {...rest} />;
         case 'wbc-pipette': return <DilutingPipette kind="wbc" {...rest} />;
+        case 'neubauer-chamber': return <NeubauerChamber {...rest} />;
     }
 };
 
-// Each model's extent: centre and half-width/half-height, so the camera can frame it on any screen shape
-const EXTENT: Record<InstrumentId, { center: [number, number, number]; halfW: number; halfH: number }> = {
-    'rbc-pipette': { center: [0.25, -1.0, 0], halfW: 5.9, halfH: 1.6 },
-    'wbc-pipette': { center: [0.25, -1.0, 0], halfW: 5.7, halfH: 1.6 },
+// A camera view: what to frame (centre, half-width, half-height) and the direction the camera looks from, so it
+// can frame it on any screen shape
+type View = { center: [number, number, number]; halfW: number; halfH: number; from: [number, number, number] };
+
+// The whole model for each instrument (pipettes from the front, the chamber from above), plus close-up views of
+// parts too small to see from there, which the camera flies to when that part is selected
+const VIEWS: Record<InstrumentId, { all: View; closeUp?: Record<string, View> }> = {
+    'rbc-pipette': { all: { center: [0.25, -1.0, 0], halfW: 5.9, halfH: 1.6, from: [0.2, 0.3, 1] } },
+    'wbc-pipette': { all: { center: [0.25, -1.0, 0], halfW: 5.7, halfH: 1.6, from: [0.2, 0.3, 1] } },
+    'neubauer-chamber': {
+        all: { center: [0, -1, 0], halfW: 44, halfH: 21, from: [0.15, 1.3, 0.9] },
+        closeUp: { grid: { center: [0, -0.1, 7.6], halfW: 1.7, halfH: 1.7, from: [0, 1, 0.3] } },
+    },
 };
 
-// Places the camera (slightly above and to the right) far enough back for the whole model to fit, and
-// again whenever the canvas changes shape, e.g. when a phone is turned
-const FitCamera: React.FC<{ id: InstrumentId }> = ({ id }) => {
+// Moves the camera to frame the current view: at once for the first view and when the canvas changes shape
+// (e.g. a phone is turned), smoothly when flying to or from a close-up
+const FitCamera: React.FC<{ id: InstrumentId; part: string | null }> = ({ id, part }) => {
     const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
     const aspect = useThree(s => s.size.width / s.size.height);
     const controls = useThree(s => s.controls) as unknown as { target: THREE.Vector3; update: () => void } | null;
+    const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+    const placed = useRef(false);
+    const closeUp = (part && VIEWS[id].closeUp?.[part]) || null;
+    const view = closeUp ?? VIEWS[id].all;
+
     useEffect(() => {
-        const { center, halfW, halfH } = EXTENT[id];
         const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-        const dist = 1.15 * Math.max(halfH / t, halfW / (t * aspect));
-        const target = new THREE.Vector3(...center);
-        camera.position.copy(target).add(new THREE.Vector3(0.2, 0.3, 1).normalize().multiplyScalar(dist));
-        camera.lookAt(target);
-        if (controls) { controls.target.copy(target); controls.update(); }
-    }, [id, aspect, camera, controls]);
+        const dist = 1.15 * Math.max(view.halfH / t, view.halfW / (t * aspect));
+        const target = new THREE.Vector3(...view.center);
+        const pos = target.clone().add(new THREE.Vector3(...view.from).normalize().multiplyScalar(dist));
+        if (!placed.current) {
+            camera.position.copy(pos);
+            camera.lookAt(target);
+            if (controls) { controls.target.copy(target); controls.update(); placed.current = true; }
+        } else {
+            goal.current = { pos, target };
+        }
+    }, [view, aspect, camera, controls]);
+
+    useFrame(() => {
+        const g = goal.current;
+        if (!g || !controls) return;
+        camera.position.lerp(g.pos, 0.12);
+        controls.target.lerp(g.target, 0.12);
+        controls.update();
+        if (camera.position.distanceTo(g.pos) < g.pos.distanceTo(g.target) * 0.002) goal.current = null;
+    });
     return null;
 };
 
@@ -85,8 +114,8 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                         <ambientLight intensity={0.6} />
                         <directionalLight position={[5, 8, 6]} intensity={1} />
                         <Model id={id} active={active} onHover={setHovered} onSelect={setSelected} />
-                        <OrbitControls makeDefault enablePan={false} />
-                        <FitCamera id={id} />
+                        <OrbitControls makeDefault enablePan={false} zoomToCursor />
+                        <FitCamera id={id} part={selected} />
                     </Canvas>
 
                     {activePart ? (
@@ -130,8 +159,6 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                             Open the {instrument.experiment.label} experiment
                         </button>
                     </div>
-
-                    <p className="text-[11px] text-slate-500 flex gap-1.5"><BookOpen className="w-3.5 h-3.5 flex-none mt-0.5" /> {instrument.source}</p>
                 </aside>
             </main>
         </div>

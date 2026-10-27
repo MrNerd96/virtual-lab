@@ -1,10 +1,10 @@
-import { GHAI, PAL } from '../questions/books';
+import { GHAI, PAL, JAIN } from '../questions/books';
 
 // The Instruments module: one entry per instrument. This file is text only (no 3D code), so the instruments
 // menu stays light; the 3D viewer and the models load only when an instrument is opened.
 // Facts from CL Ghai and GK Pal, written in our own words; page numbers are the printed pages of the user's copies.
 
-export type InstrumentId = 'rbc-pipette' | 'wbc-pipette';
+export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber';
 
 export interface InstrumentPart {
     id: string;   // matches the part's mesh in the 3D model
@@ -99,6 +99,38 @@ export const INSTRUMENTS: Instrument[] = [
         source: `${GHAI}, pp. 24–27, 30; ${PAL}, pp. 39–41`,
         experiment: { view: 'wbc-count', label: 'WBC Count (TLC)' },
         compareWith: 'rbc-pipette',
+    },
+    {
+        id: 'neubauer-chamber',
+        name: 'Neubauer Chamber',
+        alsoCalled: 'Improved Neubauer counting chamber · haemocytometer',
+        summary: 'Holds a film of diluted blood exactly 0.1 mm deep over a ruled grid, for counting cells.',
+        usedFor: [
+            'Counting red cells, white cells and platelets in diluted blood: a known volume is spread under the coverslip and the cells over the grid are counted.',
+        ],
+        parts: [
+            { id: 'slide', name: 'Thick glass slide', note: 'A single solid, heavy glass slide. Its middle third carries the platforms and trenches.' },
+            { id: 'platforms', name: 'Lateral platforms', note: 'The raised platforms on either side. The coverslip rests on them and bridges the moats.' },
+            { id: 'central', name: 'Central platform', note: 'Exactly 0.1 mm lower than the lateral platforms, and split in two by a short transverse trench. Each half (floor piece) carries a counting grid; the silvered floor of a Bright-Line chamber shows the grid clearly.' },
+            { id: 'moats', name: 'Moats (H-shaped trench)', note: 'Trenches on both sides of the central platform which, with the transverse trench, form an H. Fluid running into them means the chamber is overcharged.' },
+            { id: 'grid', name: 'Counting grid', note: '3 mm × 3 mm, in nine 1 mm squares. The 4 corner squares (16 squares each) are for WBCs; the central square (25 medium squares in triple lines, each of 16 smallest squares) is for RBCs. Choosing it zooms in on the rulings.' },
+            { id: 'coverslip', name: 'Coverslip', note: 'An optically plane coverslip laid on the lateral platforms. It leaves a capillary space exactly 0.1 mm deep over the floor pieces.' },
+            { id: 'print', name: 'Etched specifications', note: 'The depth (0.100 mm) and the area of the smallest square (0.0025 mm², i.e. 1/400 mm²) are etched on the chamber.' },
+        ],
+        facts: [
+            'Depth between the floor piece and the coverslip: 0.1 mm.',
+            'Each large square is 1 mm², so it holds 0.1 mm³ of diluted blood.',
+            'RBCs are counted in 80 smallest squares (5 groups of 16), each 1/4000 mm³, in all 1/50 mm³.',
+            'Fluid in the moats is overcharging; a bare patch or air bubbles is undercharging. Either way, wash and recharge.',
+        ],
+        viva: [
+            { q: 'What is the depth of the counting chamber?', a: '0.1 mm, between the floor piece and the underside of the coverslip.' },
+            { q: 'Which squares are used for the RBC count?', a: 'The four corner medium squares and the central one of the central large square: 80 smallest squares in all.' },
+            { q: 'What is overcharging?', a: 'Diluted blood running into the moats. The chamber is washed, dried and charged again.' },
+            { q: 'Why wait 2–3 minutes after charging before counting?', a: 'So the cells settle on the grid and stop moving with the currents in the fluid.' },
+        ],
+        source: `${GHAI}, pp. 24, 28–30; ${PAL}, pp. 42–43; ${JAIN}, p. 10`,
+        experiment: { view: 'rbc-count', label: 'RBC Count' },
     },
 ];
 

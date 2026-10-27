@@ -79,7 +79,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -117,6 +117,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'instruments': 'Instruments Menu',
   'instrument-rbc-pipette': 'RBC Pipette',
   'instrument-wbc-pipette': 'WBC Pipette',
+  'instrument-neubauer-chamber': 'Neubauer Chamber',
 };
 
 const MODULE_CATEGORIES: Record<ViewState, string> = {
@@ -148,6 +149,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'instruments': 'Navigation',
   'instrument-rbc-pipette': 'Instruments',
   'instrument-wbc-pipette': 'Instruments',
+  'instrument-neubauer-chamber': 'Instruments',
 };
 
 let _moduleEntryTime: number | null = null;
@@ -2338,7 +2340,7 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MenuCard
                 title="Hematology"
                 description="WBC, RBC, and Differential Counts using Virtual Microscopy."
@@ -2354,15 +2356,8 @@ const App: React.FC = () => {
                 onClick={() => navigateTo('amphibian')}
               />
               <MenuCard
-                title="Microscope Master"
-                description="Learn the parts and operation of a Compound Microscope."
-                icon={<Microscope className="w-8 h-8" />}
-                colorClass="blue"
-                onClick={() => navigateTo('microscope')}
-              />
-              <MenuCard
                 title="Instruments"
-                description="3D models of the instruments used in the practicals, with parts and viva points."
+                description="3D models of the instruments used in the practicals, including the compound microscope."
                 icon={<Pipette className="w-8 h-8" />}
                 colorClass="teal"
                 onClick={() => navigateTo('instruments')}
@@ -2691,16 +2686,6 @@ const App: React.FC = () => {
           <div className="max-w-4xl w-full space-y-8">
             <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Instruments</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {INSTRUMENTS.map(instrument => (
-                <MenuCard
-                  key={instrument.id}
-                  title={instrument.name}
-                  description={instrument.summary}
-                  icon={<Pipette className="w-8 h-8" />}
-                  colorClass={instrument.id === 'rbc-pipette' ? 'red' : 'slate'}
-                  onClick={() => navigateTo(`instrument-${instrument.id}`)}
-                />
-              ))}
               <MenuCard
                 title="Compound Microscope"
                 description="Learn the parts and operation of a Compound Microscope."
@@ -2708,13 +2693,24 @@ const App: React.FC = () => {
                 colorClass="blue"
                 onClick={() => navigateTo('microscope')}
               />
+              {INSTRUMENTS.map(instrument => (
+                <MenuCard
+                  key={instrument.id}
+                  title={instrument.name}
+                  description={instrument.summary}
+                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
+                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal' }[instrument.id]}
+                  onClick={() => navigateTo(`instrument-${instrument.id}`)}
+                />
+              ))}
             </div>
           </div>
         </div>
       );
 
     case 'instrument-rbc-pipette':
-    case 'instrument-wbc-pipette': {
+    case 'instrument-wbc-pipette':
+    case 'instrument-neubauer-chamber': {
       const id = currentView.replace('instrument-', '') as InstrumentId;
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Instrument..." />}>

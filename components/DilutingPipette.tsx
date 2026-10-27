@@ -52,7 +52,7 @@ const pick = (e: ThreeEvent<PointerEvent | MouseEvent>): string | null => {
 
 const Glass = ({ lit }: { lit: boolean }) => (
     <meshPhysicalMaterial
-        color="#ffffff" transparent opacity={0.22} roughness={0.03} metalness={0} clearcoat={1} envMapIntensity={1.6}
+        color={lit ? HIGHLIGHT : '#ffffff'} transparent opacity={lit ? 0.6 : 0.22} roughness={0.03} metalness={0} clearcoat={1} envMapIntensity={1.6}
         side={THREE.DoubleSide} depthWrite={false}
         emissive={lit ? HIGHLIGHT : '#000000'} emissiveIntensity={lit ? 0.7 : 0}
     />
