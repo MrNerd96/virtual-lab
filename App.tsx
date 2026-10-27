@@ -10,6 +10,7 @@ import { SimpleMuscleTwitch } from './components/SimpleMuscleTwitch';
 import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
+import { INSTRUMENTS, type InstrumentId } from './instruments';
 
 // Lazy load heavy components
 const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })).catch(reloadForNewVersion));
@@ -29,6 +30,7 @@ const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimat
 const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then(m => ({ default: m.OsmoticFragility })).catch(reloadForNewVersion));
 const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })).catch(reloadForNewVersion));
 const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })).catch(reloadForNewVersion));
+const InstrumentViewer = lazy(() => import('./components/InstrumentViewer').then(m => ({ default: m.InstrumentViewer })).catch(reloadForNewVersion));
 
 
 
@@ -64,7 +66,8 @@ import {
   Thermometer,
   Heart,
   Target,
-  TestTubes
+  TestTubes,
+  Pipette
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -76,7 +79,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'question-bank';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -111,6 +114,9 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'normal-cardiogram': 'Normal Cardiogram',
   'properties-cardiac-muscle': 'Properties of Cardiac Muscle',
   'vagus-wcl': 'Vagus & White Crescentic Line',
+  'instruments': 'Instruments Menu',
+  'instrument-rbc-pipette': 'RBC Pipette',
+  'instrument-wbc-pipette': 'WBC Pipette',
 };
 
 const MODULE_CATEGORIES: Record<ViewState, string> = {
@@ -139,6 +145,9 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'esr': 'Hematology',
   'question-bank': 'Navigation',
   'microscope': 'Microscope',
+  'instruments': 'Navigation',
+  'instrument-rbc-pipette': 'Instruments',
+  'instrument-wbc-pipette': 'Instruments',
 };
 
 let _moduleEntryTime: number | null = null;
@@ -2329,7 +2338,7 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <MenuCard
                 title="Hematology"
                 description="WBC, RBC, and Differential Counts using Virtual Microscopy."
@@ -2350,6 +2359,13 @@ const App: React.FC = () => {
                 icon={<Microscope className="w-8 h-8" />}
                 colorClass="blue"
                 onClick={() => navigateTo('microscope')}
+              />
+              <MenuCard
+                title="Instruments"
+                description="3D models of the instruments used in the practicals, with parts and viva points."
+                icon={<Pipette className="w-8 h-8" />}
+                colorClass="teal"
+                onClick={() => navigateTo('instruments')}
               />
               <MenuCard
                 title="Question Bank"
@@ -2666,6 +2682,47 @@ const App: React.FC = () => {
         </div>
       );
 
+    case 'instruments':
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans relative">
+          <button onClick={() => window.history.back()} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
+            <ArrowLeft className="w-5 h-5" /> <span>Back</span>
+          </button>
+          <div className="max-w-4xl w-full space-y-8">
+            <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Instruments</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {INSTRUMENTS.map(instrument => (
+                <MenuCard
+                  key={instrument.id}
+                  title={instrument.name}
+                  description={instrument.summary}
+                  icon={<Pipette className="w-8 h-8" />}
+                  colorClass={instrument.id === 'rbc-pipette' ? 'red' : 'slate'}
+                  onClick={() => navigateTo(`instrument-${instrument.id}`)}
+                />
+              ))}
+              <MenuCard
+                title="Compound Microscope"
+                description="Learn the parts and operation of a Compound Microscope."
+                icon={<Microscope className="w-8 h-8" />}
+                colorClass="blue"
+                onClick={() => navigateTo('microscope')}
+              />
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'instrument-rbc-pipette':
+    case 'instrument-wbc-pipette': {
+      const id = currentView.replace('instrument-', '') as InstrumentId;
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Instrument..." />}>
+          <InstrumentViewer key={id} id={id} onBack={() => window.history.back()} onOpen={view => navigateTo(view as ViewState)} />
+        </Suspense>
+      );
+    }
+
     // Experiments
     case 'twitch': return <SimpleMuscleTwitch onBack={() => window.history.back()} />;
     case 'load':
@@ -2781,7 +2838,7 @@ const App: React.FC = () => {
 
   // Home has its own feedback icon and the section menus stay uncluttered; every other screen gets a small
   // "Feedback" button at the top right. The app-has-feedback class lets headers keep room for it (index.css).
-  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology') return screen;
+  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology' || currentView === 'instruments') return screen;
   return (
     <div className="app-has-feedback contents">
       {screen}
