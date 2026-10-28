@@ -471,14 +471,6 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         )}
                     </div>
 
-                    <div className="bg-slate-800/60 rounded-lg border border-slate-700 p-3 text-xs text-slate-400 space-y-1">
-                        <p className="font-bold text-slate-300 uppercase">Precautions</p>
-                        <p>• Use a separate applicator stick for each circle, so one antiserum is not carried into another.</p>
-                        <p>• Do not let the drops of the different circles run into each other.</p>
-                        <p>• Read within a few minutes: a drying edge can look like clumping.</p>
-                        <p>• The anti-D reaction is weaker and slower; confirm a doubtful one under the low-power objective.</p>
-                    </div>
-
                     <button onClick={() => resetSlide(isUnknown)}
                         className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2">
                         <RefreshCw className="w-4 h-4" /> New slide
