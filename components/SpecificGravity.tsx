@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Droplet, FlaskConical, RefreshCw, Pipette, CheckCircle2, XCircle, TestTubes, Timer, ListChecks } from 'lucide-react';
 import { useHoverLabel, HoverLabel, HoverZone } from './HoverLabel';
+import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
 
@@ -496,7 +497,7 @@ export const SpecificGravity: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
                     <div className="relative flex-1 min-h-[320px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center">
                         <HoverLabel label={hoverLabel} />
-                        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-full max-h-[75vh]" preserveAspectRatio="xMidYMid meet">
+                        <ZoomableSvg w={SVG_W} h={SVG_H} className="w-full h-full max-h-[75vh]">
                             {!prepared && (
                                 <>
                                     <ReagentBottle x={40} y={BOTTLE_Y} label="Stock CuSO₄" sublabel="SG 1.100" liquidColor={STOCK_COLOR}
@@ -598,7 +599,7 @@ export const SpecificGravity: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                                 <text x={30} y={LIQ_BOTTOM + 140} fill="#94a3b8" fontSize={18} fontFamily="monospace">Volumes: mL stock CuSO₄ (SG 1.100) + mL distilled water</text>
                             )}
                             </g>
-                        </svg>
+                        </ZoomableSvg>
                     </div>
                 </div>
 

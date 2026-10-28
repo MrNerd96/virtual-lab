@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Droplet, FlaskConical, RefreshCw, CheckCircle2, XCircle, Timer, Pipette, Search, ListChecks } from 'lucide-react';
 import { useHoverLabel, HoverLabel, HoverZone } from './HoverLabel';
+import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
 
@@ -482,7 +483,7 @@ export const OsmoticFragility: React.FC<{ onBack: () => void }> = ({ onBack }) =
                     <p className="text-sm lg:text-base font-semibold text-indigo-300 text-center mb-3 min-h-[2.5rem] lg:min-h-0 flex items-center justify-center">{caption}</p>
                     <div className="relative flex-1 min-h-[280px] rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center bg-[#dfe5ec]">
                         <HoverLabel label={hoverLabel} />
-                        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full max-h-[78vh]" preserveAspectRatio="xMidYMid meet" style={{ overflow: 'visible' }}>
+                        <ZoomableSvg w={W} h={H} className="w-full h-full max-h-[78vh]" overflowVisible>
                             <SceneDefs />
                             <LabBackground />
                             <WallClock minutes={clockMinutes} waiting={phase === 'waiting'} />
@@ -531,7 +532,7 @@ export const OsmoticFragility: React.FC<{ onBack: () => void }> = ({ onBack }) =
                             {!waterAtRest && <HoverZone x={waterDropper.x - 10} y={waterDropper.y - 110} w={20} h={110} {...hover('Dropper: distilled water')} />}
                             {!bloodAtRest && <HoverZone x={bloodDropper.x - 10} y={bloodDropper.y - 110} w={20} h={110} {...hover('Dropper: blood')} />}
                             {selected !== null && canInspect && <Magnifier i={selected} look={looks[selected]} />}
-                        </svg>
+                        </ZoomableSvg>
                     </div>
                 </div>
 

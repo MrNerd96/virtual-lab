@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Droplet, FlaskConical, RefreshCw, CheckCircle2, XCircle, Timer, Pipette, ListChecks } from 'lucide-react';
 import { useHoverLabel, HoverLabel, HoverZone } from './HoverLabel';
+import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
 
@@ -855,7 +856,7 @@ export const HaemoglobinEstimation: React.FC<{ onBack: () => void }> = ({ onBack
                     <p className="text-sm lg:text-base font-semibold text-indigo-300 text-center mb-3 min-h-[2.5rem] lg:min-h-0 flex items-center justify-center">{caption}</p>
                     <div className="relative flex-1 min-h-[280px] rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center bg-[#dfe5ec]">
                         <HoverLabel label={hoverLabel} />
-                        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full max-h-[78vh]" preserveAspectRatio="xMidYMid meet" style={{ overflow: 'visible' }}>
+                        <ZoomableSvg w={W} h={H} className="w-full h-full max-h-[78vh]" overflowVisible>
                             <SceneDefs />
                             <LabBackground />
                             <g transform={`translate(0 ${OFFSET_Y})`}>
@@ -916,7 +917,7 @@ export const HaemoglobinEstimation: React.FC<{ onBack: () => void }> = ({ onBack
 
                                 {phase === 'dilute' && <Magnifier level={level} liquid={seenColor} />}
                             </g>
-                        </svg>
+                        </ZoomableSvg>
                     </div>
                 </div>
 

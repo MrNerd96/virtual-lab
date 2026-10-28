@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Droplet, RefreshCw, CheckCircle2, XCircle, Timer, Pipette, Syringe as SyringeIcon, ListChecks } from 'lucide-react';
 import { useHoverLabel, HoverLabel, HoverZone } from './HoverLabel';
+import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
 
@@ -537,7 +538,7 @@ export const ESR: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <p className="text-sm lg:text-base font-semibold text-indigo-300 text-center mb-3 min-h-[2.5rem] lg:min-h-0 flex items-center justify-center">{caption}</p>
                     <div className="relative flex-1 min-h-[280px] rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center bg-[#dfe5ec]">
                         <HoverLabel label={hoverLabel} />
-                        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full max-h-[78vh]" preserveAspectRatio="xMidYMid meet" style={{ overflow: 'visible' }}>
+                        <ZoomableSvg w={W} h={H} className="w-full h-full max-h-[78vh]" overflowVisible>
                             <SceneDefs />
                             <LabBackground />
                             <WallClock minutes={clockMinutes} waiting={phase === 'waiting'} />
@@ -572,7 +573,7 @@ export const ESR: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             {(phase === 'waiting' || phase === 'done') && <HoverZone x={MAG.cx - MAG.r} y={MAG.cy - MAG.r} w={2 * MAG.r} h={2 * MAG.r} {...hover('Magnified view of the scale')} />}
 
                             {(phase === 'waiting' || phase === 'done') && <Magnifier method={method} esr={esr} anchor={interfaceAt} />}
-                        </svg>
+                        </ZoomableSvg>
                     </div>
                 </div>
 
