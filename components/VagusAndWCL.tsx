@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Tube, Torus } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Eye, LineChart, Zap, RefreshCw, Play, Square, Volume2, VolumeX, Moon, Sun, Activity } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Zap, RefreshCw, Play, Square, Volume2, VolumeX, Moon, Sun, Activity, ListChecks } from 'lucide-react';
 import * as THREE from 'three';
 import { useHeartbeatSound } from './useHeartbeatSound';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 import { InteractiveObject, MyographBoard, FrogBody, FrogHeart, SpringLoadedLever, HeartThread } from './NormalCardiogram';
 
 // --- Types & Constants ---
@@ -881,6 +883,8 @@ export const VagusAndWCL: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!draggingRef.current) setHoveredLabel(label);
     }, []);
     const [resetKey, setResetKey] = useState(0);
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('vagus-wcl');
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
     const [soundMuted, setSoundMuted] = useState(false);
     const [sceneBgColor, setSceneBgColor] = useState('#CBD5E1');
@@ -1184,10 +1188,17 @@ export const VagusAndWCL: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <RefreshCw className="w-4 h-4" /> Reset
                             </button>
                         </div>
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full mt-3 bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
 
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };

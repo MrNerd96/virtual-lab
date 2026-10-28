@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Cylinder, Box, Sphere, Tube, Torus, Circle, Cone } from '@react-three/drei';
 import { LabEnvironment } from './LabEnvironment';
-import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Volume2, VolumeX, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Eye, LineChart, Thermometer, Zap, RefreshCw, Play, Square, Droplets, Volume2, VolumeX, Moon, Sun, ListChecks } from 'lucide-react';
 import * as THREE from 'three';
 import { useHeartbeatSound } from './useHeartbeatSound';
+import { Quiz } from './Quiz';
+import { questionSetFor } from '../questions';
 
 // --- Types & Constants ---
 
@@ -1006,6 +1008,8 @@ const WaveformLegend = () => {
 // --- Main Component ---
 export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [temperature, setTemperature] = useState(25);
+    const [quizOpen, setQuizOpen] = useState(false);
+    const questionSet = questionSetFor('normal-cardiogram');
     const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
     const [resetKey, setResetKey] = useState(0);
     const [drumSpeed, setDrumSpeed] = useState(2.5); // mm/sec
@@ -1365,11 +1369,18 @@ export const NormalCardiogram: React.FC<{ onBack: () => void }> = ({ onBack }) =
                                 <RefreshCw className="w-4 h-4" /> Reset
                             </button>
                         </div>
+                        {questionSet && (
+                            <button onClick={() => setQuizOpen(true)}
+                                className="w-full mt-3 bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl transition-all border border-indigo-500/40 flex items-center justify-center gap-2">
+                                <ListChecks className="w-4 h-4" /> Test yourself (MCQs)
+                            </button>
+                        )}
 
 
                     </div>
                 </div>
             </main>
+            {quizOpen && questionSet && <Quiz set={questionSet} onClose={() => setQuizOpen(false)} />}
         </div>
     );
 };

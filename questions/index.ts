@@ -17,6 +17,9 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'two-stimuli', title: 'Effect of Two Successive Stimuli', section: 'Amphibian', load: () => import('./two-stimuli').then(m => m.TWO_STIMULI_QUESTIONS) },
     { id: 'genesis-tetanus', title: 'Genesis of Tetanus', section: 'Amphibian', load: () => import('./tetanus').then(m => m.TETANUS_QUESTIONS) },
     { id: 'conduction-velocity', title: 'Conduction Velocity', section: 'Amphibian', load: () => import('./conduction-velocity').then(m => m.CV_QUESTIONS) },
+    { id: 'normal-cardiogram', title: 'Normal Cardiogram', section: 'Amphibian', load: () => import('./normal-cardiogram').then(m => m.CARDIOGRAM_QUESTIONS) },
+    { id: 'properties-cardiac-muscle', title: 'Properties of Cardiac Muscle', section: 'Amphibian', load: () => import('./cardiac-properties').then(m => m.PROPERTIES_QUESTIONS) },
+    { id: 'vagus-wcl', title: 'Vagus & White Crescentic Line', section: 'Amphibian', load: () => import('./vagus-wcl').then(m => m.VAGUS_QUESTIONS) },
     { id: 'microscope', title: 'Compound Microscope', section: 'Microscope', load: () => import('./microscope').then(m => m.MICROSCOPE_QUESTIONS) },
 ];
 
