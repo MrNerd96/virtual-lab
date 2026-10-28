@@ -465,14 +465,14 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         'Step 6: Look for clumping; confirm under low power against the control',
     ][step - 1];
 
-    // One button per step. Only the current step can be pressed, and not while it is still running; the caption
-    // under the slide describes the step in full.
+    // The six steps: a short name for the checklist and the wording of the big Next button. The Next button does the
+    // current step and is greyed out while that step is still running.
     const STEP_BUTTONS = [
-        { name: 'Suspension', title: 'Make the red cell suspension', icon: <TestTube className="w-3.5 h-3.5" />, color: 'bg-rose-600 hover:bg-rose-500 border-rose-500', run: prepareSuspension, busy: false },
-        { name: 'Reagents', title: 'Add anti-A, anti-B, anti-D and saline', icon: <FlaskConical className="w-3.5 h-3.5" />, color: 'bg-blue-600 hover:bg-blue-500 border-blue-500', run: () => doAll('reagentT0'), busy: queued === 'reagentT0' },
-        { name: 'Cells', title: 'Add a drop of cell suspension to each circle', icon: <Pipette className="w-3.5 h-3.5" />, color: 'bg-red-600 hover:bg-red-500 border-red-500', run: () => doAll('cellsT0'), busy: queued === 'cellsT0' || !suspReady },
-        { name: 'Mix', title: 'Mix each circle with a separate stick', icon: <RefreshCw className="w-3.5 h-3.5" />, color: 'bg-amber-600 hover:bg-amber-500 border-amber-500', run: () => doAll('mixT0'), busy: queued === 'mixT0' },
-        { name: 'Wait 10 min', title: 'Wait about 10 minutes, rocking gently', icon: <Timer className="w-3.5 h-3.5" />, color: 'bg-indigo-600 hover:bg-indigo-500 border-indigo-500', run: handleWait, busy: waiting || !mixedDone },
+        { name: 'Suspension', title: 'Make suspension', icon: <TestTube className="w-3.5 h-3.5" />, color: 'bg-rose-600 hover:bg-rose-500 border-rose-500', run: prepareSuspension, busy: false },
+        { name: 'Reagents', title: 'Add reagents', icon: <FlaskConical className="w-3.5 h-3.5" />, color: 'bg-blue-600 hover:bg-blue-500 border-blue-500', run: () => doAll('reagentT0'), busy: queued === 'reagentT0' },
+        { name: 'Cells', title: 'Add cells', icon: <Pipette className="w-3.5 h-3.5" />, color: 'bg-red-600 hover:bg-red-500 border-red-500', run: () => doAll('cellsT0'), busy: queued === 'cellsT0' || !suspReady },
+        { name: 'Mix', title: 'Mix (4 sticks)', icon: <RefreshCw className="w-3.5 h-3.5" />, color: 'bg-amber-600 hover:bg-amber-500 border-amber-500', run: () => doAll('mixT0'), busy: queued === 'mixT0' },
+        { name: 'Wait 10 min', title: 'Wait 10 min', icon: <Timer className="w-3.5 h-3.5" />, color: 'bg-indigo-600 hover:bg-indigo-500 border-indigo-500', run: handleWait, busy: waiting || !mixedDone },
         { name: 'Read', title: 'Read the slide and choose the blood group', icon: <Microscope className="w-3.5 h-3.5" />, color: 'bg-emerald-700 border-emerald-500', run: () => {}, busy: true },
     ];
 
@@ -588,41 +588,58 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                 </div>
 
-                {/* Right panel: sample, one button for the current step, then the low-power view and the result once they are useful */}
+                {/* Right panel: the checklist of steps, the sample, one big Next button, then the microscope view and answer */}
                 <div className="w-full flex-1 lg:flex-none lg:w-[400px] bg-slate-900 border-l border-slate-800 p-4 lg:p-5 space-y-3 lg:overflow-y-auto">
-                    <div className="flex items-center gap-2">
-                        <Droplet className="w-4 h-4 text-red-400 shrink-0" />
-                        <select value={sampleId} onChange={(e) => handleSampleChange(e.target.value)} aria-label="Blood sample"
-                            className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg block px-2.5 py-2 outline-none focus:border-indigo-500">
-                            <option value="unknown">Unknown patient</option>
-                            {ALL_GROUPS.map(g => <option key={groupShort(g)} value={groupShort(g)}>Known sample: {groupName(g)}</option>)}
-                        </select>
-                    </div>
-
-                    {/* Steps: only the current one looks like a button (coloured, glowing, with a play mark); done and
-                        later steps are flat labels, and the line below says what to tap */}
-                    <div className="grid grid-cols-3 gap-1.5">
+                    {/* Checklist: done steps ticked, the current one highlighted, later ones grey. Pressing the current
+                        step does it, the same as the Next button; pressing a later one says which step comes first. */}
+                    <ol className="grid grid-cols-3 gap-x-2 gap-y-1 text-[11px] font-bold" aria-label={`Step ${step} of 6`}>
                         {STEP_BUTTONS.map((b, i) => {
                             const n = i + 1;
                             const state = n < step ? 'done' : n === step ? 'current' : 'later';
-                            const pressable = state === 'current' && !b.busy;
+                            const press = () => {
+                                if (state === 'current' && n < 6 && !b.busy) b.run();
+                                else if (state === 'later') setMessage(`Finish step ${step} (${STEP_BUTTONS[step - 1].name}) first.`);
+                            };
                             return (
-                                <button key={b.name} onClick={b.run} disabled={!pressable} title={b.title}
-                                    className={`py-2 px-1 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-colors ${
-                                        state === 'done' ? 'text-emerald-400/90'
-                                            : state === 'current' ? `${b.color} border text-white shadow-lg ${pressable && n !== 6 ? 'ring-2 ring-white/70 ring-offset-2 ring-offset-slate-900 animate-pulse' : 'opacity-80'}`
-                                                : 'text-slate-600'}`}>
-                                    {state === 'done' ? <CheckCircle2 className="w-3.5 h-3.5" /> : pressable && n !== 6 ? <Play className="w-3 h-3 fill-current" /> : b.icon}
-                                    <span>{n}. {b.name}</span>
-                                </button>
+                                <li key={b.name}>
+                                    <button onClick={press} disabled={state === 'done' || (state === 'current' && (b.busy || n === 6))} title={state === 'current' && n < 6 ? `${b.title} (same as Next)` : undefined}
+                                        className={`w-full flex items-center gap-1 px-1.5 py-1 rounded-md text-left transition-colors ${
+                                            state === 'done' ? 'text-emerald-400'
+                                                : state === 'current' ? 'text-white bg-slate-800 ring-1 ring-indigo-400 hover:bg-slate-700 enabled:cursor-pointer'
+                                                    : 'text-slate-600 hover:text-slate-500'}`}>
+                                        {state === 'done' ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 text-center shrink-0">{n}</span>}
+                                        <span className="truncate">{b.name}</span>
+                                    </button>
+                                </li>
                             );
                         })}
+                    </ol>
+
+                    {/* Sample picker and the big Next button side by side (tapping a circle on the slide also works) */}
+                    <div className="flex items-stretch gap-2">
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <Droplet className="w-4 h-4 text-red-400 shrink-0" />
+                            <select value={sampleId} onChange={(e) => handleSampleChange(e.target.value)} aria-label="Blood sample"
+                                className="w-full min-w-0 h-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg block px-2 py-2 outline-none focus:border-indigo-500">
+                                <option value="unknown">Unknown patient</option>
+                                {ALL_GROUPS.map(g => <option key={groupShort(g)} value={groupShort(g)}>Known: {groupName(g)}</option>)}
+                            </select>
+                        </div>
+                        {step < 6 ? (() => {
+                            const b = STEP_BUTTONS[step - 1];
+                            return (
+                                <button onClick={b.run} disabled={b.busy}
+                                    className={`flex-[1.25] min-w-0 ${b.color} border text-white font-bold py-2.5 px-2 rounded-xl text-sm flex items-center justify-center gap-1.5 shadow-lg transition-colors disabled:opacity-60`}>
+                                    {b.busy ? <>{b.icon} <span className="truncate">{waiting ? `Waiting… ${clock(simTime)}` : 'Working…'}</span></>
+                                        : <><Play className="w-4 h-4 fill-current shrink-0" /> <span className="truncate">Next: {b.title}</span></>}
+                                </button>
+                            );
+                        })() : (
+                            <p className="flex-[1.25] flex items-center justify-center gap-1.5 text-sm font-semibold text-emerald-300 bg-emerald-950/40 border border-emerald-800 rounded-xl px-2">
+                                <CheckCircle2 className="w-4 h-4 shrink-0" /> Choose the group below
+                            </p>
+                        )}
                     </div>
-                    <p className="text-xs text-slate-300 -mt-1 text-center">
-                        {step === 6 ? 'Look at each circle, then choose the blood group below.'
-                            : STEP_BUTTONS[step - 1].busy ? 'Working… please wait.'
-                                : <>Next: tap <span className="font-bold text-white inline-flex items-center gap-0.5"><Play className="w-3 h-3 fill-current" /> {step}. {STEP_BUTTONS[step - 1].name}</span> (or the circle on the slide)</>}
-                    </p>
                     {message && <p className="text-sm text-amber-400">{message}</p>}
 
                     {/* Microscope view and answer stay in place from the start, so the panel never jumps: side by side on
