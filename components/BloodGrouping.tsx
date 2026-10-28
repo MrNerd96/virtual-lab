@@ -36,7 +36,12 @@ function randomGroup(): BloodGroup {
 }
 
 // --- Timing ---
-const DROP_TIME = 350;     // ms for a drop to fall from the dropper to the slide
+// Each drop: the bottle or dropper is brought down close to the slide, squeezed, then taken back
+const REACH = 500;         // ms to bring it down to the circle
+const DROP_FALL = 160;     // ms for the drop to fall the short gap to the slide
+const SQUEEZE = 330;       // ms held over the circle while squeezing
+const RETURN = 500;        // ms to take it back
+const DROP_TOTAL = REACH + SQUEEZE + RETURN;
 const MIX_TIME = 1100;     // ms of stirring with the applicator stick
 const READ_TIME = 120;     // s: reactions are read within about 2 minutes of rocking
 const SIM_SPEED = 15;      // simulated seconds per real second while rocking
@@ -44,6 +49,7 @@ const SIM_SPEED = 15;      // simulated seconds per real second while rocking
 const TAU: Record<Serum, number> = { A: 18, B: 18, D: 40 };
 
 const agglutination = (s: Serum, t: number) => (1 - Math.exp(-t / TAU[s])) / (1 - Math.exp(-READ_TIME / TAU[s]));
+const easeInOut = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : (1 - Math.cos(Math.PI * t)) / 2);
 const easeOut = (t: number) => 1 - (1 - Math.max(0, Math.min(1, t))) ** 2;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
@@ -85,32 +91,70 @@ const CIRCLE_X = [230, 500, 770];
 const CIRCLE_Y = 365;
 const WAX_R = 82;
 const PUDDLE_R = 60;
-const DROPPER_TIP = 182;
 const BLOOD_OFFSET = { x: 30, y: -14 }; // the blood drop is placed beside the serum, not on it
+const BOTTLE_HOME_Y = 40;  // nozzle tip of an upright bottle on the bench
+const SERUM_GAP = 26;      // px from the inverted nozzle to the centre of the circle
+const BLOOD_GAP = 20;      // px from the dropper tip to where the blood drop lands
 
-const DropperBottle = ({ x, label, color, fluid, active, onClick, hoverProps }: {
-    x: number; label: string; color: string; fluid: string; active: boolean; onClick?: () => void; hoverProps: object;
-}) => (
-    <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }} {...hoverProps}>
-        <rect x={x - 40} y={20} width={80} height={170} fill="transparent" />
-        {/* Rubber bulb and glass dropper */}
-        <ellipse cx={x} cy={38} rx={12} ry={16} fill="#1e293b" stroke="#475569" />
-        <rect x={x - 3} y={52} width={6} height={active ? 128 : 30} fill="rgba(226,232,240,0.7)" rx={2} />
-        <rect x={x - 14} y={68} width={28} height={12} rx={3} fill="#334155" />
-        {/* Bottle */}
-        <path d={`M ${x - 28} 90 Q ${x - 28} 80 ${x - 18} 80 L ${x + 18} 80 Q ${x + 28} 80 ${x + 28} 90 L ${x + 28} 150 Q ${x + 28} 158 ${x + 20} 158 L ${x - 20} 158 Q ${x - 28} 158 ${x - 28} 150 Z`}
-            fill={fluid} stroke={active ? '#fbbf24' : '#cbd5e1'} strokeWidth={active ? 3 : 2} />
-        <rect x={x - 22} y={104} width={44} height={26} rx={3} fill="#f8fafc" />
-        <text x={x} y={122} textAnchor="middle" fontSize={13} fontWeight="bold" fill={color === '#94a3b8' ? '#334155' : color}>{label}</text>
+// How far along its trip to the slide a bottle or dropper is (0 at rest, 1 over the circle), and the squeeze
+function reachAt(t0: number | null, now: number) {
+    if (t0 === null) return { k: 0, squeeze: 0 };
+    const e = now - t0;
+    if (e < REACH) return { k: easeInOut(e / REACH), squeeze: 0 };
+    if (e < REACH + SQUEEZE) return { k: 1, squeeze: Math.sin((Math.PI * (e - REACH)) / SQUEEZE) };
+    return { k: 1 - easeInOut((e - REACH - SQUEEZE) / RETURN), squeeze: 0 };
+}
+
+// Screw cap that covers the nozzle while the bottle is not in use
+const BottleCap = () => (
+    <g>
+        <path d="M -12 30 L -12 6 Q -12 -8 0 -9 Q 12 -8 12 6 L 12 30 Z" fill="#f8fafc" stroke="#94a3b8" strokeWidth={1.2} />
+        {[-7, -2.5, 2, 6.5].map(x => <line key={x} x1={x} y1={14} x2={x} y2={28} stroke="#cbd5e1" strokeWidth={1} />)}
     </g>
 );
 
-const BloodDropper = ({ x }: { x: number }) => (
-    <g pointerEvents="none">
-        <ellipse cx={x} cy={DROPPER_TIP - 120} rx={10} ry={14} fill="#f97316" />
-        <rect x={x - 4} y={DROPPER_TIP - 106} width={8} height={92} fill="#e2e8f0" opacity={0.9} rx={2} />
-        <rect x={x - 3} y={DROPPER_TIP - 60} width={6} height={45} fill="#b91c1c" opacity={0.85} />
-        <path d={`M ${x - 4} ${DROPPER_TIP - 15} L ${x - 1.5} ${DROPPER_TIP} L ${x + 1.5} ${DROPPER_TIP} L ${x + 4} ${DROPPER_TIP - 15} Z`} fill="#e2e8f0" />
+// 10 mL plastic reagent bottle with a dropper nozzle, drawn with the nozzle tip at (0, 0) and the body below it.
+// Rotated 180° it is held upside down over the slide, and the reagent runs down into the nozzle.
+const ReagentBottle = ({ serum, x, y, angle, squeeze, capOn, onClick, hoverProps }: {
+    serum: typeof SERA[number]; x: number; y: number; angle: number; squeeze: number; capOn: boolean;
+    onClick?: () => void; hoverProps: object;
+}) => {
+    const clipId = `reagent-body-${serum.id}`;
+    const body = 'M -12 30 L 12 30 Q 26 33 26 46 L 26 112 Q 26 120 18 120 L -18 120 Q -26 120 -26 112 L -26 46 Q -26 33 -12 30 Z';
+    const inverted = angle > 90;
+    return (
+        <g transform={`translate(${x} ${y}) rotate(${angle})`} onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }} {...hoverProps}>
+            <rect x={-34} y={-12} width={68} height={136} fill="transparent" />
+            <g transform={`scale(${1 - 0.1 * squeeze} 1)`}>
+                <defs><clipPath id={clipId}><path d={body} /></clipPath></defs>
+                <path d={body} fill="rgba(241, 245, 249, 0.92)" />
+                {/* Reagent, about two-thirds full, lying at whichever end is down */}
+                <rect x={-26} y={inverted ? 30 : 56} width={52} height={64} fill={serum.color} opacity={serum.id === 'D' ? 0.18 : 0.55} clipPath={`url(#${clipId})`} />
+                <path d={body} fill="none" stroke="#94a3b8" strokeWidth={1.5} />
+                <line x1={-20} y1={44} x2={-20} y2={110} stroke="#ffffff" strokeWidth={3} opacity={0.6} />
+                {/* Label: colour-coded band with the reagent name */}
+                <rect x={-26} y={60} width={52} height={42} fill="#ffffff" />
+                <rect x={-26} y={60} width={52} height={15} fill={serum.id === 'D' ? '#475569' : serum.color} />
+                <text x={0} y={71.5} textAnchor="middle" fontSize={10} fontWeight="bold" fill="#ffffff">{serum.name.toUpperCase()}</text>
+                <text x={0} y={86} textAnchor="middle" fontSize={7.5} fill="#334155">Monoclonal</text>
+                <text x={0} y={97} textAnchor="middle" fontSize={7.5} fill="#64748b">10 ml</text>
+            </g>
+            {/* Screw collar and dropper nozzle */}
+            <rect x={-12} y={17} width={24} height={14} rx={2} fill="#f8fafc" stroke="#94a3b8" strokeWidth={1.2} />
+            <path d="M -2 0 L 2 0 L 6 17 L -6 17 Z" fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} />
+            {inverted && <path d="M -1.2 1 L 1.2 1 L 4 15 L -4 15 Z" fill={serum.color} opacity={serum.id === 'D' ? 0.25 : 0.6} />}
+            {capOn && <BottleCap />}
+        </g>
+    );
+};
+
+// Pasteur pipette with a rubber bulb, tip at (x, tipY)
+const BloodDropper = ({ x, tipY, squeeze, opacity }: { x: number; tipY: number; squeeze: number; opacity: number }) => (
+    <g pointerEvents="none" opacity={opacity}>
+        <ellipse cx={x} cy={tipY - 120} rx={10 + 2 * squeeze} ry={14 - 3 * squeeze} fill="#f97316" />
+        <rect x={x - 4} y={tipY - 106} width={8} height={92} fill="#e2e8f0" opacity={0.9} rx={2} />
+        <rect x={x - 3} y={tipY - 60} width={6} height={45} fill="#b91c1c" opacity={0.85} />
+        <path d={`M ${x - 4} ${tipY - 15} L ${x - 1.5} ${tipY} L ${x + 1.5} ${tipY} L ${x + 4} ${tipY - 15} Z`} fill="#e2e8f0" />
     </g>
 );
 
@@ -121,19 +165,20 @@ const SlideCircle = ({ index, serum, state, cells, now, simTime, positive, onCli
 }) => {
     const cx = CIRCLE_X[index];
     const cy = CIRCLE_Y;
-    const serumIn = state.serumT0 !== null ? easeOut((now - state.serumT0 - DROP_TIME) / 200) : 0;
-    const bloodIn = state.bloodT0 !== null ? easeOut((now - state.bloodT0 - DROP_TIME) / 200) : 0;
+    const landed = (t0: number | null) => (t0 !== null ? easeOut((now - t0 - REACH - DROP_FALL) / 200) : 0);
+    const serumIn = landed(state.serumT0);
+    const bloodIn = landed(state.bloodT0);
     const mixT = state.mixT0 !== null ? (now - state.mixT0) / MIX_TIME : 0;
     const mix = easeOut(mixT);
     const p = positive && mix >= 1 ? agglutination(serum.id, simTime) : 0;
     const bx = cx + BLOOD_OFFSET.x, by = cy + BLOOD_OFFSET.y;
     const dropScale = 14 / PUDDLE_R;
 
-    // Drops in flight from the dropper above
-    const falling = (t0: number | null, tx: number, ty: number, color: string) => {
-        if (t0 === null || now - t0 >= DROP_TIME) return null;
-        const f = (now - t0) / DROP_TIME;
-        return <ellipse cx={tx} cy={lerp(DROPPER_TIP, ty, f * f)} rx={5} ry={7} fill={color} />;
+    // Drops falling the short gap from the nozzle or dropper tip held just above the circle
+    const falling = (t0: number | null, tx: number, ty: number, gap: number, color: string) => {
+        if (t0 === null || now - t0 < REACH || now - t0 >= REACH + DROP_FALL) return null;
+        const f = (now - t0 - REACH) / DROP_FALL;
+        return <ellipse cx={tx} cy={lerp(ty - gap, ty, f * f)} rx={5} ry={6} fill={color} />;
     };
 
     // Stick stirring in a spiral while mixing
@@ -164,8 +209,8 @@ const SlideCircle = ({ index, serum, state, cells, now, simTime, positive, onCli
                 );
             })}
 
-            {falling(state.serumT0, cx, cy, serum.color)}
-            {falling(state.bloodT0, bx, by, '#b91c1c')}
+            {falling(state.serumT0, cx, cy, SERUM_GAP, serum.color)}
+            {falling(state.bloodT0, bx, by, BLOOD_GAP, '#b91c1c')}
             {stirring && <line x1={sx} y1={sy} x2={sx + 90} y2={sy - 150} stroke="#a16207" strokeWidth={6} strokeLinecap="round" />}
 
             <text x={cx} y={cy + WAX_R + 34} textAnchor="middle" fontSize={20} fontWeight="bold" fill={serum.color === '#94a3b8' ? '#475569' : serum.color}>{serum.name}</text>
@@ -223,7 +268,7 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     // Animation clock: runs while drops fall, sticks stir or the slide is rocked
     const animating = useMemo(() => {
         const busy = (t0: number | null, d: number) => t0 !== null && now - t0 < d;
-        return rocking || circles.some(c => busy(c.serumT0, DROP_TIME + 250) || busy(c.bloodT0, DROP_TIME + 250) || busy(c.mixT0, MIX_TIME + 50));
+        return rocking || circles.some(c => busy(c.serumT0, DROP_TOTAL + 250) || busy(c.bloodT0, DROP_TOTAL + 250) || busy(c.mixT0, MIX_TIME + 50));
     }, [circles, now, rocking]);
 
     useEffect(() => {
@@ -264,7 +309,7 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setMessage(null);
         circles.forEach((c, i) => {
             if (c[key] !== null) return;
-            timers.current.push(window.setTimeout(() => update(i, { [key]: performance.now() }), i * (key === 'mixT0' ? 250 : 300)));
+            timers.current.push(window.setTimeout(() => update(i, { [key]: performance.now() }), i * (key === 'mixT0' ? 250 : 450)));
         });
     };
 
@@ -331,16 +376,6 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="relative flex-1 min-h-[320px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center">
                         <HoverLabel label={hoverLabel} />
                         <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-full max-h-[75vh]" preserveAspectRatio="xMidYMid meet">
-                            {SERA.map((s, i) => (
-                                <DropperBottle key={s.id} x={CIRCLE_X[i]} label={s.name} color={s.color} fluid={s.fluid}
-                                    active={circles[i].serumT0 !== null && now - circles[i].serumT0! < DROP_TIME}
-                                    onClick={circles[i].serumT0 === null ? () => actOn(i) : undefined}
-                                    hoverProps={hover(`${s.name} serum${s.id === 'D' ? ' (anti-Rh)' : ''}`)} />
-                            ))}
-                            {circles.map((c, i) => c.bloodT0 !== null && now - c.bloodT0 < DROP_TIME + 150 && (
-                                <BloodDropper key={i} x={CIRCLE_X[i] + BLOOD_OFFSET.x} />
-                            ))}
-
                             <g transform={`rotate(${slideAngle} ${SVG_W / 2} ${CIRCLE_Y})`}>
                                 {/* White tile under a clean glass slide */}
                                 <rect x={70} y={225} width={860} height={300} rx={14} fill="#f1f5f9" />
@@ -354,10 +389,33 @@ export const BloodGrouping: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 ))}
                             </g>
 
-                            <text x={SVG_W / 2} y={575} textAnchor="middle" fill="#a5b4fc" fontSize={24} fontWeight="bold">{caption}</text>
                             {step < 4 && activeCircle >= 0 && (
                                 <text x={SVG_W / 2} y={215} textAnchor="middle" fill="#94a3b8" fontSize={16}>Click a circle or use the buttons on the right</text>
                             )}
+                            {/* Antisera: each bottle is turned upside down and squeezed just above its circle */}
+                            {SERA.map((s, i) => {
+                                const { k, squeeze } = reachAt(circles[i].serumT0, now);
+                                const lift = 70 * Math.sin(Math.PI * k);
+                                return (
+                                    <g key={s.id}>
+                                        {k > 0 && <g transform={`translate(${CIRCLE_X[i]} 132)`} pointerEvents="none"><BottleCap /></g>}
+                                        <ReagentBottle serum={s} angle={180 * k} squeeze={squeeze} capOn={k === 0}
+                                            x={CIRCLE_X[i]}
+                                            y={lerp(BOTTLE_HOME_Y, CIRCLE_Y - SERUM_GAP, k) - lift}
+                                            onClick={circles[i].serumT0 === null ? () => actOn(i) : undefined}
+                                            hoverProps={hover(`${s.name} serum${s.id === 'D' ? ' (anti-Rh)' : ''}, 10 mL dropper bottle`)} />
+                                    </g>
+                                );
+                            })}
+                            {/* Blood: the dropper comes down to just above the slide beside the antiserum */}
+                            {circles.map((c, i) => {
+                                const { k, squeeze } = reachAt(c.bloodT0, now);
+                                if (k === 0) return null;
+                                const by = CIRCLE_Y + BLOOD_OFFSET.y;
+                                return <BloodDropper key={i} x={CIRCLE_X[i] + BLOOD_OFFSET.x} tipY={lerp(by - 220, by - BLOOD_GAP, k)} squeeze={squeeze} opacity={Math.min(1, k * 3)} />;
+                            })}
+
+                            <text x={SVG_W / 2} y={575} textAnchor="middle" fill="#a5b4fc" fontSize={24} fontWeight="bold">{caption}</text>
                         </svg>
                     </div>
                 </div>
