@@ -38,6 +38,7 @@ A comprehensive, interactive simulation suite designed for performing and visual
 1.  **Total RBC Count**: Simulate red blood cell counting using a Neubauer chamber.
 2.  **Total WBC Count**: Simulate white blood cell counting.
 3.  **Differential Leukocyte Count (DLC)**: Identify and count different types of WBCs from a blood smear.
+4.  **Blood Grouping**: ABO and Rh typing by slide agglutination with anti-A, anti-B and anti-D sera.
 
 ## 🛠️ Technologies Used
 
