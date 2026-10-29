@@ -56,23 +56,25 @@ function fallFraction(minutes: number) {
 const W = 1000;
 const H = 690;
 const BENCH_Y = 640;
-const TUBE_X = 420;
+const TUBE_X = 400;
 interface TubeSpec { name: string; zeroY: number; pxPerMm: number; maxMm: number; top: number; half: number; roundBottom: boolean }
 const TUBE: Record<Method, TubeSpec> = {
     // 300 mm long, 2.5 mm bore, graduated 0 to 200 mm in its lower two thirds
-    westergren: { name: 'Westergren pipette', zeroY: 280, pxPerMm: 1.6, maxMm: 200, top: 120, half: 8, roundBottom: false },
+    westergren: { name: 'Westergren pipette', zeroY: 268, pxPerMm: 1.6, maxMm: 200, top: 108, half: 8, roundBottom: false },
     // about 110 mm long, thick walled, graduated 0 to 100 mm (10 cm)
     wintrobe: { name: 'Wintrobe tube', zeroY: 276, pxPerMm: 3.2, maxMm: 100, top: 246, half: 10, roundBottom: true },
 };
 const bottomOf = (s: TubeSpec) => s.zeroY + s.maxMm * s.pxPerMm;
-const VIAL_X = 760;
-const SYRINGE_REST: Point = { x: 940, y: 636 };
-const SYRINGE_OVER_VIAL: Point = { x: VIAL_X, y: 500 };
-const VIAL_SCALE = 1.5;    // bottle and syringe drawn larger so their labels and contents read clearly
+// Westergren stand: four places; the pipette stands in the third
+const STAND = { left: 196, right: 524, places: [240, 320, 400, 480] };
+const VIAL_X = 700;
+const VIAL_SCALE = 2.2;    // penicillin bottle drawn large so its contents and label read clearly
 const SYRINGE_SCALE = 1.6;
-const WEST_REST: Point = { x: TUBE_X, y: 600 };       // bottom of the pipette on the rubber pad
+const SYRINGE_REST: Point = { x: 720, y: 672 };       // nozzle; the syringe lies on the bench in front of the bottle, pointing left
+const SYRINGE_OVER_VIAL: Point = { x: VIAL_X, y: 438 };
+const WEST_REST: Point = { x: TUBE_X, y: 588 };       // bottom of the pipette on its rubber cushion
 const WEST_IN_VIAL: Point = { x: VIAL_X, y: 632 };
-const PASTEUR_REST: Point = { x: VIAL_X + 12, y: 632 }; // nozzle tip, standing in the vial
+const PASTEUR_REST: Point = { x: VIAL_X + 14, y: 632 }; // nozzle tip, standing in the bottle
 const PASTEUR_NOZZLE = 360;
 
 // --- Timelines (s) ---
@@ -96,6 +98,8 @@ const SceneDefs = () => (
         <filter id="esr-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" /></filter>
         <linearGradient id="esr-wall" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#eef2f6" /><stop offset="1" stopColor="#d9e0e8" /></linearGradient>
         <linearGradient id="esr-bench" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#ddd6cc" /><stop offset="1" stopColor="#c4bcb0" /></linearGradient>
+        <linearGradient id="esr-wood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#a0673a" /><stop offset="1" stopColor="#6b4226" /></linearGradient>
+        <linearGradient id="esr-rod" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#111827" /><stop offset="0.45" stopColor="#4b5563" /><stop offset="1" stopColor="#0b0f19" /></linearGradient>
         <linearGradient id="esr-metal" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#94a3b8" /><stop offset="0.45" stopColor="#e2e8f0" /><stop offset="1" stopColor="#64748b" /></linearGradient>
         <linearGradient id="esr-blood" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#5c0b0b" /><stop offset="0.35" stopColor={BLOOD} /><stop offset="1" stopColor="#4a0909" /></linearGradient>
         <linearGradient id="esr-plasma" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#e9c873" /><stop offset="0.35" stopColor={PLASMA} /><stop offset="1" stopColor="#dcb85f" /></linearGradient>
@@ -156,47 +160,83 @@ const SpiritLevel = ({ x, y }: { x: number; y: number }) => (
     </g>
 );
 
-// Westergren stand: base with a rubber pad for the lower end of the pipette, pillar and screw cap for the top
+// Westergren stand for 4 pipettes, as in the books (AK Jain Fig 12.2B, 12.4; GK Pal Fig 14.1; CL Ghai): a wooden
+// base with a rubber cushion for the lower end of each pipette, levelling screws and a spirit level, a rod at each
+// end, and a top bar with a screw cap over each place to hold and close the upper end
 const WestergrenStand = () => (
     <g pointerEvents="none">
-        <Shadow cx={410} cy={642} rx={110} ry={7} />
-        <rect x={320} y={612} width={190} height={28} rx={4} fill="#334155" />
-        <rect x={320} y={612} width={190} height={3} fill="#64748b" />
-        <rect x={336} y={96} width={12} height={518} fill="url(#esr-metal)" />
-        <rect x={336} y={104} width={TUBE_X - 336 + 6} height={10} rx={2} fill="url(#esr-metal)" />
-        <rect x={TUBE_X - 13} y={600} width={26} height={13} rx={3} fill="#1f2937" />
-        <SpiritLevel x={472} y={626} />
+        <Shadow cx={(STAND.left + STAND.right) / 2} cy={644} rx={190} ry={8} />
+        {/* End rods and top bar */}
+        {[STAND.left + 4, STAND.right - 16].map(x => <rect key={x} x={x} y={96} width={12} height={512} rx={2} fill="url(#esr-rod)" />)}
+        <rect x={STAND.left} y={92} width={STAND.right - STAND.left} height={16} rx={3} fill="url(#esr-wood)" />
+        <rect x={STAND.left} y={92} width={STAND.right - STAND.left} height={3} fill="#c08552" opacity={0.7} />
+        {/* Base: wooden block with a label strip, on two levelling screws */}
+        {[STAND.left + 22, STAND.right - 22].map(x => (
+            <g key={x}>
+                <rect x={x - 7} y={632} width={14} height={10} rx={2} fill="url(#esr-metal)" />
+                <rect x={x - 12} y={628} width={24} height={6} rx={2} fill="#475569" />
+            </g>
+        ))}
+        <rect x={STAND.left} y={598} width={STAND.right - STAND.left} height={34} rx={4} fill="url(#esr-wood)" />
+        <rect x={STAND.left} y={598} width={STAND.right - STAND.left} height={4} fill="#c08552" opacity={0.7} />
+        <rect x={STAND.left + 40} y={612} width={STAND.right - STAND.left - 130} height={13} rx={2} fill="#f8fafc" opacity={0.92} />
+        <text x={STAND.left + 40 + (STAND.right - STAND.left - 130) / 2} y={622} textAnchor="middle" fontSize={10} fontWeight="bold" fill="#334155" letterSpacing={1}>ESR  WESTERGREN</text>
+        {/* Rubber cushions, one per place */}
+        {STAND.places.map(x => (
+            <g key={x}>
+                <rect x={x - 13} y={586} width={26} height={14} rx={4} fill="#1f2937" />
+                <ellipse cx={x} cy={587} rx={11} ry={3} fill="#374151" />
+            </g>
+        ))}
+        <SpiritLevel x={STAND.right - 46} y={619} />
     </g>
 );
 
-// Screw cap on the arm of the stand, closing the top of the pipette
-const ScrewCap = () => (
+// Screw caps hanging under the top bar of the Westergren stand, one over each place
+const ScrewCaps = () => (
     <g pointerEvents="none">
-        <rect x={TUBE_X - 12} y={106} width={24} height={24} rx={3} fill="#475569" />
-        {[110, 116, 122].map(y => <line key={y} x1={TUBE_X - 12} x2={TUBE_X + 12} y1={y} y2={y} stroke="#94a3b8" strokeWidth={1} />)}
+        {STAND.places.map(x => (
+            <g key={x}>
+                <rect x={x - 3} y={106} width={6} height={6} fill="#64748b" />
+                <rect x={x - 12} y={110} width={24} height={22} rx={3} fill="#475569" />
+                {[114, 119, 124, 129].map(y => <line key={y} x1={x - 12} x2={x + 12} y1={y} y2={y} stroke="#94a3b8" strokeWidth={1} />)}
+            </g>
+        ))}
     </g>
 );
 
-// Wintrobe stand: base, back plate and two clips holding the tube upright
-const WintrobeStand = ({ front }: { front: boolean }) => (
-    front ? (
+// Wintrobe stand (AK Jain Fig 12.1B): a two-tier rack; the tube passes through a hole in the top plate and stands in
+// a hole in the bottom plate. The back of the rack is drawn behind the tube, the front edges in front of it.
+const WINTROBE_RACK = { left: 300, right: 500, top: 300, bottom: 596 };
+const WintrobeStand = ({ front }: { front: boolean }) => {
+    const { left, right, top, bottom } = WINTROBE_RACK;
+    const holes = [TUBE_X - 60, TUBE_X, TUBE_X + 60];
+    return front ? (
         <g pointerEvents="none">
-            {[310, 560].map(y => <rect key={y} x={TUBE_X - 16} y={y} width={32} height={10} rx={3} fill="url(#esr-metal)" />)}
+            {/* Front lips of the two plates, over the tube */}
+            <rect x={left} y={top + 8} width={right - left} height={8} rx={2} fill="#7dd3fc" opacity={0.9} />
+            <rect x={left} y={bottom + 12} width={right - left} height={10} rx={2} fill="#7dd3fc" opacity={0.9} />
+            <SpiritLevel x={right - 40} y={bottom + 34} />
         </g>
     ) : (
         <g pointerEvents="none">
-            <Shadow cx={420} cy={642} rx={100} ry={7} />
-            <rect x={340} y={606} width={160} height={34} rx={4} fill="#334155" />
-            <rect x={340} y={606} width={160} height={3} fill="#64748b" />
-            <rect x={TUBE_X - 22} y={230} width={44} height={378} rx={4} fill="#475569" />
-            <rect x={TUBE_X - 18} y={234} width={36} height={370} rx={3} fill="#f8fafc" />
-            <SpiritLevel x={470} y={624} />
+            <Shadow cx={(left + right) / 2} cy={644} rx={115} ry={7} />
+            {[left + 6, right - 16].map(x => <rect key={x} x={x} y={top} width={10} height={bottom - top + 20} fill="#38bdf8" opacity={0.85} />)}
+            {/* Top and bottom plates, seen slightly from above, with holes */}
+            {[top, bottom].map(y => (
+                <g key={y}>
+                    <path d={`M ${left + 14} ${y - 4} L ${right - 14} ${y - 4} L ${right} ${y + 8} L ${left} ${y + 8} Z`} fill="#bae6fd" />
+                    {holes.map(hx => <ellipse key={hx} cx={hx} cy={y + 2} rx={13} ry={3.5} fill="#0f172a" opacity={0.75} />)}
+                </g>
+            ))}
+            <rect x={left} y={bottom + 8} width={right - left} height={36} rx={3} fill="#38bdf8" />
+            <rect x={left} y={bottom + 8} width={right - left} height={3} fill="#e0f2fe" opacity={0.8} />
         </g>
-    )
-);
+    );
+};
 
 // ESR tube or pipette; `bloodTop` is the top of the blood column (y), `esr` the mm of clear plasma
-const ESRTube = ({ method, at, bloodTop, esr, bulb }: { method: Method; at: Point; bloodTop: number | null; esr: number; bulb: boolean }) => {
+const ESRTube = ({ method, at, bloodTop, esr, bulb }: { method: Method; at: Point; bloodTop: number | null; esr: number; bulb: { squeeze: number; lift: number } | null }) => {
     const s = TUBE[method];
     const bottom = bottomOf(s);
     const x = TUBE_X;
@@ -211,7 +251,8 @@ const ESRTube = ({ method, at, bloodTop, esr, bulb }: { method: Method; at: Poin
         : `M ${x - inner} ${s.top} L ${x - inner} ${bottom} L ${x + inner} ${bottom} L ${x + inner} ${s.top} Z`;
     const majorEvery = method === 'westergren' ? 10 : 10;
     const minorEvery = 5;
-    const labelEvery = method === 'westergren' ? 50 : 10;
+    const labelEvery = 10;
+    const ink = '#0f172a'; // graduations printed in black, the same as in the magnified view
     return (
         <g transform={`translate(${at.x - x} ${at.y - bottom})`} pointerEvents="none">
             <defs><clipPath id={clipId}><path d={bore} /></clipPath></defs>
@@ -229,11 +270,18 @@ const ESRTube = ({ method, at, bloodTop, esr, bulb }: { method: Method; at: Poin
                 const major = mm % majorEvery === 0;
                 return (
                     <g key={mm}>
-                        <line x1={x - s.half} x2={x - s.half + (major ? 9 : 5)} y1={y} y2={y} stroke="#1e293b" strokeWidth={major ? 1.4 : 0.9} />
+                        <line x1={x - s.half} x2={x - s.half + (major ? 9 : 5)} y1={y} y2={y} stroke={ink} strokeWidth={major ? 1.4 : 0.9} />
                         {mm % labelEvery === 0 && (
-                            <text x={x - s.half - 5} y={y + 5} textAnchor="end" fill="#1e293b" fontSize={method === 'westergren' ? 15 : 14} fontWeight="bold">
+                            <text x={x - s.half - 5} y={y + 4} textAnchor="end" fill={ink} fontSize={method === 'westergren' ? 11 : 13} fontWeight="bold">
                                 {method === 'westergren' ? mm : mm / 10}
                             </text>
+                        )}
+                        {/* The Wintrobe tube is also graduated from below (for PCV): 10 at the top to 0 at the bottom */}
+                        {method === 'wintrobe' && (
+                            <>
+                                <line x1={x + s.half} x2={x + s.half - (major ? 9 : 5)} y1={y} y2={y} stroke={ink} strokeWidth={major ? 1.4 : 0.9} />
+                                {mm % labelEvery === 0 && <text x={x + s.half + 5} y={y + 4} fill={ink} fontSize={13} fontWeight="bold">{10 - mm / 10}</text>}
+                            </>
                         )}
                     </g>
                 );
@@ -242,49 +290,92 @@ const ESRTube = ({ method, at, bloodTop, esr, bulb }: { method: Method; at: Poin
             <ellipse cx={x} cy={s.top} rx={s.half} ry={2.5} fill="rgba(255,255,255,0.4)" stroke="#8a9bb0" strokeWidth={1.5} />
             {!s.roundBottom && <ellipse cx={x} cy={bottom} rx={s.half} ry={2.5} fill="none" stroke="#8a9bb0" strokeWidth={1.5} />}
             <rect x={x - s.half + 3} y={s.top + 10} width={2} height={bottom - s.top - 24} fill="#ffffff" opacity={0.7} />
-            {bulb && <path d={`M ${x - 7} ${s.top + 4} L ${x - 7} ${s.top - 12} Q ${x - 11} ${s.top - 34} ${x} ${s.top - 36} Q ${x + 11} ${s.top - 34} ${x + 7} ${s.top - 12} L ${x + 7} ${s.top + 4} Z`} fill="#dc2626" />}
+            {/* Rubber teat used to suck the blood up to the 0 mark: squeezed flat (squeeze 1) to push the air out,
+                released to draw the blood up, then lifted off the top (lift 0 to 1) */}
+            {bulb && (
+                <g transform={`translate(0 ${-34 * bulb.lift})`} opacity={1 - bulb.lift}>
+                    <rect x={x - 6.5} y={s.top - 14} width={13} height={22} rx={3} fill="#b91c1c" />
+                    <rect x={x - 8} y={s.top - 16} width={16} height={5} rx={2} fill="#991b1b" />
+                    <ellipse cx={x} cy={s.top - 40 + 3 * bulb.squeeze} rx={13 * (1 - 0.5 * bulb.squeeze)} ry={25 * (1 - 0.12 * bulb.squeeze)} fill="#dc2626" />
+                    <ellipse cx={x - 5 * (1 - 0.5 * bulb.squeeze)} cy={s.top - 46 + 3 * bulb.squeeze} rx={3.5 * (1 - 0.4 * bulb.squeeze)} ry={10} fill="#fca5a5" opacity={0.55} />
+                </g>
+            )}
         </g>
     );
 };
 
-// Penicillin bottle with the anticoagulant; `blood` 0 to 1 as the blood goes in, `mixed` once swirled
+// Penicillin bottle (about 10 mL, clear glass, open) holding the anticoagulant. Drawn about its base at (VIAL_X, 640)
+// and scaled up. The liquid is clipped to the inside of the bottle and its level follows the real volume: 0.5 mL of
+// clear 3.8% sodium citrate (or a pinch of double oxalate powder), then 2 mL of blood. `blood` is 0 to 1 as the blood
+// goes in, `mixed` 0 to 1 while it is swirled.
+const VIAL_ML_PER_UNIT = 1 / 4.8; // 10 mL fills the body up to the shoulder
 const Vial = ({ method, blood, mixed, tilt }: { method: Method; blood: number; mixed: number; tilt: number }) => {
     const x = VIAL_X;
-    const level = 628 - 18 - 52 * blood;
     const citrate = method === 'westergren';
+    const outer = `M ${x - 28} 586 Q ${x - 28} 572 ${x - 15} 569 L ${x - 13} 560 Q ${x - 16} 559 ${x - 16} 556 Q ${x - 16} 553 ${x - 13} 553 L ${x + 13} 553 Q ${x + 16} 553 ${x + 16} 556 Q ${x + 16} 559 ${x + 13} 560 L ${x + 15} 569 Q ${x + 28} 572 ${x + 28} 586 L ${x + 28} 634 Q ${x + 28} 640 ${x + 22} 640 L ${x - 22} 640 Q ${x - 28} 640 ${x - 28} 634 Z`;
+    const inner = `M ${x - 25} 587 Q ${x - 25} 575 ${x - 12} 572 L ${x - 10} 556 L ${x + 10} 556 L ${x + 12} 572 Q ${x + 25} 575 ${x + 25} 587 L ${x + 25} 632 Q ${x + 25} 637 ${x + 20} 637 L ${x - 20} 637 Q ${x - 25} 637 ${x - 25} 632 Z`;
+    const ml = (citrate ? 0.5 : 0) + 2 * blood;
+    const level = 637 - ml / VIAL_ML_PER_UNIT;
+    // Clear citrate turns red as the blood runs in; fully mixed it is an even dark red
+    const liquid = blood > 0 ? BLOOD : 'rgba(207, 232, 252, 0.85)';
     return (
         <g transform={`rotate(${tilt} ${x} 640) translate(${x} 640) scale(${VIAL_SCALE}) translate(${-x} -640)`} pointerEvents="none">
-            <Shadow cx={x} cy={644} rx={34} ry={5} />
-            <path d={`M ${x - 28} 586 Q ${x - 28} 570 ${x - 16} 568 L ${x - 14} 556 L ${x + 14} 556 L ${x + 16} 568 Q ${x + 28} 570 ${x + 28} 586 L ${x + 28} 634 Q ${x + 28} 640 ${x + 22} 640 L ${x - 22} 640 Q ${x - 28} 640 ${x - 28} 634 Z`}
-                fill="rgba(255,255,255,0.45)" stroke="#8a9bb0" strokeWidth={2} />
-            {(citrate || blood > 0) && (
-                <path d={`M ${x - 25} ${level} L ${x + 25} ${level} L ${x + 25} 633 Q ${x + 25} 637 ${x + 21} 637 L ${x - 21} 637 Q ${x - 25} 637 ${x - 25} 633 Z`}
-                    fill={blood > 0 ? BLOOD : 'rgba(224,242,254,0.8)'} opacity={blood > 0 ? 0.75 + 0.25 * mixed : 1} />
-            )}
-            {!citrate && blood === 0 && <ellipse cx={x} cy={634} rx={16} ry={3} fill="#f8fafc" stroke="#cbd5e1" />}
-            <rect x={x - 22} y={596} width={44} height={26} rx={2} fill="#fefce8" stroke="#d6d3d1" />
-            <text x={x} y={608} textAnchor="middle" fill="#111827" fontSize={10} fontWeight="bold">{citrate ? '3.8% Na' : 'Double'}</text>
-            <text x={x} y={619} textAnchor="middle" fill="#111827" fontSize={10} fontWeight="bold">{citrate ? 'citrate' : 'oxalate'}</text>
+            <Shadow cx={x} cy={644} rx={32} ry={4} />
+            <defs><clipPath id="esr-vial-inside"><path d={inner} /></clipPath></defs>
+            <path d={outer} fill="rgba(241, 245, 249, 0.55)" />
+            <g clipPath="url(#esr-vial-inside)">
+                {ml > 0.01 && <rect x={x - 26} y={level} width={52} height={637 - level + 1} fill={liquid} opacity={blood > 0 ? 0.82 + 0.18 * mixed : 1} />}
+                {ml > 0.01 && <rect x={x - 26} y={level} width={52} height={1.2} fill="#ffffff" opacity={0.35} />}
+                {!citrate && <ellipse cx={x} cy={634} rx={14} ry={2.5} fill="#f8fafc" opacity={1 - blood} />}
+            </g>
+            {/* Glass edges and highlight */}
+            <path d={outer} fill="none" stroke="#94a3b8" strokeWidth={1.4} />
+            <path d={`M ${x - 21} 590 L ${x - 21} 628`} stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" opacity={0.75} />
+            <path d={`M ${x - 13} 554 L ${x + 13} 554`} stroke="#ffffff" strokeWidth={1.2} opacity={0.8} />
+            {/* Label, high on the body so the liquid shows below it */}
+            <rect x={x - 22} y={588} width={44} height={20} rx={1.5} fill="#ffffff" stroke="#cbd5e1" strokeWidth={0.6} />
+            <text x={x} y={596.5} textAnchor="middle" fill="#0f172a" fontSize={6.6} fontWeight="bold">{citrate ? '3.8% Sodium' : 'Double'}</text>
+            <text x={x} y={604.5} textAnchor="middle" fill="#0f172a" fontSize={6.6} fontWeight="bold">{citrate ? 'citrate' : 'oxalate'}</text>
         </g>
     );
 };
 
-// 2 mL syringe with venous blood, needle already removed; nozzle at (x, y)
-const BloodSyringe = ({ at, volume }: { at: Point; volume: number }) => {
+// 2 mL disposable syringe with venous blood, needle removed; nozzle tip at `at`. Drawn pointing down (angle 0) and
+// rotated about the nozzle: lying on the bench it is turned 90°, pointing left.
+const BloodSyringe = ({ at, volume, angle }: { at: Point; volume: number; angle: number }) => {
     const { x, y } = at;
-    const barrelBottom = y - 10;
-    const barrelLen = 80;
-    const liquidTop = barrelBottom - barrelLen * (volume / 2.4);
+    const barrelBottom = y - 9;
+    const barrelLen = 84;
+    const perMl = barrelLen / 2.4;
+    const tipY = barrelBottom - perMl * volume;          // the rubber plunger tip sits on the blood
+    const rodTop = tipY - 8 - 62;
     return (
-        <g transform={`translate(${x} ${y}) scale(${SYRINGE_SCALE}) translate(${-x} ${-y})`} pointerEvents="none">
-            <rect x={x - 2.5} y={y - 10} width={5} height={10} fill="#cbd5e1" />
-            {volume > 0.01 && <rect x={x - 6} y={liquidTop} width={12} height={barrelBottom - liquidTop} fill={BLOOD} />}
-            <rect x={x - 3} y={liquidTop - barrelLen * 0.15 - 46} width={6} height={46 + barrelLen * 0.15} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.8} />
-            <rect x={x - 6} y={liquidTop - 5} width={12} height={5} fill="#1e293b" />
-            <rect x={x - 10} y={liquidTop - barrelLen * 0.15 - 50} width={20} height={4} rx={1.5} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.8} />
-            <rect x={x - 7} y={barrelBottom - barrelLen} width={14} height={barrelLen} rx={2} fill="rgba(255,255,255,0.25)" stroke="#94a3b8" strokeWidth={1.5} />
-            {[0, 0.5, 1, 1.5, 2].map(v => <line key={v} x1={x - 7} x2={x - 2} y1={barrelBottom - (barrelLen * v) / 2.4} y2={barrelBottom - (barrelLen * v) / 2.4} stroke="#64748b" strokeWidth={1} />)}
-            <rect x={x - 13} y={barrelBottom - barrelLen - 3} width={26} height={4} rx={1.5} fill="#cbd5e1" />
+        <g transform={`rotate(${angle} ${x} ${y}) translate(${x} ${y}) scale(${SYRINGE_SCALE}) translate(${-x} ${-y})`} pointerEvents="none">
+            {/* Luer nozzle */}
+            <path d={`M ${x - 2} ${y} L ${x + 2} ${y} L ${x + 3.5} ${y - 9} L ${x - 3.5} ${y - 9} Z`} fill="rgba(226, 232, 240, 0.9)" stroke="#94a3b8" strokeWidth={0.7} />
+            {volume > 0.01 && <rect x={x - 1} y={y - 8} width={2} height={8} fill={BLOOD} />}
+            {/* Blood in the barrel */}
+            {volume > 0.01 && <rect x={x - 6.5} y={tipY} width={13} height={barrelBottom - tipY} fill={BLOOD} />}
+            {/* Plunger: rod with a thumb press and a black rubber tip */}
+            <rect x={x - 3.5} y={rodTop} width={7} height={tipY - rodTop} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={0.7} />
+            <line x1={x} x2={x} y1={rodTop + 4} y2={tipY - 2} stroke="#cbd5e1" strokeWidth={1.4} />
+            <rect x={x - 9} y={rodTop - 4} width={18} height={4} rx={1.5} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.7} />
+            <rect x={x - 6.5} y={tipY - 6} width={13} height={6} rx={1} fill="#1f2937" />
+            <line x1={x - 6.5} x2={x + 6.5} y1={tipY - 3} y2={tipY - 3} stroke="#4b5563" strokeWidth={0.8} />
+            {/* Clear barrel with a black scale, 0 to 2 mL */}
+            <rect x={x - 7} y={barrelBottom - barrelLen} width={14} height={barrelLen} rx={1.5} fill="rgba(255,255,255,0.22)" stroke="#94a3b8" strokeWidth={1.2} />
+            {[0.5, 1, 1.5, 2].map(v => (
+                <g key={v}>
+                    <line x1={x + 7} x2={x + (v % 1 === 0 ? 1 : 3)} y1={barrelBottom - perMl * v} y2={barrelBottom - perMl * v} stroke="#111827" strokeWidth={0.8} />
+                    {v % 1 === 0 && <text x={x + 9} y={barrelBottom - perMl * v + 2.5} fontSize={6.5} fontWeight="bold" fill="#111827">{v}</text>}
+                </g>
+            ))}
+            {[0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4, 1.6, 1.7, 1.8, 1.9].map(v => (
+                <line key={v} x1={x + 7} x2={x + 4.5} y1={barrelBottom - perMl * v} y2={barrelBottom - perMl * v} stroke="#111827" strokeWidth={0.5} />
+            ))}
+            <rect x={x - 4.5} y={barrelBottom - barrelLen + 3} width={1.6} height={barrelLen - 6} fill="#ffffff" opacity={0.6} />
+            {/* Finger flange */}
+            <rect x={x - 15} y={barrelBottom - barrelLen - 3} width={30} height={4} rx={2} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.7} />
         </g>
     );
 };
@@ -422,11 +513,11 @@ export const ESR: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     // --- Scene for the current moment ---
     const bottom = bottomOf(spec);
-    let syringe = { at: SYRINGE_REST, volume: 2 };
+    let syringe = { at: SYRINGE_REST, volume: 2, angle: 90 };
     let vial = { blood: 0, mixed: 0, tilt: 0 };
     let tubeAt: Point = { x: TUBE_X, y: bottom };
     let bloodTop: number | null = null;
-    let bulb = false;
+    let bulb: { squeeze: number; lift: number } | null = null;
     let pasteur: { at: Point; filled: number } | null = null;
     let esr = 0;
     let clockMinutes = 0;
@@ -443,15 +534,18 @@ export const ESR: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const m2 = m1 + MIX.push;
         const m3 = m2 + MIX.out;
         const pushed = clamp01((t - m1) / MIX.push);
+        // Picked up off the bench and turned nozzle-down over the bottle, emptied, then laid down again
+        const goIn = ease(t / m1), goOut = ease((t - m2) / MIX.out);
         syringe = {
-            at: t < m1 ? lerpPt(SYRINGE_REST, SYRINGE_OVER_VIAL, ease(t / m1)) : t < m2 ? SYRINGE_OVER_VIAL : lerpPt(SYRINGE_OVER_VIAL, SYRINGE_REST, ease((t - m2) / MIX.out)),
+            at: t < m1 ? lerpPt(SYRINGE_REST, SYRINGE_OVER_VIAL, goIn) : t < m2 ? SYRINGE_OVER_VIAL : lerpPt(SYRINGE_OVER_VIAL, SYRINGE_REST, goOut),
             volume: 2 * (1 - pushed),
+            angle: t < m1 ? 90 * (1 - goIn) : t < m2 ? 0 : 90 * goOut,
         };
         vial = { blood: pushed, mixed: ease((t - m3) / MIX.swirl), tilt: t >= m3 ? 12 * Math.sin(((t - m3) / MIX.swirl) * 4 * Math.PI) : 0 };
         caption = t < m2 ? 'Needle removed first, then the blood is run gently into the bottle (to avoid hemolysis)' : 'Mixing gently by swirling. Do not shake, it causes froth';
     } else {
         vial = { blood: 1, mixed: 1, tilt: 0 };
-        syringe = { at: SYRINGE_REST, volume: 0 };
+        syringe = { at: SYRINGE_REST, volume: 0, angle: 90 };
     }
 
     if (phase === 'mixed') {
@@ -475,7 +569,10 @@ export const ESR: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             } else {
                 bloodTop = spec.zeroY;
             }
-            bulb = t < f2 + 0.2;
+            // Squeezed while carried to the bottle, released as the blood rises (in step with it), lifted off at 0
+            if (t < f1) bulb = { squeeze: ease(t / f1), lift: 0 };
+            else if (t < f2) bulb = { squeeze: 1 - ease((t - f1) / WEST_FILL.suck), lift: 0 };
+            else if (t < f2 + 0.5) bulb = { squeeze: 0, lift: ease((t - f2) / 0.5) };
             caption = t < f2 ? 'Sucking citrated blood up to the 0 mark with a rubber bulb, no air bubbles'
                 : 'Pressing the lower end into the rubber pad and closing the top under the screw cap, vertical';
         } else {
@@ -544,31 +641,37 @@ export const ESR: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <WallClock minutes={clockMinutes} waiting={phase === 'waiting'} />
                             {westergren ? <WestergrenStand /> : <WintrobeStand front={false} />}
                             <ESRTube method={method} at={tubeAt} bloodTop={bloodTop} esr={esr} bulb={bulb} />
-                            {westergren ? <ScrewCap /> : <WintrobeStand front />}
+                            {westergren ? <ScrewCaps /> : <WintrobeStand front />}
                             <Vial method={method} blood={vial.blood} mixed={vial.mixed} tilt={vial.tilt} />
                             {pasteur && <PasteurPipette at={pasteur.at} filled={pasteur.filled} />}
-                            <BloodSyringe at={syringe.at} volume={syringe.volume} />
+                            <BloodSyringe at={syringe.at} volume={syringe.volume} angle={syringe.angle} />
 
                             {/* Part names on hover */}
                             <HoverZone x={52} y={42} w={116} h={116} {...hover('Wall clock')} />
                             {westergren ? (
                                 <>
-                                    <HoverZone x={320} y={612} w={190} h={28} {...hover('Westergren stand')} />
-                                    <HoverZone x={334} y={96} w={16} h={516} {...hover('Westergren stand')} />
-                                    <HoverZone x={450} y={618} w={44} h={16} {...hover('Spirit level: keeps the pipette exactly vertical')} />
-                                    {tubeInStand && <HoverZone x={TUBE_X - 14} y={600} w={28} h={13} {...hover('Rubber pad: seals the lower end of the pipette')} />}
-                                    <HoverZone x={TUBE_X - 14} y={104} w={28} h={28} {...hover('Screw cap: holds and closes the top of the pipette')} />
+                                    <HoverZone x={STAND.left} y={598} w={STAND.right - STAND.left} h={44} {...hover('Westergren stand: holds 4 pipettes upright')} />
+                                    <HoverZone x={STAND.left} y={92} w={STAND.right - STAND.left} h={16} {...hover('Westergren stand: top bar with a screw cap for each pipette')} />
+                                    <HoverZone x={STAND.left + 2} y={108} w={16} h={490} {...hover('Westergren stand')} />
+                                    <HoverZone x={STAND.right - 18} y={108} w={16} h={490} {...hover('Westergren stand')} />
+                                    <HoverZone x={STAND.right - 70} y={612} w={48} h={14} {...hover('Spirit level: keeps the pipette exactly vertical')} />
+                                    {[STAND.left + 22, STAND.right - 22].map(x => <HoverZone key={x} x={x - 12} y={628} w={24} h={14} {...hover('Levelling screw')} />)}
+                                    {STAND.places.map(x => (x !== TUBE_X || tubeInStand) && <HoverZone key={`c${x}`} x={x - 14} y={584} w={28} h={16} {...hover('Rubber cushion: seals the lower end of the pipette')} />)}
+                                    {STAND.places.map(x => <HoverZone key={`s${x}`} x={x - 13} y={108} w={26} h={26} {...hover('Screw cap: holds and closes the top of the pipette')} />)}
                                 </>
                             ) : (
                                 <>
-                                    <HoverZone x={340} y={606} w={160} h={34} {...hover('Wintrobe stand')} />
-                                    <HoverZone x={448} y={616} w={44} h={16} {...hover('Spirit level: keeps the tube exactly vertical')} />
+                                    <HoverZone x={WINTROBE_RACK.left} y={WINTROBE_RACK.bottom + 8} w={WINTROBE_RACK.right - WINTROBE_RACK.left} h={36} {...hover('Wintrobe stand')} />
+                                    <HoverZone x={WINTROBE_RACK.left} y={WINTROBE_RACK.top - 6} w={WINTROBE_RACK.right - WINTROBE_RACK.left} h={22} {...hover('Wintrobe stand: the tube passes through a hole in the top plate')} />
+                                    <HoverZone x={WINTROBE_RACK.right - 64} y={WINTROBE_RACK.bottom + 26} w={48} h={16} {...hover('Spirit level: keeps the tube exactly vertical')} />
                                 </>
                             )}
                             <HoverZone x={tubeAt.x - spec.half - 4} y={tubeTopY - 4} w={2 * spec.half + 8} h={bottom - spec.top + 8}
                                 {...hover(westergren ? 'Westergren pipette: 300 mm long, 2.5 mm bore, graduated 0 to 200 mm' : 'Wintrobe tube: 110 mm long, graduated 0 to 10 cm (ESR from the top, PCV from the bottom)')} />
-                            <HoverZone x={VIAL_X - 44} y={510} w={88} h={132} {...hover(westergren ? 'Penicillin bottle: 3.8% sodium citrate (1 part to 4 parts blood)' : 'Penicillin bottle: double oxalate (ammonium + potassium oxalate)')} />
-                            <HoverZone x={syringe.at.x - 21} y={syringe.at.y - 240} w={42} h={240} {...hover('2 mL syringe with venous blood (needle removed)')} />
+                            <HoverZone x={VIAL_X - 64} y={446} w={128} h={196} {...hover(westergren ? 'Penicillin bottle: 0.5 mL of 3.8% sodium citrate for 2 mL of blood (1 : 4)' : 'Penicillin bottle: double oxalate (ammonium + potassium oxalate)')} />
+                            {syringe.angle > 45
+                                ? <HoverZone x={syringe.at.x} y={syringe.at.y - 26} w={250} h={52} {...hover('2 mL syringe with venous blood (needle removed)')} />
+                                : <HoverZone x={syringe.at.x - 26} y={syringe.at.y - 250} w={52} h={250} {...hover('2 mL syringe with venous blood (needle removed)')} />}
                             {pasteur && <HoverZone x={pasteur.at.x - 9} y={pasteur.at.y - PASTEUR_NOZZLE - 102} w={18} h={PASTEUR_NOZZLE + 102} {...hover('Pasteur pipette with a long nozzle')} />}
                             {(phase === 'waiting' || phase === 'done') && <HoverZone x={MAG.cx - MAG.r} y={MAG.cy - MAG.r} w={2 * MAG.r} h={2 * MAG.r} {...hover('Magnified view of the scale')} />}
 
