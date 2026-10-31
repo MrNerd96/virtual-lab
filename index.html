@@ -9,6 +9,9 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#0f172a" />
+  <!-- Declaring a colour scheme stops browsers that force-darken pages (e.g. Edge for Android's
+       "dark mode for websites") from inverting the bright microscope field to black. -->
+  <meta name="color-scheme" content="light dark" />
 
   <!-- SEO Meta Tags -->
   <meta name="description"
@@ -37,6 +40,10 @@
   <title>Virtual Physiology Lab</title>
   <!-- Tailwind CDN removed in favor of local build -->
   <style>
+    :root {
+      color-scheme: light dark;
+    }
+
     body {
       margin: 0;
       background-color: #0f172a;
