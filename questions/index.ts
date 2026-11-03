@@ -10,6 +10,7 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'rbc-count', title: 'Total RBC Count', section: 'Hematology', load: () => import('./rbc-count').then(m => m.RBC_QUESTIONS) },
     { id: 'dlc-count', title: 'Differential Leucocyte Count (DLC)', section: 'Hematology', load: () => import('./dlc').then(m => m.DLC_QUESTIONS) },
     { id: 'blood-grouping', title: 'Blood Grouping', section: 'Hematology', load: () => import('./blood-grouping').then(m => m.BLOOD_GROUPING_QUESTIONS) },
+    { id: 'bt-ct', title: 'Bleeding Time & Clotting Time', section: 'Hematology', load: () => import('./bt-ct').then(m => m.BT_CT_QUESTIONS) },
     { id: 'twitch', title: 'Simple Muscle Twitch', section: 'Amphibian', load: () => import('./twitch').then(m => m.TWITCH_QUESTIONS) },
     { id: 'load', title: 'Effect of Load', section: 'Amphibian', load: () => import('./effect-of-load').then(m => m.LOAD_QUESTIONS) },
     { id: 'effect-of-temperature', title: 'Effect of Temperature', section: 'Amphibian', load: () => import('./effect-of-temperature').then(m => m.TEMP_QUESTIONS) },

@@ -29,6 +29,7 @@ const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m
 const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })).catch(reloadForNewVersion));
 const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then(m => ({ default: m.OsmoticFragility })).catch(reloadForNewVersion));
 const BloodGrouping = lazy(() => import('./components/BloodGrouping').then(m => ({ default: m.BloodGrouping })).catch(reloadForNewVersion));
+const BleedingClottingTime = lazy(() => import('./components/BleedingClottingTime').then(m => ({ default: m.BleedingClottingTime })).catch(reloadForNewVersion));
 const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })).catch(reloadForNewVersion));
 const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })).catch(reloadForNewVersion));
 const InstrumentViewer = lazy(() => import('./components/InstrumentViewer').then(m => ({ default: m.InstrumentViewer })).catch(reloadForNewVersion));
@@ -68,7 +69,8 @@ import {
   Heart,
   Target,
   TestTubes,
-  Pipette
+  Pipette,
+  Hourglass
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -80,7 +82,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -107,6 +109,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'osmotic-fragility': 'Osmotic Fragility of RBCs',
   'esr': 'Erythrocyte Sedimentation Rate',
   'blood-grouping': 'Blood Grouping',
+  'bt-ct': 'Bleeding & Clotting Time',
   'question-bank': 'Question Bank',
   'genesis-tetanus': 'Genesis of Tetanus',
   'effect-of-temperature': 'Effect of Temperature',
@@ -147,6 +150,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'osmotic-fragility': 'Hematology',
   'esr': 'Hematology',
   'blood-grouping': 'Hematology',
+  'bt-ct': 'Hematology',
   'question-bank': 'Navigation',
   'microscope': 'Microscope',
   'instruments': 'Navigation',
@@ -2682,6 +2686,13 @@ const App: React.FC = () => {
                 colorClass="purple"
                 onClick={() => navigateTo('blood-grouping')}
               />
+              <MenuCard
+                title="Bleeding & Clotting Time"
+                description="BT by the Duke method and CT by the capillary tube method."
+                icon={<Hourglass className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => navigateTo('bt-ct')}
+              />
             </div>
           </div>
         </div>
@@ -2765,6 +2776,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Blood Grouping..." />}>
           <BloodGrouping onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'bt-ct':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Bleeding & Clotting Time..." />}>
+          <BleedingClottingTime onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'question-bank':
