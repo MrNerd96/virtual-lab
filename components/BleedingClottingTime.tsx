@@ -4,6 +4,7 @@ import { useHoverLabel, HoverLabel } from './HoverLabel';
 import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
+import { Finger, Lancet, pulpSite, useNarrowScreen, wrapCaption, easeInOut, easeOut, lerp, clamp01, type Pt } from './fingerPrick';
 
 // Bleeding time by the Duke method and clotting time by the capillary tube method, as in GK Pal (Ch 17), CL Ghai
 // (Expt 1-19) and AK Jain (Ch 9). BT: a deep finger-prick, the drop blotted with the edge of a filter paper every
@@ -52,10 +53,6 @@ const FIRST_BREAK = 120;    // s: first break at 2 minutes (Pal)
 const MAX_BREAKS = TUBE_CM - 1;           // the last centimetre is kept in the fingers
 const STEP_DEG = 18;        // the paper turns this far between blots, so 20 blots go once round its edge
 
-const easeInOut = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : (1 - Math.cos(Math.PI * t)) / 2);
-const easeOut = (t: number) => 1 - (1 - Math.max(0, Math.min(1, t))) ** 2;
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
 // Elapsed time written out, e.g. "3 min 30 s", and as a stopwatch shows it, "3:30"
 const clock = (s: number) => `${Math.floor(s / 60)} min ${Math.floor(s % 60)} s`;
 const watch = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -78,11 +75,10 @@ interface Break { t: number; thread: boolean; at: number }
 interface CtState { cleanT0: number | null; prickT0: number | null; wipeT0: number | null; fillT0: number | null; palmT0: number | null; clock: Clock; breaks: Break[]; stopped: boolean }
 const CT0: CtState = { cleanT0: null, prickT0: null, wipeT0: null, fillT0: null, palmT0: null, clock: CLOCK0, breaks: [], stopped: false };
 
-// --- SVG layouts: finger to the left; filter paper (BT) or capillary tube (CT) beside or below it ---
-interface Pt { x: number; y: number }
+// --- SVG layouts: finger to the left, palm up; filter paper (BT) above it, or capillary tube (CT) below it ---
 interface Layout {
     w: number; h: number;
-    tip: Pt;                                   // the fingertip, where the prick is made
+    tip: Pt; btTip: Pt;                        // the fingertip for CT and, lower down under the filter paper, for BT
     paper: Pt & { r: number };
     tube: Pt; cm: number; fillAngle: number;   // left end of the tube at rest, px per cm, tilt while filling
     hand: number;                              // size of the hands holding the tube
@@ -92,80 +88,25 @@ interface Layout {
 }
 const WIDE: Layout = {
     w: 1000, h: 600,
-    tip: { x: 340, y: 200 },
-    paper: { x: 700, y: 320, r: 180 },
+    tip: { x: 340, y: 200 }, btTip: { x: 340, y: 440 },
+    paper: { x: 405, y: 178, r: 180 },
     tube: { x: 170, y: 410 }, cm: 40, fillAngle: 13, hand: 1,
     inset: { x: 860, y: 175, r: 110 },
-    watch: { x: 170, y: 360 }, ctWatch: { x: 560, y: 85 },
+    watch: { x: 108, y: 170 }, ctWatch: { x: 560, y: 85 },
     caption: { x: 500, y: 560, maxChars: 72 },
 };
 const NARROW: Layout = {
     w: 700, h: 840,
-    tip: { x: 240, y: 180 },
-    paper: { x: 430, y: 500, r: 200 },
+    tip: { x: 240, y: 180 }, btTip: { x: 240, y: 560 },
+    paper: { x: 314, y: 280, r: 200 },
     tube: { x: 60, y: 560 }, cm: 32, fillAngle: 34, hand: 0.85,
     inset: { x: 545, y: 330, r: 115 },
-    watch: { x: 130, y: 380 }, ctWatch: { x: 150, y: 360 },
+    watch: { x: 110, y: 690 }, ctWatch: { x: 150, y: 360 },
     caption: { x: 350, y: 765, maxChars: 46 },
 };
 const DROP_MAX = 22;
 
-// Phones (up to 640 px wide) get the taller layout
-function useNarrowScreen() {
-    const query = '(max-width: 640px)';
-    const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
-    useEffect(() => {
-        const m = window.matchMedia(query);
-        const onChange = () => setNarrow(m.matches);
-        m.addEventListener('change', onChange);
-        return () => m.removeEventListener('change', onChange);
-    }, []);
-    return narrow;
-}
-
-// The caption under the drawing, wrapped into lines that fit the layout
-function wrapCaption(text: string, maxChars: number): string[] {
-    const lines: string[] = [];
-    let line = '';
-    for (const word of text.split(' ')) {
-        if (line && (line + ' ' + word).length > maxChars) { lines.push(line); line = word; }
-        else line = line ? `${line} ${word}` : word;
-    }
-    if (line) lines.push(line);
-    return lines;
-}
-
 // --- Drawing parts ---
-
-// Index finger seen from the side, pointing right, its tip at (x, y): nail on top, pad below. While being cleaned a
-// spirit swab rubs the tip and the skin stays wet until it dries.
-const Finger = ({ x, y, wet, swab, hoverProps }: { x: number; y: number; wet: number; swab: Pt | null; hoverProps: object }) => (
-    <g {...hoverProps}>
-        <path d={`M ${x - 420} ${y - 50} L ${x - 60} ${y - 50} C ${x - 22} ${y - 50} ${x} ${y - 26} ${x} ${y} C ${x} ${y + 30} ${x - 26} ${y + 54} ${x - 70} ${y + 54} L ${x - 420} ${y + 54} Z`}
-            fill="#e8b48f" stroke="#c48a63" strokeWidth={2} />
-        {/* Nail */}
-        <path d={`M ${x - 120} ${y - 50} L ${x - 50} ${y - 50} Q ${x - 22} ${y - 46} ${x - 16} ${y - 32} Q ${x - 60} ${y - 38} ${x - 120} ${y - 38} Z`} fill="#f5d0c0" stroke="#c48a63" strokeWidth={1.5} />
-        {/* Skin creases over the last joint */}
-        <path d={`M ${x - 175} ${y - 46} Q ${x - 170} ${y} ${x - 178} ${y + 50}`} fill="none" stroke="#c48a63" strokeWidth={1.5} opacity={0.6} />
-        <path d={`M ${x - 186} ${y - 40} Q ${x - 181} ${y} ${x - 188} ${y + 44}`} fill="none" stroke="#c48a63" strokeWidth={1.2} opacity={0.45} />
-        {wet > 0 && <ellipse cx={x - 22} cy={y + 2} rx={30} ry={40} fill="rgba(186, 230, 253, 0.55)" opacity={wet} />}
-        {swab && (
-            <g pointerEvents="none">
-                <circle cx={swab.x} cy={swab.y} r={22} fill="#ffffff" stroke="#cbd5e1" strokeWidth={1.5} />
-                <circle cx={swab.x - 7} cy={swab.y - 6} r={9} fill="#f8fafc" />
-                <circle cx={swab.x + 8} cy={swab.y + 5} r={8} fill="#f1f5f9" />
-            </g>
-        )}
-    </g>
-);
-
-// Sterile disposable lancet, its point at (x, y)
-const Lancet = ({ x, y }: Pt) => (
-    <g transform={`translate(${x} ${y}) rotate(-35)`} pointerEvents="none">
-        <path d="M 0 0 L 6 -3 L 30 -3 L 30 3 L 6 3 Z" fill="#cbd5e1" stroke="#64748b" strokeWidth={1} />
-        <rect x={30} y={-9} width={70} height={18} rx={4} fill="#3b82f6" stroke="#1d4ed8" strokeWidth={1} />
-    </g>
-);
 
 // One hand seen from the back, fingers pointing right with the middle fingertip at (0, 0) and the tube running under
 // it along y = 0: the back of the hand ending at the wrist, four fingers with nails, and the thumb on the upper side. The other hand, palm up underneath, is the same drawing mirrored and shaded darker.
@@ -420,25 +361,26 @@ export const BleedingClottingTime: React.FC<{ onBack: () => void }> = ({ onBack 
     ][ctStep - 1];
 
     // --- Drawing state: bleeding time ---
-    const tip = L.tip;
+    const tip = tab === 'bt' ? L.btTip : L.tip;
+    const site = pulpSite(tip.x, tip.y);       // the ball of the finger, where it is pricked
     const cleaning = (t0: number | null) => {
         if (t0 === null) return { wet: 0, swab: null as Pt | null };
         const e = now - t0;
         const wet = e < CLEAN_RUB ? 1 : 1 - clamp01((e - CLEAN_RUB) / (CLEAN_TIME - CLEAN_RUB));
-        const swab = e < CLEAN_RUB ? { x: tip.x - 18, y: tip.y + Math.sin(e / 60) * 26 } : null;
+        const swab = e < CLEAN_RUB ? { x: site.x + Math.sin(e / 60) * 28, y: site.y - 16 } : null;
         return { wet, swab };
     };
     const lancetAt = (t0: number | null): Pt | null => {
         if (t0 === null || now - t0 >= PRICK_TIME) return null;
         const k = Math.sin((Math.PI * (now - t0)) / PRICK_TIME);
-        return { x: lerp(tip.x + 70, tip.x - 2, k), y: lerp(tip.y - 60, tip.y - 2, k) };
+        return { x: site.x, y: lerp(site.y - 80, site.y + 3, k) };
     };
 
-    // The drop hangs at the puncture; after each blot (once the paper has touched it) it collects again
+    // The drop wells up on the ball of the finger; after each blot (once the paper has touched it) it collects again
     const touched = bt.blots.filter(b => now - b.at >= BLOT_TIME / 2);
     const tl = touched.length ? touched[touched.length - 1].t : 0;
     const btDrop = bt.prickT0 === null || bt.stopped ? 0 : dropSize(tl, btSim);
-    const dropAt = (size: number): Pt => ({ x: tip.x + 4 + DROP_MAX * size * 0.8, y: tip.y + 6 });
+    const dropAt = (size: number): Pt => ({ x: site.x, y: site.y + 3 - DROP_MAX * size * 0.85 });
     const btDropPos = dropAt(Math.max(btDrop, 0.5));
 
     // Filter paper: its edge is brought to the drop, then it is turned so the next blot falls on fresh paper
@@ -465,7 +407,7 @@ export const BleedingClottingTime: React.FC<{ onBack: () => void }> = ({ onBack 
         return f < MOVE ? 1 : 1 - 0.75 * easeOut((f - MOVE) / FILL);
     })();
     const ctDropPos = dropAt(Math.max(ctDrop, 0.5));
-    const wipeSwab = ct.wipeT0 !== null && now - ct.wipeT0 < 600 ? { x: ctDropPos.x + 6, y: lerp(tip.y - 70, tip.y + 80, (now - ct.wipeT0) / 600) } : null;
+    const wipeSwab = ct.wipeT0 !== null && now - ct.wipeT0 < 600 ? { x: lerp(site.x + 80, site.x - 80, (now - ct.wipeT0) / 600), y: site.y - 18 } : null;
 
     // Tube pose: at rest on the bench, or taken to the drop and tilted down so blood runs in, then brought back
     const tubeLen = TUBE_CM * L.cm;
@@ -545,8 +487,8 @@ export const BleedingClottingTime: React.FC<{ onBack: () => void }> = ({ onBack 
                                     {btDrop > 0.02 && <circle cx={dropAt(btDrop).x} cy={dropAt(btDrop).y} r={DROP_MAX * btDrop} fill="#b91c1c" {...hover('Drop of blood flowing freely; never squeezed')} />}
                                     {bt.stopped && discontinued && (
                                         <g {...hover('Sterile gauze pressed on the wound')}>
-                                            <rect x={tip.x - 30} y={tip.y - 30} width={50} height={56} rx={6} fill="#ffffff" stroke="#cbd5e1" strokeWidth={2} />
-                                            <path d={`M ${tip.x - 24} ${tip.y - 18} L ${tip.x + 14} ${tip.y - 18} M ${tip.x - 24} ${tip.y} L ${tip.x + 14} ${tip.y} M ${tip.x - 24} ${tip.y + 16} L ${tip.x + 14} ${tip.y + 16}`} stroke="#e2e8f0" strokeWidth={2} />
+                                            <rect x={site.x - 32} y={site.y - 34} width={64} height={38} rx={6} fill="#ffffff" stroke="#cbd5e1" strokeWidth={2} />
+                                            <path d={`M ${site.x - 26} ${site.y - 24} L ${site.x + 26} ${site.y - 24} M ${site.x - 26} ${site.y - 14} L ${site.x + 26} ${site.y - 14} M ${site.x - 26} ${site.y - 4} L ${site.x + 26} ${site.y - 4}`} stroke="#e2e8f0" strokeWidth={2} />
                                         </g>
                                     )}
                                 </g>
