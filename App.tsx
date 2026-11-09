@@ -2297,9 +2297,9 @@ const App: React.FC = () => {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 md:p-8 font-sans relative">
           <div className="max-w-4xl w-full">
-            <div className="flex items-center gap-2 mb-6 -ml-2">
-              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-slate-300 bg-slate-800/60 ring-1 ring-slate-700/60 hover:bg-slate-700 hover:text-white transition-colors">
-                <ArrowLeft className="w-5 h-5" />
+            <div className="flex items-center gap-1 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 -ml-1 rounded-full flex items-center justify-center text-slate-200 hover:bg-slate-800 active:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-6 h-6" strokeWidth={2.5} />
               </button>
               <h2 className="text-[clamp(22px,6.4vw,28px)] md:text-3xl font-bold text-white leading-tight">Amphibian Physiology</h2>
             </div>
@@ -2390,9 +2390,9 @@ const App: React.FC = () => {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 md:p-8 font-sans relative">
           <div className="max-w-4xl w-full">
-            <div className="flex items-center gap-2 mb-6 -ml-2">
-              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-slate-300 bg-slate-800/60 ring-1 ring-slate-700/60 hover:bg-slate-700 hover:text-white transition-colors">
-                <ArrowLeft className="w-5 h-5" />
+            <div className="flex items-center gap-1 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 -ml-1 rounded-full flex items-center justify-center text-slate-200 hover:bg-slate-800 active:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-6 h-6" strokeWidth={2.5} />
               </button>
               <h2 className="text-[clamp(22px,6.4vw,28px)] md:text-3xl font-bold text-white leading-tight">Hematology Lab</h2>
             </div>
@@ -2499,9 +2499,9 @@ const App: React.FC = () => {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 md:p-8 font-sans relative">
           <div className="max-w-4xl w-full">
-            <div className="flex items-center gap-2 mb-6 -ml-2">
-              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-slate-300 bg-slate-800/60 ring-1 ring-slate-700/60 hover:bg-slate-700 hover:text-white transition-colors">
-                <ArrowLeft className="w-5 h-5" />
+            <div className="flex items-center gap-1 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 -ml-1 rounded-full flex items-center justify-center text-slate-200 hover:bg-slate-800 active:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-6 h-6" strokeWidth={2.5} />
               </button>
               <h2 className="text-[clamp(22px,6.4vw,28px)] md:text-3xl font-bold text-white leading-tight">Instruments</h2>
             </div>
