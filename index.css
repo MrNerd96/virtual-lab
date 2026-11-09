@@ -29,3 +29,37 @@
     gap: 8px !important;
   }
 }
+
+/* "Coming soon" menu cards (MenuCard in App.tsx): the dot on the badge pulses gently; it stays still for people who
+   ask their device for reduced motion. */
+.coming-soon-dot {
+  animation: coming-soon-pulse 2s ease-in-out infinite;
+}
+@keyframes coming-soon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+/* A tapped locked card: its padlock shakes, and the note slides up from the bottom of the screen */
+.coming-soon-shake {
+  animation: coming-soon-shake 0.45s ease-in-out;
+}
+@keyframes coming-soon-shake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-18deg); }
+  40% { transform: rotate(16deg); }
+  60% { transform: rotate(-12deg); }
+  80% { transform: rotate(8deg); }
+}
+.coming-soon-toast {
+  transform: translateX(-50%);
+  animation: coming-soon-toast 2.6s ease-in-out forwards;
+}
+@keyframes coming-soon-toast {
+  0% { opacity: 0; transform: translate(-50%, 12px); }
+  10%, 85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coming-soon-dot, .coming-soon-shake { animation: none; }
+  .coming-soon-toast { animation: none; }
+}

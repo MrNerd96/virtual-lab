@@ -69,7 +69,12 @@ import {
   TestTubes,
   Pipette,
   Hourglass,
-  CircleDot
+  CircleDot,
+  Sparkles,
+  Network,
+  Disc3,
+  TestTube,
+  Lock
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -244,37 +249,91 @@ const MenuCard: React.FC<{
   onClick: () => void;
   colorClass: string;
   disabled?: boolean;
-}> = ({ title, description, icon, onClick, colorClass, disabled }) => (
+  comingSoon?: boolean;   // shown with a "Coming soon" badge; cannot be opened yet
+}> = ({ title, description, icon, onClick, colorClass, disabled, comingSoon }) => {
+  // A tap on a locked card shakes its padlock and shows a short note (ComingSoonToast)
+  const [shake, setShake] = useState(0);
+  const tapLocked = () => {
+    setShake(n => n + 1);
+    window.dispatchEvent(new CustomEvent('coming-soon', { detail: title }));
+  };
+  return (
   <button
-    onClick={onClick}
+    onClick={comingSoon ? tapLocked : onClick}
     disabled={disabled}
+    aria-disabled={comingSoon || undefined}
+    title={comingSoon ? `${title}: coming soon` : undefined}
     className={`
       relative group overflow-hidden p-6 rounded-2xl border transition-all duration-300 text-left w-full
-      ${disabled
+      ${comingSoon
+        ? 'bg-slate-900/60 border-dashed border-slate-700 cursor-default'
+        : disabled
         ? 'bg-slate-900/50 border-slate-800 opacity-50 cursor-not-allowed'
         : `bg-slate-800 border-slate-700 hover:border-slate-500 hover:shadow-2xl hover:shadow-${colorClass}-500/20 hover:-translate-y-1`
       }
     `}
   >
+    {comingSoon && (
+      <>
+        <span className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-300 border border-amber-500/40">
+          <span className="coming-soon-dot w-1.5 h-1.5 rounded-full bg-amber-400" />
+          Coming soon
+        </span>
+      </>
+    )}
     <div className={`
       absolute top-0 right-0 p-32 opacity-5 rounded-full blur-3xl transition-transform duration-500 group-hover:scale-150
       bg-${colorClass}-500
     `} />
 
     <div className="relative z-10 flex flex-col h-full">
-      <div className={`p-3 w-fit rounded-xl mb-4 bg-slate-900/80 text-${colorClass}-400 ring-1 ring-slate-700`}>
-        {icon}
+      <div className={`relative p-3 w-fit rounded-xl mb-4 bg-slate-900/80 text-${colorClass}-400 ring-1 ring-slate-700`}>
+        <span className={comingSoon ? 'opacity-50' : ''}>{icon}</span>
+        {comingSoon && (
+          // Padlock on the icon: the practical is locked until it is built
+          <span key={shake} className={`absolute -bottom-1.5 -right-1.5 p-1 rounded-full bg-slate-800 ring-1 ring-slate-600 text-slate-300 ${shake ? 'coming-soon-shake' : ''}`}>
+            <Lock className="w-3 h-3" />
+          </span>
+        )}
       </div>
-      <h3 className="text-xl font-bold text-slate-100 mb-2">{title}</h3>
+      <h3 className={`text-xl font-bold mb-2 ${comingSoon ? 'text-slate-400' : 'text-slate-100'}`}>{title}</h3>
 
-      {!disabled && (
+      {comingSoon ? (
+        // Where the others say "Enter Lab": locked until it is built
+        <div className="mt-auto pt-6 flex items-center gap-1.5 text-sm font-semibold text-slate-500">
+          <Lock className="w-4 h-4" /> Locked
+        </div>
+      ) : !disabled && (
         <div className={`mt-auto pt-6 flex items-center text-sm font-semibold text-${colorClass}-400 opacity-0 group-hover:opacity-100 transition-opacity`}>
           Enter Lab <ChevronRight className="w-4 h-4 ml-1" />
         </div>
       )}
     </div>
   </button>
-);
+  );
+};
+
+// Note shown for a moment when a locked "Coming soon" card is tapped
+const ComingSoonToast: React.FC = () => {
+  const [note, setNote] = useState<{ title: string; key: number } | null>(null);
+  useEffect(() => {
+    let timer = 0;
+    const show = (e: Event) => {
+      setNote({ title: (e as CustomEvent<string>).detail, key: Date.now() });
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setNote(null), 2600);
+    };
+    window.addEventListener('coming-soon', show);
+    return () => { window.removeEventListener('coming-soon', show); window.clearTimeout(timer); };
+  }, []);
+  if (!note) return null;
+  return (
+    <div key={note.key} role="status" className="coming-soon-toast fixed bottom-6 left-1/2 z-[70] w-[min(92vw,420px)] px-4 py-3 rounded-xl bg-slate-800 border border-slate-600 shadow-2xl text-sm text-slate-200 flex items-center gap-2.5">
+      <Lock className="w-4 h-4 text-amber-300 shrink-0" />
+      <span><span className="font-bold text-white">{note.title}</span> is being built and will unlock soon.</span>
+    </div>
+  );
+};
 
 // --- REUSABLE MICROSCOPE STAGE ---
 
@@ -2411,6 +2470,22 @@ const App: React.FC = () => {
                 colorClass="blue"
                 onClick={() => navigateTo('platelet-count')}
               />
+              <MenuCard
+                title="Absolute Eosinophil Count"
+                description="Pilot's fluid and the WBC pipette: count eosinophils in the four corner squares."
+                icon={<Sparkles className="w-8 h-8" />}
+                colorClass="pink"
+                onClick={() => {}}
+                comingSoon
+              />
+              <MenuCard
+                title="Reticulocyte Count"
+                description="Supravital staining with brilliant cresyl blue; count reticulocytes per 1000 red cells."
+                icon={<Network className="w-8 h-8" />}
+                colorClass="blue"
+                onClick={() => {}}
+                comingSoon
+              />
             </div>
           </div>
         </div>
@@ -2442,6 +2517,30 @@ const App: React.FC = () => {
                   onClick={() => navigateTo(`instrument-${instrument.id}`)}
                 />
               ))}
+              <MenuCard
+                title="Kymograph"
+                description="The recording drum used for the amphibian practicals."
+                icon={<Disc3 className="w-8 h-8" />}
+                colorClass="yellow"
+                onClick={() => {}}
+                comingSoon
+              />
+              <MenuCard
+                title="Sahli's Haemoglobinometer"
+                description="Comparator, graduated tube, Hb pipette and stirrer used for haemoglobin estimation."
+                icon={<TestTube className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => {}}
+                comingSoon
+              />
+              <MenuCard
+                title="Wintrobe & Westergren Tubes"
+                description="The tubes and stands used for ESR and packed cell volume."
+                icon={<TestTubes className="w-8 h-8" />}
+                colorClass="orange"
+                onClick={() => {}}
+                comingSoon
+              />
             </div>
           </div>
         </div>
@@ -2591,7 +2690,7 @@ const App: React.FC = () => {
 
   // Home has its own feedback icon and the section menus stay uncluttered; every other screen gets a small
   // "Feedback" button at the top right. The app-has-feedback class lets headers keep room for it (index.css).
-  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology' || currentView === 'instruments') return screen;
+  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology' || currentView === 'instruments') return <>{screen}<ComingSoonToast /></>;
   return (
     <div className="app-has-feedback contents">
       {screen}
