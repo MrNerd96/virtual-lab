@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { useMicroscopeStage, Eyepiece, StageControls, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
+import { useMicroscopeStage, Eyepiece, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
 const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })).catch(reloadForNewVersion));
@@ -74,7 +74,8 @@ import {
   Network,
   Disc3,
   TestTube,
-  Lock
+  Lock,
+  ChevronDown
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -337,6 +338,18 @@ const ComingSoonToast: React.FC = () => {
 
 // --- REUSABLE MICROSCOPE STAGE ---
 
+// Counting rules, folded into one line until tapped
+const HowToCount: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <details className="group bg-slate-800 rounded-lg border border-slate-700">
+    <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden text-sm font-semibold text-slate-200 hover:text-white">
+      <Info className="w-4 h-4 text-indigo-400" />
+      How to count
+      <ChevronDown className="w-4 h-4 ml-auto text-slate-400 transition-transform group-open:rotate-180" />
+    </summary>
+    <div className="px-4 pb-4">{children}</div>
+  </details>
+);
+
 interface MicroscopeStageProps {
   title: string;
   subtitle: string;
@@ -354,6 +367,22 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
   const stage = useMicroscopeStage(initialPosition);
   const [quizOpen, setQuizOpen] = useState(false);
   const questionSet = quizId ? questionSetFor(quizId) : undefined;
+
+  // Arrow keys move the stage (dragging the eyepiece does the same with a finger or mouse)
+  const panRef = useRef(stage.pan);
+  panRef.current = stage.pan;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const d = ({ ArrowUp: [0, -50], ArrowDown: [0, 50], ArrowLeft: [-50, 0], ArrowRight: [50, 0] } as Record<string, number[]>)[e.key];
+      if (!d) return;
+      e.preventDefault();
+      panRef.current(d[0], d[1]);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
@@ -378,8 +407,6 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
         {/* Right: Controls Panel */}
         <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 shrink-0 z-20 shadow-xl overflow-y-auto">
           {infoPanel}
-
-          <StageControls stage={stage} />
 
           {controls}
           {questionSet && (
@@ -451,20 +478,17 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       initialPosition={{ x: initialX, y: initialY }}
       quizId="wbc-count"
       infoPanel={
-        <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-          <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-            <Grid3X3 className="w-4 h-4 text-red-400" /> Counting Rules
-          </h3>
-          <p className="text-sm text-slate-400 mb-2">
+        <HowToCount>
+          <p className="text-sm text-slate-300 mb-2">
             Count cells in the <span className="text-white font-bold">4 Corner Squares</span> (W).
           </p>
-          <ul className="text-xs text-slate-500 list-disc list-inside space-y-1">
+          <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
             <li>Each corner is a large square with 4x4 grid.</li>
             <li>Count cells in all 16 small squares of each corner.</li>
             <li>Include cells on Top & Left lines.</li>
             <li>Exclude cells on Bottom & Right lines.</li>
           </ul>
-        </div>
+        </HowToCount>
       }
       renderSlide={(zoom) => {
         const GRID_SIZE = 900;
@@ -593,18 +617,15 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       onBack={onBack}
       quizId="rbc-count"
       infoPanel={
-        <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-          <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-            <Droplet className="w-4 h-4 text-pink-400" /> Counting Rules
-          </h3>
-          <p className="text-sm text-slate-400 mb-2">
+        <HowToCount>
+          <p className="text-sm text-slate-300 mb-2">
             Count cells in the <span className="text-white font-bold">Center Square</span> (R).
             The center has a 5x5 grid of large squares, each subdivided into 4x4 tiny squares.
           </p>
-          <p className="text-xs text-slate-500 mt-2">
+          <p className="text-xs text-slate-400 mt-2">
             Count in the 5 central large squares (middle row and column).
           </p>
-        </div>
+        </HowToCount>
       }
       renderSlide={(zoom) => {
         const GRID_SIZE = 900;
