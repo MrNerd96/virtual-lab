@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move } from 'lucide-react';
 
 // The microscope used for the haemocytometer practicals (WBC, RBC and platelet counts): a round eyepiece onto the
@@ -9,13 +9,17 @@ import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move } from 'lucide-react';
 export type Objective = 4 | 10 | 40 | 100;
 const MAX_PAN = 400;
 const SLIDE_PX = 800;
-// Zoom scales: 4x -> 0.7, 10x -> 1.3, 40x -> 5, 100x -> 13
+// Zoom scales: 4x -> 0.7, 10x -> 1.3, 40x -> 5, 100x -> 13. They are for the full-size eyepiece (476 px inside its
+// border); a smaller eyepiece, as on a phone, shrinks the slide by the same ratio so that each objective shows the same
+// field of view on every screen.
+const FULL_EYEPIECE_PX = 476;
 export const scaleFor = (z: Objective) => ({ 4: 0.7, 10: 1.3, 40: 5, 100: 13 }[z]);
 
 export interface MicroscopeStageState {
     zoom: Objective; setZoom: (z: Objective) => void;
     position: { x: number; y: number }; setPosition: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
-    scale: number;
+    scale: number;    // on-screen scale of the slide: the objective's scale times the eyepiece fit
+    setFit: (f: number) => void;
     pan: (dx: number, dy: number) => void;
 }
 
@@ -23,7 +27,8 @@ export interface MicroscopeStageState {
 export function useMicroscopeStage(initialPosition?: { x: number; y: number }, initialZoom: Objective = 10): MicroscopeStageState {
     const [zoom, setZoom] = useState<Objective>(initialZoom);
     const [position, setPosition] = useState(initialPosition || { x: 0, y: 0 });
-    const scale = scaleFor(zoom);
+    const [fit, setFit] = useState(1);
+    const scale = scaleFor(zoom) * fit;
     const pan = (dx: number, dy: number) => {
         const speedFactor = 1.5 / scale;
         setPosition(prev => ({
@@ -31,7 +36,7 @@ export function useMicroscopeStage(initialPosition?: { x: number; y: number }, i
             y: Math.max(-MAX_PAN, Math.min(MAX_PAN, prev.y + (dy * speedFactor))),
         }));
     };
-    return { zoom, setZoom, position, setPosition, scale, pan };
+    return { zoom, setZoom, position, setPosition, scale, setFit, pan };
 }
 
 // Point on the slide, in the 900-unit ruling coordinates, for the slide position that puts it at the eyepiece centre
@@ -45,10 +50,21 @@ export const Eyepiece: React.FC<{
     onTap?: (gx: number, gy: number) => void;
     className?: string;
 }> = ({ stage, renderSlide, onTap, className = '' }) => {
-    const { zoom, setZoom, position, setPosition, scale } = stage;
+    const { zoom, setZoom, position, setPosition, scale, setFit } = stage;
     const dragStart = useRef<{ x: number; y: number } | null>(null);
     const travel = useRef(0);
     const eyeRef = useRef<HTMLDivElement>(null);
+
+    // Keep the field of view the same whatever the eyepiece's size on this screen
+    useLayoutEffect(() => {
+        const el = eyeRef.current;
+        if (!el) return;
+        const measure = () => { if (el.clientWidth) setFit(el.clientWidth / FULL_EYEPIECE_PX); };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [setFit]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
         (e.target as HTMLElement).setPointerCapture(e.pointerId);

@@ -4,7 +4,7 @@ import { useHoverLabel, HoverLabel } from './HoverLabel';
 import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
-import { useMicroscopeStage, Eyepiece, NeubauerRuling, positionFor, scaleFor } from './CountingMicroscope';
+import { useMicroscopeStage, Eyepiece, NeubauerRuling, positionFor } from './CountingMicroscope';
 import { Finger, Lancet, pulpSite, useNarrowScreen, wrapCaption, easeInOut, easeOut, lerp, clamp01, type Pt } from './fingerPrick';
 
 // Cell counts made with the haemocytometer from a finger prick: blood drawn into a diluting pipette, diluted with a
@@ -423,7 +423,7 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
     };
     const tapAt = (x: number, y: number) => {
         if (countDone || stepId !== 'count') return;
-        const reach = Math.max(1.6, 14 / (scaleFor(stage.zoom) * (800 / 900)));
+        const reach = Math.max(1.6, 14 / (stage.scale * (800 / 900)));
         let best: Particle | null = null, bestD = reach;
         for (const p of sample.particles) {
             const d = Math.hypot(gx(p.u) - x, gx(p.v) - y);
@@ -667,7 +667,7 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                     );
                 })}
                 {tapLabel && (() => {
-                    const k = 1 / (scaleFor(stage.zoom) * (800 / 900));    // one screen pixel in slide units
+                    const k = 1 / (stage.scale * (800 / 900));    // one screen pixel in slide units
                     const fs = 13 * k, w = tapLabel.text.length * 7.2 * k + 12 * k, h = 20 * k;
                     const lx = tapLabel.x, ly = tapLabel.y - 12 * k;
                     return (

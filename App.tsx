@@ -2295,12 +2295,14 @@ const App: React.FC = () => {
     // Sub-Menus
     case 'amphibian':
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans relative">
-          <button onClick={() => window.history.back()} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
-            <ArrowLeft className="w-5 h-5" /> <span>Back</span>
-          </button>
-          <div className="max-w-4xl w-full space-y-8">
-            <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Amphibian Physiology</h2>
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 md:p-8 font-sans relative">
+          <div className="max-w-4xl w-full">
+            <div className="flex items-center gap-2 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-slate-300 bg-slate-800/60 ring-1 ring-slate-700/60 hover:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-[22px] md:text-3xl font-bold text-white leading-tight">Amphibian Physiology</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="Simple Muscle Twitch"
@@ -2386,12 +2388,14 @@ const App: React.FC = () => {
 
     case 'hematology':
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans relative">
-          <button onClick={() => window.history.back()} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
-            <ArrowLeft className="w-5 h-5" /> <span>Back</span>
-          </button>
-          <div className="max-w-4xl w-full space-y-8">
-            <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Hematology Lab</h2>
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 md:p-8 font-sans relative">
+          <div className="max-w-4xl w-full">
+            <div className="flex items-center gap-2 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-slate-300 bg-slate-800/60 ring-1 ring-slate-700/60 hover:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-[22px] md:text-3xl font-bold text-white leading-tight">Hematology Lab</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="WBC Count (TLC)"
@@ -2493,12 +2497,14 @@ const App: React.FC = () => {
 
     case 'instruments':
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 font-sans relative">
-          <button onClick={() => window.history.back()} className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white">
-            <ArrowLeft className="w-5 h-5" /> <span>Back</span>
-          </button>
-          <div className="max-w-4xl w-full space-y-8">
-            <h2 className="text-3xl font-bold text-white text-center mb-8 mt-10 md:mt-0">Instruments</h2>
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 md:p-8 font-sans relative">
+          <div className="max-w-4xl w-full">
+            <div className="flex items-center gap-2 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-slate-300 bg-slate-800/60 ring-1 ring-slate-700/60 hover:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-[22px] md:text-3xl font-bold text-white leading-tight">Instruments</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="Compound Microscope"
