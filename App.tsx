@@ -402,10 +402,10 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <Eyepiece stage={stage} renderSlide={renderSlide} />
+        <Eyepiece stage={stage} renderSlide={renderSlide} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
 
         {/* Right: Controls Panel */}
-        <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 shrink-0 z-20 shadow-xl overflow-y-auto">
+        <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 flex-1 lg:flex-none shrink-0 z-20 shadow-xl overflow-y-auto">
           {infoPanel}
 
           {controls}
@@ -515,19 +515,15 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {/* 4 Corner areas (WBC counting) - each is a large square with 4x4 grid */}
               {/* Top Left - ALL 3 horizontal lines extend right into top-middle, ALL 3 vertical lines extend down into left-middle */}
               {render4x4Grid(0, 0, squareSize, { right: true, bottom: true })}
-              <text x={squareSize / 2} y={squareSize / 2} fill="#94a3b8" fontSize="100" textAnchor="middle" opacity="0.3" pointerEvents="none">W</text>
 
               {/* Top Right - ALL 3 horizontal lines extend left into top-middle, ALL 3 vertical lines extend down into right-middle */}
               {render4x4Grid(squareSize * 2, 0, squareSize, { left: true, bottom: true })}
-              <text x={squareSize * 2.5} y={squareSize / 2} fill="#94a3b8" fontSize="100" textAnchor="middle" opacity="0.3" pointerEvents="none">W</text>
 
               {/* Bottom Left - ALL 3 horizontal lines extend right into bottom-middle, ALL 3 vertical lines extend up into left-middle */}
               {render4x4Grid(0, squareSize * 2, squareSize, { right: true, top: true })}
-              <text x={squareSize / 2} y={squareSize * 2.5} fill="#94a3b8" fontSize="100" textAnchor="middle" opacity="0.3" pointerEvents="none">W</text>
 
               {/* Bottom Right - ALL 3 horizontal lines extend left into bottom-middle, ALL 3 vertical lines extend up into right-middle */}
               {render4x4Grid(squareSize * 2, squareSize * 2, squareSize, { left: true, top: true })}
-              <text x={squareSize * 2.5} y={squareSize * 2.5} fill="#94a3b8" fontSize="100" textAnchor="middle" opacity="0.3" pointerEvents="none">W</text>
             </svg>
 
             {/* Cells */}
@@ -663,7 +659,6 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {render4x4Grid(squareSize * 2, squareSize * 2, squareSize, { left: true, top: true })}
 
               {/* Center label */}
-              <text x={GRID_SIZE / 2} y={GRID_SIZE / 2} fill="#94a3b8" fontSize="80" textAnchor="middle" opacity="0.2" pointerEvents="none">RBC AREA</text>
             </svg>
 
             {/* RBCs - Small red dots - 470 randomly distributed in center square only */}

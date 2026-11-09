@@ -122,7 +122,7 @@ export const Eyepiece: React.FC<{
             </div>
 
             {/* Eyepiece */}
-            <div ref={eyeRef} className="relative w-[300px] h-[300px] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#eef2ff] pointer-events-none">
+            <div ref={eyeRef} className="relative w-[min(calc(100vw-32px),500px)] h-[min(calc(100vw-32px),500px)] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[clamp(7px,2.4vw,12px)] md:border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#eef2ff] pointer-events-none">
                 <div className="absolute inset-0 z-20 pointer-events-none rounded-full bg-[radial-gradient(circle,transparent_50%,rgba(0,0,0,0.3)_80%,rgba(0,0,0,0.9)_100%)]"></div>
 
                 {/* SLIDE CONTENT CONTAINER */}
@@ -141,10 +141,10 @@ export const Eyepiece: React.FC<{
             </div>
 
             {/* Mini-map */}
-            <div className="absolute bottom-4 right-4 bg-slate-900/80 p-2 rounded border border-slate-700 z-30 pointer-events-none">
-                <div className="w-20 h-20 bg-slate-800 relative border border-slate-600 overflow-hidden">
+            <div className="absolute top-4 right-4 md:top-auto md:bottom-4 bg-slate-900/80 p-1.5 md:p-2 rounded border border-slate-700 z-30 pointer-events-none">
+                <div className="w-11 h-11 md:w-20 md:h-20 bg-slate-800 relative border border-slate-600 overflow-hidden">
                     <div
-                        className="absolute w-4 h-4 border-2 border-red-500 bg-transparent shadow-[0_0_5px_red]"
+                        className="absolute w-2.5 h-2.5 md:w-4 md:h-4 border-2 border-red-500 bg-transparent shadow-[0_0_5px_red]"
                         style={{
                             left: `${((position.x + MAX_PAN) / (MAX_PAN * 2)) * 100}%`,
                             top: `${((position.y + MAX_PAN) / (MAX_PAN * 2)) * 100}%`,
@@ -152,7 +152,7 @@ export const Eyepiece: React.FC<{
                         }}
                     ></div>
                 </div>
-                <div className="text-[10px] text-center mt-1 text-slate-400">Stage Position</div>
+                <div className="text-[10px] text-center mt-1 text-slate-400"><span className="md:hidden">Stage</span><span className="hidden md:inline">Stage Position</span></div>
             </div>
         </div>
     );
