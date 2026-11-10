@@ -804,7 +804,7 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                         </div>
                     ) : (
                         <div className="relative flex flex-col lg:flex-1 min-h-0">
-                            <Eyepiece stage={stage} renderSlide={renderSlide} onTap={tapAt} className="rounded-xl min-h-[360px] md:min-h-[560px]" />
+                            <Eyepiece stage={stage} renderSlide={renderSlide} onTap={tapAt} chamberMap className="rounded-xl min-h-[360px] md:min-h-[560px]" />
                             {racks && !countDone && (
                                 <div className="mt-2 md:mt-0 md:absolute md:bottom-3 md:left-3 z-30 bg-slate-900/90 border border-slate-700 rounded-lg p-2 space-y-1.5 text-[11px] font-bold text-slate-300 w-full md:w-44">
                                     <label className="block">

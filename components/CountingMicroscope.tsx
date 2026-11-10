@@ -42,6 +42,27 @@ export function useMicroscopeStage(initialPosition?: { x: number; y: number }, i
 // Point on the slide, in the 900-unit ruling coordinates, for the slide position that puts it at the eyepiece centre
 export const positionFor = (gx: number, gy: number) => ({ x: (gx * SLIDE_PX) / 900 - SLIDE_PX / 2, y: (gy * SLIDE_PX) / 900 - SLIDE_PX / 2 });
 
+// Simplified ruling for the stage mini-map: the nine 1 mm squares, the four W squares (16 each, tinted blue) and the
+// centre R square (25 medium squares, tinted red)
+const ChamberMapRuling = () => {
+    const v = (x: number, k: string, c: string, w = 1) => <line key={k} x1={x} y1={0} x2={x} y2={900} stroke={c} strokeWidth={w} vectorEffect="non-scaling-stroke" />;
+    const h = (y: number, k: string, c: string, w = 1) => <line key={k} x1={0} y1={y} x2={900} y2={y} stroke={c} strokeWidth={w} vectorEffect="non-scaling-stroke" />;
+    const lines: React.ReactNode[] = [];
+    for (const c of [0, 600]) for (let i = 1; i < 4; i++) {
+        lines.push(<line key={`wv${c}-${i}`} x1={c + i * 75} y1={0} x2={c + i * 75} y2={900} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
+        lines.push(<line key={`wh${c}-${i}`} x1={0} y1={c + i * 75} x2={900} y2={c + i * 75} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
+    }
+    for (let i = 1; i < 5; i++) { lines.push(v(300 + i * 60, `rv${i}`, '#64748b', 0.8)); lines.push(h(300 + i * 60, `rh${i}`, '#64748b', 0.8)); }
+    return (
+        <g>
+            {[[0, 0], [600, 0], [0, 600], [600, 600]].map(([x, y]) => <rect key={`w${x}${y}`} x={x} y={y} width={300} height={300} fill="#dbeafe" />)}
+            <rect x={300} y={300} width={300} height={300} fill="#fee2e2" />
+            {lines}
+            {[0, 300, 600, 900].map(p => [v(p, `mv${p}`, '#334155', 1.2), h(p, `mh${p}`, '#334155', 1.2)])}
+        </g>
+    );
+};
+
 // Left part of the screen: objectives, the eyepiece and the stage mini-map. Dragging moves the stage; a tap (a press
 // that hardly moves) is passed to onTap with the point under it in ruling coordinates.
 export const Eyepiece: React.FC<{
@@ -49,7 +70,8 @@ export const Eyepiece: React.FC<{
     renderSlide: (zoom: Objective) => React.ReactNode;
     onTap?: (gx: number, gy: number) => void;
     className?: string;
-}> = ({ stage, renderSlide, onTap, className = '' }) => {
+    chamberMap?: boolean;   // draw the Neubauer ruling in the stage mini-map (off for a blood smear)
+}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false }) => {
     const { zoom, setZoom, position, setPosition, scale, setFit } = stage;
     const dragStart = useRef<{ x: number; y: number } | null>(null);
     const travel = useRef(0);
@@ -140,19 +162,31 @@ export const Eyepiece: React.FC<{
                 </div>
             </div>
 
-            {/* Mini-map */}
-            <div className="absolute top-4 right-4 md:top-auto md:bottom-4 bg-slate-900/80 p-1.5 md:p-2 rounded border border-slate-700 z-30 pointer-events-none">
-                <div className="w-11 h-11 md:w-20 md:h-20 bg-slate-800 relative border border-slate-600 overflow-hidden">
-                    <div
-                        className="absolute w-2.5 h-2.5 md:w-4 md:h-4 border-2 border-red-500 bg-transparent shadow-[0_0_5px_red]"
-                        style={{
-                            left: `${((position.x + MAX_PAN) / (MAX_PAN * 2)) * 100}%`,
-                            top: `${((position.y + MAX_PAN) / (MAX_PAN * 2)) * 100}%`,
-                            transform: 'translate(-50%, -50%)'
-                        }}
-                    ></div>
+            {/* Mini-map: where the eyepiece is on the slide. With chamberMap it shows the ruling, and the red circle is the
+                field of view, so it shrinks as the objective goes up. */}
+            <div className={`absolute right-4 md:top-auto md:bottom-4 bg-slate-900/80 rounded border border-slate-700 z-30 pointer-events-none ${chamberMap ? 'top-3 p-1 md:p-2' : 'top-4 p-1.5 md:p-2'}`}>
+                <div className={`relative overflow-hidden border ${chamberMap ? 'w-16 h-16 md:w-28 md:h-28 bg-[#f8fafc] border-slate-500' : 'w-11 h-11 md:w-20 md:h-20 bg-slate-800 border-slate-600'}`}>
+                    {chamberMap ? (
+                        <svg viewBox="0 0 900 900" className="absolute inset-0 w-full h-full">
+                            <ChamberMapRuling />
+                            <circle
+                                cx={((position.x + MAX_PAN) / (MAX_PAN * 2)) * 900}
+                                cy={((position.y + MAX_PAN) / (MAX_PAN * 2)) * 900}
+                                r={Math.max(28, (FULL_EYEPIECE_PX / scaleFor(zoom)) * (900 / SLIDE_PX) / 2)}
+                                fill="rgba(239,68,68,0.15)" stroke="#ef4444" strokeWidth={3} vectorEffect="non-scaling-stroke" />
+                        </svg>
+                    ) : (
+                        <div
+                            className="absolute w-2.5 h-2.5 md:w-4 md:h-4 border-2 border-red-500 bg-transparent shadow-[0_0_5px_red]"
+                            style={{
+                                left: `${((position.x + MAX_PAN) / (MAX_PAN * 2)) * 100}%`,
+                                top: `${((position.y + MAX_PAN) / (MAX_PAN * 2)) * 100}%`,
+                                transform: 'translate(-50%, -50%)'
+                            }}
+                        ></div>
+                    )}
                 </div>
-                <div className="text-[10px] text-center mt-1 text-slate-400"><span className="md:hidden">Stage</span><span className="hidden md:inline">Stage Position</span></div>
+                <div className={`text-[10px] text-center mt-1 text-slate-400 ${chamberMap ? 'hidden md:block' : ''}`}><span className="md:hidden">Stage</span><span className="hidden md:inline">Stage Position</span></div>
             </div>
         </div>
     );

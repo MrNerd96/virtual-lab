@@ -360,10 +360,11 @@ interface MicroscopeStageProps {
   initialPosition?: { x: number, y: number };
   initialZoom?: 4 | 10 | 40 | 100;   // objective the practical opens at (10x if not given)
   quizId?: string; // view id of the practical's MCQ set, shown as a "Test yourself" button
+  chamberMap?: boolean; // show the Neubauer ruling in the stage mini-map
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap
 }) => {
   const stage = useMicroscopeStage(initialPosition, initialZoom);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -403,7 +404,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <Eyepiece stage={stage} renderSlide={renderSlide} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
+        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
 
         {/* Right: Controls Panel */}
         <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 flex-1 lg:flex-none shrink-0 z-20 shadow-xl overflow-y-auto">
@@ -474,6 +475,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <MicroscopeStage
       title="WBC Count (TLC)"
+      chamberMap
       subtitle="Total Leukocyte Count • Neubauer Chamber"
       onBack={onBack}
       initialPosition={{ x: initialX, y: initialY }}
@@ -604,6 +606,7 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <MicroscopeStage
       title="RBC Count"
+      chamberMap
       subtitle="Total Erythrocyte Count • Center Square"
       onBack={onBack}
       // Opens at 40x on the top-left counting square of the centre square (ruling 300-360, centre 330)
