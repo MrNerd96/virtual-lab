@@ -11,8 +11,8 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCRingCentre, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG } from './components/WBCField';
-import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
+import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE } from './components/WBCField';
+import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, NeubauerRuling, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
 const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })).catch(reloadForNewVersion));
@@ -472,11 +472,18 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       focus={focus}
       background={WBC_FIELD_BG}
       layers={[
+        // The blue core of the ruling on the bright side of focus: the ruling again, less blurred than the slide's
+        { defocus: look.blueCoreDefocus, render: () => (
+          <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible"
+            style={{ opacity: look.blueCore, visibility: look.blueCore < 0.01 ? 'hidden' : 'visible' }}>
+            <g className="bright-line" style={{ ['--ruling' as any]: RULING_BLUE }}><NeubauerRuling /></g>
+          </svg>
+        ) },
         // White cells: each look is its own layer, cross-faded by the fine focus
         { defocus: look.cellDefocus, render: () => (
           <div className="relative w-full h-full">
             <CellLayer opacity={look.blob}><WBCBlob cells={cells} /></CellLayer>
-            <CellLayer opacity={look.ring}><WBCRingCentre cells={cells} /></CellLayer>
+            <CellLayer opacity={look.darkLobes}><WBCDarkLobes cells={cells} /></CellLayer>
             <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
             <CellLayer opacity={look.bright}><WBCBright cells={cells} /></CellLayer>
           </div>
@@ -504,41 +511,15 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </HowToCount>
         </>
       }
-      renderSlide={(zoom) => {
-        const GRID_SIZE = 900;
-        const squareSize = GRID_SIZE / 3; // 3x3 grid, all squares same size
-        const centerX = squareSize;
-        const centerY = squareSize;
-        const centerSize = squareSize;
-
+      renderSlide={() => {
         return (
           <div className="relative w-full h-full" style={{ backgroundColor: WBC_FIELD_BG }}>
             <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible">
               {/* Debris on the chamber floor, under the ruling */}
               <FloorDebris debris={debris} />
 
-              {/* The ruling of a bright-line chamber: white lines, tinted and dimmed by the fine focus */}
-              <g className="bright-line" style={{ ['--ruling' as any]: look.lineColor, opacity: look.lineOpacity }}>
-
-              {/* Outer border and the lines dividing the ruled area into nine 1 mm squares, run on past the edge */}
-              <RulingFrame />
-
-              {/* Dense center grid (5x5 with 4x4 subdivisions) - for RBC counting */}
-              {renderCenterDenseGrid(centerX, centerY, centerSize, squareSize)}
-
-              {/* 4 Corner areas (WBC counting) - each is a large square with 4x4 grid */}
-              {/* Top Left - ALL 3 horizontal lines extend right into top-middle, ALL 3 vertical lines extend down into left-middle */}
-              {render4x4Grid(0, 0, squareSize, { right: true, bottom: true })}
-
-              {/* Top Right - ALL 3 horizontal lines extend left into top-middle, ALL 3 vertical lines extend down into right-middle */}
-              {render4x4Grid(squareSize * 2, 0, squareSize, { left: true, bottom: true })}
-
-              {/* Bottom Left - ALL 3 horizontal lines extend right into bottom-middle, ALL 3 vertical lines extend up into left-middle */}
-              {render4x4Grid(0, squareSize * 2, squareSize, { right: true, top: true })}
-
-              {/* Bottom Right - ALL 3 horizontal lines extend left into bottom-middle, ALL 3 vertical lines extend up into right-middle */}
-              {render4x4Grid(squareSize * 2, squareSize * 2, squareSize, { left: true, top: true })}
-              </g>
+              {/* The ruling of a bright-line chamber: white lines, fainter as the fine focus widens them */}
+              <g className="bright-line" style={{ opacity: look.lineOpacity }}><NeubauerRuling /></g>
             </svg>
           </div>
         );

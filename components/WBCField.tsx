@@ -8,7 +8,9 @@ import { Minus, Plus } from 'lucide-react';
 // How a white cell changes as the fine focus is racked through it is copied from a recording of a real chamber:
 //   in focus          the lobes of the nucleus are grey with a dark outline, the cell outline faint
 //   one side of focus the lobes shine as bright white dots in a pale cell (the cell is refractile)
-//   the other side    a dark ring with a light centre, then a solid dark round blob, then a wide faint shadow
+//   the other side    each lobe a solid dark disc; further out they run together into one dark round blob, and
+//                     then a wide faint shadow (four lobes round a gap can look like a ring on the way: that is
+//                     the gap, not a stage of its own)
 // Debris only goes soft and stays dull grey on both sides, which is how the two are told apart.
 
 export const WBC_FIELD_BG = '#b4bac0';
@@ -190,16 +192,21 @@ export const WBCBright = React.memo(({ cells }: { cells: WBC[] }) => (
     ))}
   </g>
 ));
-// The other side: a solid dark round blob
+// The other side, close to focus: each lobe a solid dark disc, a little swollen, in a faintly darkened cell
+export const WBCDarkLobes = React.memo(({ cells }: { cells: WBC[] }) => (
+  <g pointerEvents="none">
+    {cells.map(c => (
+      <React.Fragment key={c.id}>
+        <circle cx={c.x} cy={c.y} r={c.r * 1.05} fill="#7b838d" fillOpacity={0.3} />
+        <path d={c.nucleus} fill="#59616c" stroke="#59616c" strokeWidth={0.34} strokeLinejoin="round" />
+      </React.Fragment>
+    ))}
+  </g>
+));
+// ...and further out: one solid dark round blob
 export const WBCBlob = React.memo(({ cells }: { cells: WBC[] }) => (
   <g pointerEvents="none">
     {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 1.1} fill="#646c77" />)}
-  </g>
-));
-// ...which close to focus has a light centre, making it a dark ring
-export const WBCRingCentre = React.memo(({ cells }: { cells: WBC[] }) => (
-  <g pointerEvents="none">
-    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 0.42} fill="#aeb5bc" />)}
   </g>
 ));
 
@@ -212,23 +219,25 @@ export const CellLayer: React.FC<{ opacity: number; children: React.ReactNode }>
 );
 
 const step = (a: number, b: number, v: number) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-const mix = (c1: number[], c2: number[], t: number) => `rgb(${c1.map((v, i) => Math.round(v + (c2[i] - v) * t)).join(',')})`;
 
 // What shows at a fine-focus setting (-100 to 100, 0 = cells and ruling in focus; above 0 is the side on which the
-// lobes shine): how much of each look of the cells, how blurred the cell layer is, and the colour of the ruling,
-// which goes from crisp white to a wide bluish band on the bright side and a wide faint one on the dark side
+// lobes shine): how much of each look of the cells and how blurred the cell layer is, and for the ruling, which is
+// crisp white in focus, how faint it gets as it widens and, on the bright side, how strong the blue core of the band is
+// (drawn as a second, less blurred copy of the ruling, so the band keeps pale edges as in the recording)
 export const wbcLook = (focus: number) => {
   const up = Math.max(0, focus), down = Math.max(0, -focus);
   return {
     sharp: Math.max(0, 1 - Math.abs(focus) / 10),
     bright: step(2, 13, up) * (1 - step(48, 90, up)),
-    blob: step(3, 14, down) * (1 - 0.7 * step(35, 95, down)),
-    ring: step(3, 8, down) * (1 - step(11, 20, down)),
+    darkLobes: step(2, 8, down) * (1 - step(16, 30, down)),
+    blob: step(12, 28, down) * (1 - 0.7 * step(35, 95, down)),
     cellDefocus: up * 0.3 + down * 0.9,
-    lineColor: mix([245, 249, 255], [176, 186, 250], step(4, 40, up)),
-    lineOpacity: 1 - 0.45 * step(15, 80, down),
+    lineOpacity: 1 - 0.45 * step(15, 80, down) - 0.35 * step(50, 100, up),
+    blueCore: step(5, 26, up) * 0.9,
+    blueCoreDefocus: up * 0.45,
   };
 };
+export const RULING_BLUE = '#8f9df0';
 
 // The plane of the cover-slip dust on the same scale
 export const COVER_SLIP_PLANE = 62;
