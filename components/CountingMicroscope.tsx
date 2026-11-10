@@ -283,22 +283,8 @@ export const renderCenterDenseGrid = (centerX: number, centerY: number, centerSi
 
   const elements = [];
 
-  // Outline of each of the 5x5 medium squares
-  for (let row = 0; row < 5; row++) {
-    for (let col = 0; col < 5; col++) {
-      const largeX = centerX + col * largeSquareSize;
-      const largeY = centerY + row * largeSquareSize;
-
-      // Draw border of large square - same thickness as all lines
-      elements.push(
-        <rect key={`large-${row}-${col}`}
-          x={largeX} y={largeY}
-          width={largeSquareSize} height={largeSquareSize}
-          fill="none" stroke="#334155" strokeWidth={LINE_THICKNESS} />
-      );
-
-    }
-  }
+  // (The outlines of the 25 medium squares are the triple lines drawn below; drawing them again here as single lines
+  // made the triple lines darker inside the centre than where they run on outside it.)
 
   // The 3 single lines inside each column and row of medium squares, as on a real chamber, run the whole length of
   // the centre and on across the middle squares above and below (vertical) or to each side (horizontal)
