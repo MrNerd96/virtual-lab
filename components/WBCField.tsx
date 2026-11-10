@@ -176,17 +176,18 @@ export const WBCSharp = React.memo(({ cells }: { cells: WBC[] }) => (
     {cells.map(c => (
       <React.Fragment key={c.id}>
         <circle cx={c.x} cy={c.y} r={c.r} fill="#8d959e" fillOpacity={0.25} stroke="#5f6770" strokeWidth={0.12} strokeOpacity={0.45} />
-        <path d={c.nucleus} fill="#868e98" fillOpacity={0.75} stroke="#3f464f" strokeWidth={0.22} />
+        <path d={c.nucleus} fill="#6f7781" fillOpacity={0.85} stroke="#3a4149" strokeWidth={0.24} />
       </React.Fragment>
     ))}
   </g>
 ));
-// One side of focus: the lobes shine as bright dots in a pale cell. Debris never does this.
+// One side of focus: the lobes shine as bright dots in a pale cell with a grey rim (at low power this reads as a
+// faint ring with a light centre). Debris never does this.
 export const WBCBright = React.memo(({ cells }: { cells: WBC[] }) => (
   <g pointerEvents="none">
     {cells.map(c => (
       <React.Fragment key={c.id}>
-        <circle cx={c.x} cy={c.y} r={c.r * 1.05} fill="#c9cfd5" fillOpacity={0.55} stroke="#8a929b" strokeWidth={0.16} strokeOpacity={0.6} />
+        <circle cx={c.x} cy={c.y} r={c.r * 1.05} fill="#c9cfd5" fillOpacity={0.6} stroke="#737b85" strokeWidth={0.34} strokeOpacity={0.75} />
         <path d={c.dots} fill="#ffffff" />
       </React.Fragment>
     ))}
@@ -228,7 +229,7 @@ export const wbcLook = (focus: number) => {
   const up = Math.max(0, focus), down = Math.max(0, -focus);
   return {
     sharp: Math.max(0, 1 - Math.abs(focus) / 10),
-    bright: step(2, 13, up) * (1 - step(48, 90, up)),
+    bright: step(2, 13, up) * (1 - 0.55 * step(45, 95, up)),   // far out the cell stays as a faint soft ring
     darkLobes: step(2, 8, down) * (1 - step(16, 30, down)),
     blob: step(12, 28, down) * (1 - 0.7 * step(35, 95, down)),
     cellDefocus: up * 0.3 + down * 0.9,
