@@ -203,10 +203,12 @@ export const LINE_THICKNESS = 1; // All lines same thickness
 export const RULING_OVERHANG = 300;
 const ext = (v: number) => (v <= 0 ? -RULING_OVERHANG : v >= 900 ? 900 + RULING_OVERHANG : v);
 
-// Outer border of the ruled area and the lines dividing it into nine 1 mm squares, each run on past the edge
+// Outer border of the ruled area, run on past the edge. (The lines at 300 and 600 that divide it into nine 1 mm
+// squares are the centre square's triple lines, drawn by renderCenterDenseGrid; a single line drawn on top of a triple
+// line made it look heavier than the others.)
 export const RulingFrame = () => (
   <g>
-    {[0, 300, 600, 900].map(v => (
+    {[0, 900].map(v => (
       <g key={v}>
         <line x1={v} y1={ext(0)} x2={v} y2={ext(900)} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
         <line x1={ext(0)} y1={v} x2={ext(900)} y2={v} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
