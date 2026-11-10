@@ -61,7 +61,7 @@ const ChamberMapRuling = () => {
         lines.push(<line key={`wh${c}-${i}`} x1={-MAP_MARGIN} y1={c + i * 75} x2={900 + MAP_MARGIN} y2={c + i * 75} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
     }
     // The six triple lines of the centre square (its two edges and the four between its medium squares) all alike
-    for (let i = 0; i <= 5; i++) { lines.push(v(300 + i * 60, `rv${i}`, '#475569', 1)); lines.push(h(300 + i * 60, `rh${i}`, '#475569', 1)); }
+    for (let i = 0; i <= 5; i++) { lines.push(v(300 + i * 60, `rv${i}`, '#7c8ba1', 0.8)); lines.push(h(300 + i * 60, `rh${i}`, '#7c8ba1', 0.8)); }
     return (
         <g>
             {[[0, 0], [600, 0], [0, 600], [600, 600]].map(([x, y]) => <rect key={`w${x}${y}`} x={x} y={y} width={300} height={300} fill="#dbeafe" />)}
