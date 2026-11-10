@@ -50,15 +50,15 @@ export const positionFor = (gx: number, gy: number) => ({ x: (gx * SLIDE_PX) / 9
 // The mini-map also shows a margin of bare chamber floor around the ruling, as far as the stage can go
 const MAP_MARGIN = CHAMBER_EXTRA_PAN * PX_TO_RULING;
 
-// Simplified ruling for the stage mini-map: the nine 1 mm squares, the four W squares (16 each, tinted blue) and the
+// Simplified ruling for the stage mini-map, its lines run on into the margin as on a real chamber: the nine 1 mm squares, the four W squares (16 each, tinted blue) and the
 // centre R square (25 medium squares, tinted red)
 const ChamberMapRuling = () => {
-    const v = (x: number, k: string, c: string, w = 1) => <line key={k} x1={x} y1={0} x2={x} y2={900} stroke={c} strokeWidth={w} vectorEffect="non-scaling-stroke" />;
-    const h = (y: number, k: string, c: string, w = 1) => <line key={k} x1={0} y1={y} x2={900} y2={y} stroke={c} strokeWidth={w} vectorEffect="non-scaling-stroke" />;
+    const v = (x: number, k: string, c: string, w = 1) => <line key={k} x1={x} y1={-MAP_MARGIN} x2={x} y2={900 + MAP_MARGIN} stroke={c} strokeWidth={w} vectorEffect="non-scaling-stroke" />;
+    const h = (y: number, k: string, c: string, w = 1) => <line key={k} x1={-MAP_MARGIN} y1={y} x2={900 + MAP_MARGIN} y2={y} stroke={c} strokeWidth={w} vectorEffect="non-scaling-stroke" />;
     const lines: React.ReactNode[] = [];
     for (const c of [0, 600]) for (let i = 1; i < 4; i++) {
-        lines.push(<line key={`wv${c}-${i}`} x1={c + i * 75} y1={0} x2={c + i * 75} y2={900} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
-        lines.push(<line key={`wh${c}-${i}`} x1={0} y1={c + i * 75} x2={900} y2={c + i * 75} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
+        lines.push(<line key={`wv${c}-${i}`} x1={c + i * 75} y1={-MAP_MARGIN} x2={c + i * 75} y2={900 + MAP_MARGIN} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
+        lines.push(<line key={`wh${c}-${i}`} x1={-MAP_MARGIN} y1={c + i * 75} x2={900 + MAP_MARGIN} y2={c + i * 75} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
     }
     for (let i = 1; i < 5; i++) { lines.push(v(300 + i * 60, `rv${i}`, '#64748b', 0.8)); lines.push(h(300 + i * 60, `rh${i}`, '#64748b', 0.8)); }
     return (
