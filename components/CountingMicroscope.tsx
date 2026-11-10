@@ -66,7 +66,8 @@ const ChamberMapRuling = () => {
             {[[0, 0], [600, 0], [0, 600], [600, 600]].map(([x, y]) => <rect key={`w${x}${y}`} x={x} y={y} width={300} height={300} fill="#dbeafe" />)}
             <rect x={300} y={300} width={300} height={300} fill="#fee2e2" />
             {lines}
-            {[0, 300, 600, 900].map(p => [v(p, `mv${p}`, '#334155', 1.2), h(p, `mh${p}`, '#334155', 1.2)])}
+            {[0, 900].map(p => [v(p, `ov${p}`, '#94a3b8', 0.6), h(p, `oh${p}`, '#94a3b8', 0.6)])}
+            {[300, 600].map(p => [v(p, `mv${p}`, '#334155', 1.2), h(p, `mh${p}`, '#334155', 1.2)])}
         </g>
     );
 };
@@ -247,15 +248,15 @@ export const LINE_THICKNESS = 1; // All lines same thickness
 export const RULING_OVERHANG = 700;
 const ext = (v: number) => (v <= 0 ? -RULING_OVERHANG : v >= 900 ? 900 + RULING_OVERHANG : v);
 
-// Outer border of the ruled area, run on past the edge. (The lines at 300 and 600 that divide it into nine 1 mm
+// Outer border of the ruled area, run on past the edge: a single line like the others in the W squares. (The lines at 300 and 600 that divide it into nine 1 mm
 // squares are the centre square's triple lines, drawn by renderCenterDenseGrid; a single line drawn on top of a triple
 // line made it look heavier than the others.)
 export const RulingFrame = () => (
   <g>
     {[0, 900].map(v => (
       <g key={v}>
-        <line x1={v} y1={ext(0)} x2={v} y2={ext(900)} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-        <line x1={ext(0)} y1={v} x2={ext(900)} y2={v} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
+        <line x1={v} y1={ext(0)} x2={v} y2={ext(900)} stroke="#64748b" strokeWidth={LINE_THICKNESS} />
+        <line x1={ext(0)} y1={v} x2={ext(900)} y2={v} stroke="#64748b" strokeWidth={LINE_THICKNESS} />
       </g>
     ))}
   </g>
