@@ -60,14 +60,14 @@ const ChamberMapRuling = () => {
         lines.push(<line key={`wv${c}-${i}`} x1={c + i * 75} y1={-MAP_MARGIN} x2={c + i * 75} y2={900 + MAP_MARGIN} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
         lines.push(<line key={`wh${c}-${i}`} x1={-MAP_MARGIN} y1={c + i * 75} x2={900 + MAP_MARGIN} y2={c + i * 75} stroke="#94a3b8" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />);
     }
-    for (let i = 1; i < 5; i++) { lines.push(v(300 + i * 60, `rv${i}`, '#64748b', 0.8)); lines.push(h(300 + i * 60, `rh${i}`, '#64748b', 0.8)); }
+    // The six triple lines of the centre square (its two edges and the four between its medium squares) all alike
+    for (let i = 0; i <= 5; i++) { lines.push(v(300 + i * 60, `rv${i}`, '#475569', 1)); lines.push(h(300 + i * 60, `rh${i}`, '#475569', 1)); }
     return (
         <g>
             {[[0, 0], [600, 0], [0, 600], [600, 600]].map(([x, y]) => <rect key={`w${x}${y}`} x={x} y={y} width={300} height={300} fill="#dbeafe" />)}
             <rect x={300} y={300} width={300} height={300} fill="#fee2e2" />
             {lines}
             {[0, 900].map(p => [v(p, `ov${p}`, '#94a3b8', 0.6), h(p, `oh${p}`, '#94a3b8', 0.6)])}
-            {[300, 600].map(p => [v(p, `mv${p}`, '#334155', 1.2), h(p, `mh${p}`, '#334155', 1.2)])}
         </g>
     );
 };
