@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { useMicroscopeStage, Eyepiece, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
+import { useMicroscopeStage, Eyepiece, positionFor, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
 const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })).catch(reloadForNewVersion));
@@ -358,13 +358,14 @@ interface MicroscopeStageProps {
   controls?: React.ReactNode;
   infoPanel: React.ReactNode;
   initialPosition?: { x: number, y: number };
+  initialZoom?: 4 | 10 | 40 | 100;   // objective the practical opens at (10x if not given)
   quizId?: string; // view id of the practical's MCQ set, shown as a "Test yourself" button
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, quizId
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId
 }) => {
-  const stage = useMicroscopeStage(initialPosition);
+  const stage = useMicroscopeStage(initialPosition, initialZoom);
   const [quizOpen, setQuizOpen] = useState(false);
   const questionSet = quizId ? questionSetFor(quizId) : undefined;
 
@@ -611,6 +612,9 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="RBC Count"
       subtitle="Total Erythrocyte Count • Center Square"
       onBack={onBack}
+      // Opens at 40x on the top-left counting square of the centre square (ruling 300-360, centre 330)
+      initialZoom={40}
+      initialPosition={positionFor(330, 330)}
       quizId="rbc-count"
       infoPanel={
         <HowToCount>
