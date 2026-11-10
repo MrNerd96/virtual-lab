@@ -198,24 +198,17 @@ export const StageControls: React.FC<{ stage: MicroscopeStageState }> = ({ stage
 // Shared helper functions for Neubauer chamber grid
 export const LINE_THICKNESS = 1; // All lines same thickness
 
+// A corner (W) square: 4 x 4 squares. Its 3 inner lines in each direction run on across the neighbouring middle
+// squares of the ruling, as on a real chamber: right/left carry the horizontal lines across the square to that side,
+// bottom/top carry the vertical lines across the square below/above.
 export const render4x4Grid = (x: number, y: number, size: number, extendLines: { top?: boolean, bottom?: boolean, left?: boolean, right?: boolean } = {}) => {
   const lines = [];
   const subSize = size / 4;
 
-  // Vertical lines - 3 internal lines (all should extend if needed)
   for (let i = 1; i < 4; i++) {
     const xPos = x + i * subSize;
-    let yStart = y;
-    let yEnd = y + size;
-
-    // Extend ALL 3 vertical lines into middle squares if needed
-    if (extendLines.left) {
-      yStart = y - size; // Extend to left middle square
-    }
-    if (extendLines.right) {
-      yEnd = y + size * 2; // Extend to right middle square
-    }
-
+    const yStart = extendLines.top ? y - size : y;
+    const yEnd = extendLines.bottom ? y + size * 2 : y + size;
     lines.push(
       <line key={`v-${x}-${y}-${i}`}
         x1={xPos} y1={yStart}
@@ -224,20 +217,10 @@ export const render4x4Grid = (x: number, y: number, size: number, extendLines: {
     );
   }
 
-  // Horizontal lines - 3 internal lines (all should extend if needed)
   for (let i = 1; i < 4; i++) {
     const yPos = y + i * subSize;
-    let xStart = x;
-    let xEnd = x + size;
-
-    // Extend ALL 3 horizontal lines into middle squares if needed
-    if (extendLines.top) {
-      xStart = x - size; // Extend to top middle square
-    }
-    if (extendLines.bottom) {
-      xEnd = x + size * 2; // Extend to bottom middle square
-    }
-
+    const xStart = extendLines.left ? x - size : x;
+    const xEnd = extendLines.right ? x + size * 2 : x + size;
     lines.push(
       <line key={`h-${x}-${y}-${i}`}
         x1={xStart} y1={yPos}
@@ -281,7 +264,7 @@ export const renderCenterDenseGrid = (centerX: number, centerY: number, centerSi
 
   const elements = [];
 
-  // Draw the 5x5 large squares with their 4x4 subdivisions
+  // Outline of each of the 5x5 medium squares
   for (let row = 0; row < 5; row++) {
     for (let col = 0; col < 5; col++) {
       const largeX = centerX + col * largeSquareSize;
@@ -295,23 +278,31 @@ export const renderCenterDenseGrid = (centerX: number, centerY: number, centerSi
           fill="none" stroke="#334155" strokeWidth={LINE_THICKNESS} />
       );
 
-      // Draw 4x4 grid inside each large square - same thickness
-      for (let subRow = 1; subRow < 4; subRow++) {
-        elements.push(
-          <line key={`h-sub-${row}-${col}-${subRow}`}
-            x1={largeX} y1={largeY + subRow * tinySquareSize}
-            x2={largeX + largeSquareSize} y2={largeY + subRow * tinySquareSize}
-            stroke="#64748b" strokeWidth={LINE_THICKNESS} />
-        );
-      }
-      for (let subCol = 1; subCol < 4; subCol++) {
-        elements.push(
-          <line key={`v-sub-${row}-${col}-${subCol}`}
-            x1={largeX + subCol * tinySquareSize} y1={largeY}
-            x2={largeX + subCol * tinySquareSize} y2={largeY + largeSquareSize}
-            stroke="#64748b" strokeWidth={LINE_THICKNESS} />
-        );
-      }
+    }
+  }
+
+  // The 3 single lines inside each column and row of medium squares, as on a real chamber, run the whole length of
+  // the centre and on across the middle squares above and below (vertical) or to each side (horizontal)
+  for (let col = 0; col < 5; col++) {
+    for (let sub = 1; sub < 4; sub++) {
+      const xPos = centerX + col * largeSquareSize + sub * tinySquareSize;
+      elements.push(
+        <line key={`v-sub-${col}-${sub}`}
+          x1={xPos} y1={centerY - squareSize}
+          x2={xPos} y2={centerY + centerSize + squareSize}
+          stroke="#64748b" strokeWidth={LINE_THICKNESS} />
+      );
+    }
+  }
+  for (let row = 0; row < 5; row++) {
+    for (let sub = 1; sub < 4; sub++) {
+      const yPos = centerY + row * largeSquareSize + sub * tinySquareSize;
+      elements.push(
+        <line key={`h-sub-${row}-${sub}`}
+          x1={centerX - squareSize} y1={yPos}
+          x2={centerX + centerSize + squareSize} y2={yPos}
+          stroke="#64748b" strokeWidth={LINE_THICKNESS} />
+      );
     }
   }
 
