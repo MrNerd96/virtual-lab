@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { useMicroscopeStage, Eyepiece, positionFor, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
+import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
 const Muscle3D = lazy(() => import('./components/Muscle3D').then(m => ({ default: m.Muscle3D })).catch(reloadForNewVersion));
@@ -500,15 +500,9 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         return (
           <div className="relative w-full h-full bg-[#f8fafc]">
-            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90">
-              {/* Main outer border - 3mm square - same thickness */}
-              <rect x="0" y="0" width="900" height="900" fill="none" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-
-              {/* Main dividers - lines separating 3x3 grid - same thickness */}
-              <line x1={squareSize} y1="0" x2={squareSize} y2="900" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-              <line x1={squareSize * 2} y1="0" x2={squareSize * 2} y2="900" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-              <line x1="0" y1={squareSize} x2="900" y2={squareSize} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-              <line x1="0" y1={squareSize * 2} x2="900" y2={squareSize * 2} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
+            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
+              {/* Outer border and the lines dividing the ruled area into nine 1 mm squares, run on past the edge */}
+              <RulingFrame />
 
               {/* Dense center grid (5x5 with 4x4 subdivisions) - for RBC counting */}
               {renderCenterDenseGrid(centerX, centerY, centerSize, squareSize)}
@@ -636,15 +630,9 @@ const RBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         return (
           <div className="relative w-full h-full bg-[#f8fafc]">
-            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90">
-              {/* Main outer border - 3mm square - same thickness */}
-              <rect x="0" y="0" width="900" height="900" fill="none" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-
-              {/* Main dividers - lines separating 3x3 grid - same thickness */}
-              <line x1={squareSize} y1="0" x2={squareSize} y2="900" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-              <line x1={squareSize * 2} y1="0" x2={squareSize * 2} y2="900" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-              <line x1="0" y1={squareSize} x2="900" y2={squareSize} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-              <line x1="0" y1={squareSize * 2} x2="900" y2={squareSize * 2} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
+            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
+              {/* Outer border and the lines dividing the ruled area into nine 1 mm squares, run on past the edge */}
+              <RulingFrame />
 
               {/* Dense center grid (5x5 with 4x4 subdivisions) - for RBC counting */}
               {renderCenterDenseGrid(centerX, centerY, centerSize, squareSize)}

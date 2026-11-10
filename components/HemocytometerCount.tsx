@@ -647,7 +647,7 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
     )) : null, [sample, racks]);
     const renderSlide = () => (
         <div className="relative w-full h-full bg-[#f8fafc]">
-            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90">
+            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
                 <NeubauerRuling />
                 <g opacity={rbcSoft}><RedCells rbcs={sample.rbcs} /></g>
                 {plateletLayer}

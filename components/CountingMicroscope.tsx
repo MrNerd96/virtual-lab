@@ -122,7 +122,7 @@ export const Eyepiece: React.FC<{
             </div>
 
             {/* Eyepiece */}
-            <div ref={eyeRef} className="relative w-[min(calc(100vw-32px),500px)] h-[min(calc(100vw-32px),500px)] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[clamp(7px,2.4vw,12px)] md:border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#eef2ff] pointer-events-none">
+            <div ref={eyeRef} className="relative w-[min(calc(100vw-32px),500px)] h-[min(calc(100vw-32px),500px)] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[clamp(7px,2.4vw,12px)] md:border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#f8fafc] pointer-events-none">
                 <div className="absolute inset-0 z-20 pointer-events-none rounded-full bg-[radial-gradient(circle,transparent_50%,rgba(0,0,0,0.3)_80%,rgba(0,0,0,0.9)_100%)]"></div>
 
                 {/* SLIDE CONTENT CONTAINER */}
@@ -198,6 +198,23 @@ export const StageControls: React.FC<{ stage: MicroscopeStageState }> = ({ stage
 // Shared helper functions for Neubauer chamber grid
 export const LINE_THICKNESS = 1; // All lines same thickness
 
+// On a real chamber the ruled lines run on past the edge of the 3 mm ruled area, so every line that reaches the edge
+// (0 or 900 in ruling units) is drawn on this far beyond it. The slide SVGs need overflow visible to show it.
+export const RULING_OVERHANG = 300;
+const ext = (v: number) => (v <= 0 ? -RULING_OVERHANG : v >= 900 ? 900 + RULING_OVERHANG : v);
+
+// Outer border of the ruled area and the lines dividing it into nine 1 mm squares, each run on past the edge
+export const RulingFrame = () => (
+  <g>
+    {[0, 300, 600, 900].map(v => (
+      <g key={v}>
+        <line x1={v} y1={ext(0)} x2={v} y2={ext(900)} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
+        <line x1={ext(0)} y1={v} x2={ext(900)} y2={v} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
+      </g>
+    ))}
+  </g>
+);
+
 // A corner (W) square: 4 x 4 squares. Its 3 inner lines in each direction run on across the neighbouring middle
 // squares of the ruling, as on a real chamber: right/left carry the horizontal lines across the square to that side,
 // bottom/top carry the vertical lines across the square below/above.
@@ -207,8 +224,8 @@ export const render4x4Grid = (x: number, y: number, size: number, extendLines: {
 
   for (let i = 1; i < 4; i++) {
     const xPos = x + i * subSize;
-    const yStart = extendLines.top ? y - size : y;
-    const yEnd = extendLines.bottom ? y + size * 2 : y + size;
+    const yStart = ext(extendLines.top ? y - size : y);
+    const yEnd = ext(extendLines.bottom ? y + size * 2 : y + size);
     lines.push(
       <line key={`v-${x}-${y}-${i}`}
         x1={xPos} y1={yStart}
@@ -219,8 +236,8 @@ export const render4x4Grid = (x: number, y: number, size: number, extendLines: {
 
   for (let i = 1; i < 4; i++) {
     const yPos = y + i * subSize;
-    const xStart = extendLines.left ? x - size : x;
-    const xEnd = extendLines.right ? x + size * 2 : x + size;
+    const xStart = ext(extendLines.left ? x - size : x);
+    const xEnd = ext(extendLines.right ? x + size * 2 : x + size);
     lines.push(
       <line key={`h-${x}-${y}-${i}`}
         x1={xStart} y1={yPos}
@@ -288,8 +305,8 @@ export const renderCenterDenseGrid = (centerX: number, centerY: number, centerSi
       const xPos = centerX + col * largeSquareSize + sub * tinySquareSize;
       elements.push(
         <line key={`v-sub-${col}-${sub}`}
-          x1={xPos} y1={centerY - squareSize}
-          x2={xPos} y2={centerY + centerSize + squareSize}
+          x1={xPos} y1={ext(centerY - squareSize)}
+          x2={xPos} y2={ext(centerY + centerSize + squareSize)}
           stroke="#64748b" strokeWidth={LINE_THICKNESS} />
       );
     }
@@ -299,8 +316,8 @@ export const renderCenterDenseGrid = (centerX: number, centerY: number, centerSi
       const yPos = centerY + row * largeSquareSize + sub * tinySquareSize;
       elements.push(
         <line key={`h-sub-${row}-${sub}`}
-          x1={centerX - squareSize} y1={yPos}
-          x2={centerX + centerSize + squareSize} y2={yPos}
+          x1={ext(centerX - squareSize)} y1={yPos}
+          x2={ext(centerX + centerSize + squareSize)} y2={yPos}
           stroke="#64748b" strokeWidth={LINE_THICKNESS} />
       );
     }
@@ -313,23 +330,23 @@ export const renderCenterDenseGrid = (centerX: number, centerY: number, centerSi
   for (let i = 1; i <= 5; i++) {
     const xPos = centerX + i * largeSquareSize;
     // Full line through center square AND extending into top-middle and bottom-middle
-    elements.push(renderTripleLine(xPos, centerY - squareSize, xPos, centerY + centerSize + squareSize, `v-triple-${i}`, true));
+    elements.push(renderTripleLine(xPos, ext(centerY - squareSize), xPos, ext(centerY + centerSize + squareSize), `v-triple-${i}`, true));
   }
 
   // 5 horizontal triple lines - extend fully through center (from left to right of center square) AND into middle squares
   for (let i = 1; i <= 5; i++) {
     const yPos = centerY + i * largeSquareSize;
     // Full line through center square AND extending into left-middle and right-middle
-    elements.push(renderTripleLine(centerX - squareSize, yPos, centerX + centerSize + squareSize, yPos, `h-triple-${i}`, false));
+    elements.push(renderTripleLine(ext(centerX - squareSize), yPos, ext(centerX + centerSize + squareSize), yPos, `h-triple-${i}`, false));
   }
 
   // Top border triple line - horizontal line at top edge of center square, extends fully through center and into left-middle and right-middle
   const topBorderY = centerY;
-  elements.push(renderTripleLine(centerX - squareSize, topBorderY, centerX + centerSize + squareSize, topBorderY, `h-triple-top-border`, false));
+  elements.push(renderTripleLine(ext(centerX - squareSize), topBorderY, ext(centerX + centerSize + squareSize), topBorderY, `h-triple-top-border`, false));
 
   // Left border triple line - vertical line at left edge of center square, extends fully through center and into top-middle and bottom-middle
   const leftBorderX = centerX;
-  elements.push(renderTripleLine(leftBorderX, centerY - squareSize, leftBorderX, centerY + centerSize + squareSize, `v-triple-left-border`, true));
+  elements.push(renderTripleLine(leftBorderX, ext(centerY - squareSize), leftBorderX, ext(centerY + centerSize + squareSize), `v-triple-left-border`, true));
 
   return <g>{elements}</g>;
 };
@@ -341,11 +358,7 @@ export const NeubauerRuling = () => {
   const squareSize = GRID_SIZE / 3;
   return (
     <g>
-      <rect x="0" y="0" width="900" height="900" fill="none" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-      <line x1={squareSize} y1="0" x2={squareSize} y2="900" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-      <line x1={squareSize * 2} y1="0" x2={squareSize * 2} y2="900" stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-      <line x1="0" y1={squareSize} x2="900" y2={squareSize} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
-      <line x1="0" y1={squareSize * 2} x2="900" y2={squareSize * 2} stroke="#1e293b" strokeWidth={LINE_THICKNESS} />
+      <RulingFrame />
       {renderCenterDenseGrid(squareSize, squareSize, squareSize, squareSize)}
       {render4x4Grid(0, 0, squareSize, { right: true, bottom: true })}
       {render4x4Grid(squareSize * 2, 0, squareSize, { left: true, bottom: true })}
