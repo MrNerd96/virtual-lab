@@ -11,6 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
+import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCGlisten, WBCShadow, CellLayer, FocusKnob, COVER_SLIP_PLANE } from './components/WBCField';
 import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
@@ -361,10 +362,14 @@ interface MicroscopeStageProps {
   initialZoom?: 4 | 10 | 40 | 100;   // objective the practical opens at (10x if not given)
   quizId?: string; // view id of the practical's MCQ set, shown as a "Test yourself" button
   chamberMap?: boolean; // show the Neubauer ruling in the stage mini-map
+  // Fine focus (-100 to 100) and the layer above the slide that is sharp at upperPlane; see Eyepiece
+  focus?: number;
+  renderUpper?: (zoom: number) => React.ReactNode;
+  upperPlane?: number;
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, renderUpper, upperPlane
 }) => {
   const stage = useMicroscopeStage(initialPosition, initialZoom);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -404,7 +409,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
+        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} renderUpper={renderUpper} upperPlane={upperPlane} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
 
         {/* Right: Controls Panel */}
         <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 flex-1 lg:flex-none shrink-0 z-20 shadow-xl overflow-y-auto">
@@ -428,29 +433,13 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
 // 1. WBC Experiment
 const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [cells] = useState(() => {
-    // Generate WBCs in corners (Neubauer: 4 corners are for WBC)
-    const newCells: { id: number, x: number, y: number }[] = [];
-    const GRID_SIZE = 900;
-    const squareSize = GRID_SIZE / 3; // 3x3 grid, all squares same size
-    const corners = [
-      { x: 0, y: 0 }, // Top Left
-      { x: squareSize * 2, y: 0 }, // Top Right
-      { x: 0, y: squareSize * 2 }, // Bottom Left
-      { x: squareSize * 2, y: squareSize * 2 } // Bottom Right
-    ];
-    let id = 0;
-    corners.forEach(c => {
-      for (let i = 0; i < 50; i++) {
-        newCells.push({
-          id: id++,
-          x: c.x + Math.random() * (squareSize - 20) + 10,
-          y: c.y + Math.random() * (squareSize - 20) + 10
-        });
-      }
-    });
-    return newCells;
-  });
+  // White cells all over the chamber floor (about 50 to each 1 mm square, as in a normal count), the debris lying
+  // with them and the dust on the cover slip: a new field each visit
+  const [cells] = useState(() => makeWBCs());
+  const [debris] = useState(makeDebris);
+  const [dust] = useState(makeDust);
+  const [focus, setFocus] = useState(0);   // fine focus: 0 = cells sharp
+  const look = wbcLook(focus);
 
   // Calculate initial position to center on Top Left WBC square
   // Grid Logic:
@@ -480,7 +469,16 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       onBack={onBack}
       initialPosition={{ x: initialX, y: initialY }}
       quizId="wbc-count"
+      focus={focus}
+      upperPlane={COVER_SLIP_PLANE}
+      renderUpper={() => (
+        <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible">
+          <CoverSlipDust dust={dust} />
+        </svg>
+      )}
       infoPanel={
+        <>
+        <FocusKnob value={focus} onChange={setFocus} />
         <HowToCount>
           <p className="text-sm text-slate-300 mb-2">
             Count cells in the <span className="text-white font-bold">4 Corner Squares</span> (W).
@@ -492,6 +490,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <li>Exclude cells on Bottom & Right lines.</li>
           </ul>
         </HowToCount>
+        </>
       }
       renderSlide={(zoom) => {
         const GRID_SIZE = 900;
@@ -503,6 +502,9 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return (
           <div className="relative w-full h-full bg-[#f8fafc]">
             <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
+              {/* Debris on the chamber floor, under the ruling */}
+              <FloorDebris debris={debris} />
+
               {/* Outer border and the lines dividing the ruled area into nine 1 mm squares, run on past the edge */}
               <RulingFrame />
 
@@ -523,56 +525,10 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {render4x4Grid(squareSize * 2, squareSize * 2, squareSize, { left: true, top: true })}
             </svg>
 
-            {/* Cells */}
-            {cells.map(c => {
-              const baseSize = zoom === 4 ? 0.5 : zoom === 10 ? 1 : zoom === 40 ? 3 : 6;
-
-              if (zoom <= 10) {
-                // 10x and 4x: Simple blue dots
-                return (
-                  <div
-                    key={c.id}
-                    className="absolute rounded-full bg-[#1e3a8a] shadow-sm"
-                    style={{
-                      left: `${(c.x / GRID_SIZE) * 100}%`,
-                      top: `${(c.y / GRID_SIZE) * 100}%`,
-                      width: baseSize,
-                      height: baseSize,
-                      transform: 'translate(-50%, -50%)'
-                    }}
-                  />
-                );
-              } else {
-                // 40x and 100x: Stained nucleus, transparent cytoplasm
-                // We use a container (cytoplasm) and a nested div (nucleus)
-                return (
-                  <div
-                    key={c.id}
-                    className="absolute rounded-full border border-blue-200/30 bg-blue-50/10"
-                    style={{
-                      left: `${(c.x / GRID_SIZE) * 100}%`,
-                      top: `${(c.y / GRID_SIZE) * 100}%`,
-                      width: baseSize,
-                      height: baseSize,
-                      transform: 'translate(-50%, -50%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    {/* Nucleus: Dark purple/blue, slightly irregular */}
-                    <div
-                      className="bg-[#4c1d95] opacity-80"
-                      style={{
-                        width: '70%',
-                        height: '70%',
-                        borderRadius: '45% 55% 50% 50% / 50% 45% 55% 50%', // Slightly irregular shape
-                      }}
-                    />
-                  </div>
-                );
-              }
-            })}
+            {/* White cells: their three looks, each its own layer, cross-faded by the fine focus */}
+            <CellLayer opacity={look.shadow}><WBCShadow cells={cells} /></CellLayer>
+            <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
+            <CellLayer opacity={look.glisten}><WBCGlisten cells={cells} /></CellLayer>
           </div>
         );
       }}

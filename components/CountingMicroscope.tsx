@@ -80,7 +80,13 @@ export const Eyepiece: React.FC<{
     onTap?: (gx: number, gy: number) => void;
     className?: string;
     chamberMap?: boolean;   // draw the Neubauer ruling in the stage mini-map (off for a blood smear)
-}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false }) => {
+    // Fine focus, -100 to 100, for a practical that has it: 0 is the plane of the slide drawn by renderSlide, and the
+    // further from it the more that layer blurs. renderUpper draws a second layer (dust on the cover slip) that is
+    // sharp at upperPlane instead.
+    focus?: number;
+    renderUpper?: (zoom: Objective) => React.ReactNode;
+    upperPlane?: number;
+}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false, focus, renderUpper, upperPlane = 0 }) => {
     const { zoom, setZoom, position, setPosition, scale, setFit, setMaxPan } = stage;
     const maxPan = chamberMap ? MAX_PAN + CHAMBER_EXTRA_PAN : MAX_PAN;
     useLayoutEffect(() => { setMaxPan(maxPan); }, [maxPan, setMaxPan]);
@@ -158,19 +164,28 @@ export const Eyepiece: React.FC<{
             <div ref={eyeRef} className="relative w-[min(calc(100vw-32px),500px)] h-[min(calc(100vw-32px),500px)] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[clamp(7px,2.4vw,12px)] md:border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#f8fafc] pointer-events-none">
                 <div className="absolute inset-0 z-20 pointer-events-none rounded-full bg-[radial-gradient(circle,transparent_50%,rgba(0,0,0,0.3)_80%,rgba(0,0,0,0.9)_100%)]"></div>
 
-                {/* SLIDE CONTENT CONTAINER */}
-                <div
-                    key={zoom}
-                    className="absolute w-[800px] h-[800px] origin-center"
-                    style={{
-                        transform: `translate(calc(-50% + ${-position.x * scale}px), calc(-50% + ${-position.y * scale}px)) scale(${scale})`,
-                        left: '50%',
-                        top: '50%',
-                        willChange: 'transform'
-                    }}
-                >
-                    {renderSlide(zoom)}
-                </div>
+                {/* The slide, and above it the cover-slip layer if there is one. Each is blurred by how far the fine
+                    focus is from its plane; the blur is on an eyepiece-sized wrapper, not on the scaled slide, so it
+                    stays cheap at 100x. */}
+                {[{ render: renderSlide, plane: 0 }, ...(renderUpper ? [{ render: renderUpper, plane: upperPlane }] : [])].map((layer, i) => {
+                    const blur = focus === undefined ? 0 : (Math.abs(focus - layer.plane) / 100) * 3.2 * Math.pow(scale, 0.55);
+                    return (
+                        <div key={i} className="absolute inset-0 overflow-hidden" style={blur > 0.05 ? { filter: `blur(${blur.toFixed(2)}px)` } : undefined}>
+                            <div
+                                key={zoom}
+                                className="absolute w-[800px] h-[800px] origin-center"
+                                style={{
+                                    transform: `translate(calc(-50% + ${-position.x * scale}px), calc(-50% + ${-position.y * scale}px)) scale(${scale})`,
+                                    left: '50%',
+                                    top: '50%',
+                                    willChange: 'transform'
+                                }}
+                            >
+                                {layer.render(zoom)}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Mini-map: where the eyepiece is on the slide. With chamberMap it shows the ruling, and the red circle is the
