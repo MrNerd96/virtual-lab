@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCGlisten, WBCShadow, CellLayer, FocusKnob, COVER_SLIP_PLANE } from './components/WBCField';
+import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCRingCentre, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG } from './components/WBCField';
 import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
@@ -362,14 +362,14 @@ interface MicroscopeStageProps {
   initialZoom?: 4 | 10 | 40 | 100;   // objective the practical opens at (10x if not given)
   quizId?: string; // view id of the practical's MCQ set, shown as a "Test yourself" button
   chamberMap?: boolean; // show the Neubauer ruling in the stage mini-map
-  // Fine focus (-100 to 100) and the layer above the slide that is sharp at upperPlane; see Eyepiece
+  // Fine focus (-100 to 100), the layers over the slide with their own blur, and the field colour; see Eyepiece
   focus?: number;
-  renderUpper?: (zoom: number) => React.ReactNode;
-  upperPlane?: number;
+  layers?: { render: (zoom: number) => React.ReactNode; defocus: number }[];
+  background?: string;
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, renderUpper, upperPlane
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, layers, background
 }) => {
   const stage = useMicroscopeStage(initialPosition, initialZoom);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -409,7 +409,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} renderUpper={renderUpper} upperPlane={upperPlane} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
+        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} layers={layers} background={background} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
 
         {/* Right: Controls Panel */}
         <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 flex-1 lg:flex-none shrink-0 z-20 shadow-xl overflow-y-auto">
@@ -470,12 +470,24 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       initialPosition={{ x: initialX, y: initialY }}
       quizId="wbc-count"
       focus={focus}
-      upperPlane={COVER_SLIP_PLANE}
-      renderUpper={() => (
-        <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible">
-          <CoverSlipDust dust={dust} />
-        </svg>
-      )}
+      background={WBC_FIELD_BG}
+      layers={[
+        // White cells: each look is its own layer, cross-faded by the fine focus
+        { defocus: look.cellDefocus, render: () => (
+          <div className="relative w-full h-full">
+            <CellLayer opacity={look.blob}><WBCBlob cells={cells} /></CellLayer>
+            <CellLayer opacity={look.ring}><WBCRingCentre cells={cells} /></CellLayer>
+            <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
+            <CellLayer opacity={look.bright}><WBCBright cells={cells} /></CellLayer>
+          </div>
+        ) },
+        // Dust on the cover slip, sharp in a higher plane
+        { defocus: Math.abs(focus - COVER_SLIP_PLANE), render: () => (
+          <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible">
+            <CoverSlipDust dust={dust} />
+          </svg>
+        ) },
+      ]}
       infoPanel={
         <>
         <FocusKnob value={focus} onChange={setFocus} />
@@ -500,10 +512,13 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const centerSize = squareSize;
 
         return (
-          <div className="relative w-full h-full bg-[#f8fafc]">
-            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
+          <div className="relative w-full h-full" style={{ backgroundColor: WBC_FIELD_BG }}>
+            <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible">
               {/* Debris on the chamber floor, under the ruling */}
               <FloorDebris debris={debris} />
+
+              {/* The ruling of a bright-line chamber: white lines, tinted and dimmed by the fine focus */}
+              <g className="bright-line" style={{ ['--ruling' as any]: look.lineColor, opacity: look.lineOpacity }}>
 
               {/* Outer border and the lines dividing the ruled area into nine 1 mm squares, run on past the edge */}
               <RulingFrame />
@@ -523,12 +538,8 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
               {/* Bottom Right - ALL 3 horizontal lines extend left into bottom-middle, ALL 3 vertical lines extend up into right-middle */}
               {render4x4Grid(squareSize * 2, squareSize * 2, squareSize, { left: true, top: true })}
+              </g>
             </svg>
-
-            {/* White cells: their three looks, each its own layer, cross-faded by the fine focus */}
-            <CellLayer opacity={look.shadow}><WBCShadow cells={cells} /></CellLayer>
-            <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
-            <CellLayer opacity={look.glisten}><WBCGlisten cells={cells} /></CellLayer>
           </div>
         );
       }}

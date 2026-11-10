@@ -1,9 +1,17 @@
 import React from 'react';
 import { Minus, Plus } from 'lucide-react';
 
-// What is seen in the charged chamber of the WBC count: white cells in Türk's fluid (violet nucleus, pale cytoplasm),
-// the debris that settles with them, and dust on the cover slip, which lies in a higher plane of focus. Everything is
-// in ruling units (900 = 3 mm) and is scattered over the ruled area and the chamber floor around it.
+// What is seen in the charged chamber of the WBC count, on a bright-line chamber (white lines on a grey field): white
+// cells, the debris that settles with them, and dust on the cover slip, which lies in a higher plane of focus.
+// Everything is in ruling units (900 = 3 mm) and is scattered over the ruled area and the chamber floor around it.
+//
+// How a white cell changes as the fine focus is racked through it is copied from a recording of a real chamber:
+//   in focus          the lobes of the nucleus are grey with a dark outline, the cell outline faint
+//   one side of focus the lobes shine as bright white dots in a pale cell (the cell is refractile)
+//   the other side    a dark ring with a light centre, then a solid dark round blob, then a wide faint shadow
+// Debris only goes soft and stays dull grey on both sides, which is how the two are told apart.
+
+export const WBC_FIELD_BG = '#b4bac0';
 
 const FIELD_MIN = -260, FIELD_MAX = 1160;
 const SPAN = FIELD_MAX - FIELD_MIN;
@@ -29,7 +37,7 @@ const flake = (cx: number, cy: number, r: number, n = 7, jitter = 0.5, squash = 
   return d + 'Z';
 };
 
-export interface WBC { id: number; x: number; y: number; r: number; nucleus: string }
+export interface WBC { id: number; x: number; y: number; r: number; nucleus: string; dots: string }
 
 // White cells at the density of a normal count (about 50 to a 1 mm square), now and then two lying together
 export const makeWBCs = (perSquare = 50): WBC[] => {
@@ -44,24 +52,26 @@ export const makeWBCs = (perSquare = 50): WBC[] => {
       const a = rnd(0, Math.PI * 2), d = (prev.r + r) * 1.05;
       x = prev.x + Math.cos(a) * d; y = prev.y + Math.sin(a) * d;
     }
-    let nucleus = '';
+    let nucleus = '', dots = '';   // the lobes, and a dot at the centre of each for when they shine
+    const lobe = (lx: number, ly: number, lr: number) => { nucleus += circlePath(lx, ly, lr); dots += circlePath(lx, ly, lr * 0.62); };
     if (kind < 0.62) {
-      // Neutrophil: 2 to 4 lobes in a curve
-      const lobes = 2 + Math.floor(Math.random() * 3), a0 = rnd(0, Math.PI * 2);
+      // Neutrophil: 3 or 4 lobes (now and then 2) in a curve
+      const lobes = Math.random() < 0.12 ? 2 : 3 + Math.floor(Math.random() * 2), a0 = rnd(0, Math.PI * 2);
       for (let i = 0; i < lobes; i++) {
-        const a = a0 + i * rnd(0.95, 1.3);
-        nucleus += circlePath(x + Math.cos(a) * r * 0.42, y + Math.sin(a) * r * 0.42, r * rnd(0.27, 0.33));
+        const a = a0 + i * rnd(1.25, 1.6);
+        lobe(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, r * rnd(0.27, 0.32));
       }
     } else if (kind < 0.92) {
       // Lymphocyte: one round nucleus filling most of the cell
       const a = rnd(0, Math.PI * 2);
-      nucleus = circlePath(x + Math.cos(a) * r * 0.1, y + Math.sin(a) * r * 0.1, r * 0.74);
+      lobe(x + Math.cos(a) * r * 0.1, y + Math.sin(a) * r * 0.1, r * 0.7);
     } else {
       // Monocyte: a kidney-shaped nucleus
       const a = rnd(0, Math.PI * 2), dx = Math.cos(a) * r * 0.3, dy = Math.sin(a) * r * 0.3;
-      nucleus = circlePath(x + dx, y + dy, r * 0.42) + circlePath(x - dx, y - dy, r * 0.42) + circlePath(x - dy * 0.7, y + dx * 0.7, r * 0.36);
+      lobe(x + dx, y + dy, r * 0.42); lobe(x - dx, y - dy, r * 0.42);
+      nucleus += circlePath(x - dy * 0.7, y + dx * 0.7, r * 0.36);
     }
-    cells.push({ id, x, y, r, nucleus });
+    cells.push({ id, x, y, r, nucleus, dots });
   }
   return cells;
 };
@@ -135,12 +145,12 @@ export const makeDust = (): Dust => {
 
 export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
   <g pointerEvents="none">
-    {debris.smudges.map((s, i) => <path key={`m${i}`} d={s.pts} fill="#8792a6" opacity={s.o} />)}
+    {debris.smudges.map((s, i) => <path key={`m${i}`} d={s.pts} fill="#6f7882" opacity={s.o * 1.6} />)}
     {debris.grains.map((g, i) => <path key={`n${i}`} d={g.d} fill={g.fill} opacity={g.o} />)}
-    {debris.ghosts.map((g, i) => <circle key={`g${i}`} cx={g.x} cy={g.y} r={g.r} fill="none" stroke="#94a3b8" strokeWidth={0.14} opacity={0.3} />)}
+    {debris.ghosts.map((g, i) => <circle key={`g${i}`} cx={g.x} cy={g.y} r={g.r} fill="none" stroke="#7d8690" strokeWidth={0.14} opacity={0.35} />)}
     {debris.clumps.map((c, i) => (
       <g key={`c${i}`}>
-        {c.flakes.map((p, k) => <path key={k} d={p} fill="#a8b0bf" fillOpacity={0.16} stroke="#7f889b" strokeWidth={0.14} strokeOpacity={0.5} />)}
+        {c.flakes.map((p, k) => <path key={k} d={p} fill="#9aa2ab" fillOpacity={0.3} stroke="#6f7882" strokeWidth={0.14} strokeOpacity={0.6} />)}
         <path d={c.grains} fill="#5b6475" opacity={0.5} />
       </g>
     ))}
@@ -156,29 +166,40 @@ export const CoverSlipDust = React.memo(({ dust }: { dust: Dust }) => (
   </g>
 ));
 
-// The three looks of a white cell as the fine focus is racked through it. They are drawn once and cross-faded by
-// wbcLook, so moving the focus does not redraw a thousand cells.
-// In focus: pale cytoplasm with a fine outline and the violet nucleus
+// The looks of a white cell as the fine focus is racked through it. Each is drawn once, as a layer, and wbcLook
+// cross-fades the layers, so moving the focus does not redraw a thousand cells.
+// In focus: grey lobes with a dark outline in a faintly outlined cell
 export const WBCSharp = React.memo(({ cells }: { cells: WBC[] }) => (
   <g pointerEvents="none">
     {cells.map(c => (
       <React.Fragment key={c.id}>
-        <circle cx={c.x} cy={c.y} r={c.r} fill="#aab4d7" fillOpacity={0.3} stroke="#5d6585" strokeWidth={0.2} />
-        <path d={c.nucleus} fill="#3b2f8f" opacity={0.88} />
+        <circle cx={c.x} cy={c.y} r={c.r} fill="#8d959e" fillOpacity={0.25} stroke="#5f6770" strokeWidth={0.12} strokeOpacity={0.45} />
+        <path d={c.nucleus} fill="#868e98" fillOpacity={0.75} stroke="#3f464f" strokeWidth={0.22} />
       </React.Fragment>
     ))}
   </g>
 ));
-// Just above focus: the cell is refractile, a bright centre in a dark ring. Debris never does this.
-export const WBCGlisten = React.memo(({ cells }: { cells: WBC[] }) => (
+// One side of focus: the lobes shine as bright dots in a pale cell. Debris never does this.
+export const WBCBright = React.memo(({ cells }: { cells: WBC[] }) => (
   <g pointerEvents="none">
-    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 0.86} fill="#ffffff" stroke="#1e2440" strokeWidth={c.r * 0.4} />)}
+    {cells.map(c => (
+      <React.Fragment key={c.id}>
+        <circle cx={c.x} cy={c.y} r={c.r * 1.05} fill="#c9cfd5" fillOpacity={0.55} stroke="#8a929b" strokeWidth={0.16} strokeOpacity={0.6} />
+        <path d={c.dots} fill="#ffffff" />
+      </React.Fragment>
+    ))}
   </g>
 ));
-// Further out of focus: a dark round shadow
-export const WBCShadow = React.memo(({ cells }: { cells: WBC[] }) => (
+// The other side: a solid dark round blob
+export const WBCBlob = React.memo(({ cells }: { cells: WBC[] }) => (
   <g pointerEvents="none">
-    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 1.1} fill="#2a2f55" />)}
+    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 1.1} fill="#646c77" />)}
+  </g>
+));
+// ...which close to focus has a light centre, making it a dark ring
+export const WBCRingCentre = React.memo(({ cells }: { cells: WBC[] }) => (
+  <g pointerEvents="none">
+    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 0.42} fill="#aeb5bc" />)}
   </g>
 ));
 
@@ -190,13 +211,23 @@ export const CellLayer: React.FC<{ opacity: number; children: React.ReactNode }>
   </svg>
 );
 
-// How much of each look shows at a fine-focus setting (-100 to 100, 0 = cells in focus)
+const step = (a: number, b: number, v: number) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+const mix = (c1: number[], c2: number[], t: number) => `rgb(${c1.map((v, i) => Math.round(v + (c2[i] - v) * t)).join(',')})`;
+
+// What shows at a fine-focus setting (-100 to 100, 0 = cells and ruling in focus; above 0 is the side on which the
+// lobes shine): how much of each look of the cells, how blurred the cell layer is, and the colour of the ruling,
+// which goes from crisp white to a wide bluish band on the bright side and a wide faint one on the dark side
 export const wbcLook = (focus: number) => {
-  const sharp = Math.max(0, 1 - Math.abs(focus) / 14);
-  const glisten = focus > 0 ? Math.exp(-(((focus - 18) / 11) ** 2)) : 0;
-  const fade = 1 / (1 + (Math.abs(focus) / 55) ** 2);
-  const shadow = Math.max(0, 1 - sharp - glisten) * fade * 0.75;
-  return { sharp, glisten, shadow };
+  const up = Math.max(0, focus), down = Math.max(0, -focus);
+  return {
+    sharp: Math.max(0, 1 - Math.abs(focus) / 10),
+    bright: step(2, 13, up) * (1 - step(48, 90, up)),
+    blob: step(3, 14, down) * (1 - 0.7 * step(35, 95, down)),
+    ring: step(3, 8, down) * (1 - step(11, 20, down)),
+    cellDefocus: up * 0.3 + down * 0.9,
+    lineColor: mix([245, 249, 255], [176, 186, 250], step(4, 40, up)),
+    lineOpacity: 1 - 0.45 * step(15, 80, down),
+  };
 };
 
 // The plane of the cover-slip dust on the same scale
@@ -221,7 +252,7 @@ export const FocusKnob: React.FC<{ value: number; onChange: (v: number) => void 
         <button type="button" className={nudge} onClick={() => set(value + 2)} aria-label="Focus up"><Plus className="w-4 h-4" /></button>
       </div>
       <p className="text-xs text-slate-400 mt-2 leading-snug">
-        Rack the focus slowly up and down. A white cell stays round and glistens just out of focus; debris stays dull and irregular.
+        Rack the focus slowly both ways. On one side a white cell's nucleus shines as bright dots; on the other the cell turns into a dark round blob. Debris only goes soft and stays dull.
       </p>
     </div>
   );

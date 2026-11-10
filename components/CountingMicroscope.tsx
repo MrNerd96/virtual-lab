@@ -81,12 +81,12 @@ export const Eyepiece: React.FC<{
     className?: string;
     chamberMap?: boolean;   // draw the Neubauer ruling in the stage mini-map (off for a blood smear)
     // Fine focus, -100 to 100, for a practical that has it: 0 is the plane of the slide drawn by renderSlide, and the
-    // further from it the more that layer blurs. renderUpper draws a second layer (dust on the cover slip) that is
-    // sharp at upperPlane instead.
+    // further from it the more the slide blurs. layers are drawn over the slide, each blurred by its own defocus (on
+    // the same scale): cells, whose look changes with focus more than their sharpness does, and dust on the cover slip.
     focus?: number;
-    renderUpper?: (zoom: Objective) => React.ReactNode;
-    upperPlane?: number;
-}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false, focus, renderUpper, upperPlane = 0 }) => {
+    layers?: { render: (zoom: Objective) => React.ReactNode; defocus: number }[];
+    background?: string;    // colour of the field, also seen beyond the edge of the slide
+}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false, focus, layers, background }) => {
     const { zoom, setZoom, position, setPosition, scale, setFit, setMaxPan } = stage;
     const maxPan = chamberMap ? MAX_PAN + CHAMBER_EXTRA_PAN : MAX_PAN;
     useLayoutEffect(() => { setMaxPan(maxPan); }, [maxPan, setMaxPan]);
@@ -161,14 +161,13 @@ export const Eyepiece: React.FC<{
             </div>
 
             {/* Eyepiece */}
-            <div ref={eyeRef} className="relative w-[min(calc(100vw-32px),500px)] h-[min(calc(100vw-32px),500px)] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[clamp(7px,2.4vw,12px)] md:border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#f8fafc] pointer-events-none">
+            <div ref={eyeRef} className="relative w-[min(calc(100vw-32px),500px)] h-[min(calc(100vw-32px),500px)] md:w-[500px] md:h-[500px] rounded-full overflow-hidden border-[clamp(7px,2.4vw,12px)] md:border-[12px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,1)] bg-[#f8fafc] pointer-events-none" style={background ? { backgroundColor: background } : undefined}>
                 <div className="absolute inset-0 z-20 pointer-events-none rounded-full bg-[radial-gradient(circle,transparent_50%,rgba(0,0,0,0.3)_80%,rgba(0,0,0,0.9)_100%)]"></div>
 
-                {/* The slide, and above it the cover-slip layer if there is one. Each is blurred by how far the fine
-                    focus is from its plane; the blur is on an eyepiece-sized wrapper, not on the scaled slide, so it
-                    stays cheap at 100x. */}
-                {[{ render: renderSlide, plane: 0 }, ...(renderUpper ? [{ render: renderUpper, plane: upperPlane }] : [])].map((layer, i) => {
-                    const blur = focus === undefined ? 0 : (Math.abs(focus - layer.plane) / 100) * 3.2 * Math.pow(scale, 0.55);
+                {/* The slide and the layers over it. Each is blurred by how far the fine focus is from it; the blur is on
+                    an eyepiece-sized wrapper, not on the scaled slide, so it stays cheap at 100x. */}
+                {[{ render: renderSlide, defocus: focus === undefined ? 0 : Math.abs(focus) }, ...(layers ?? [])].map((layer, i) => {
+                    const blur = (layer.defocus / 100) * 3.2 * Math.pow(scale, 0.55);
                     return (
                         <div key={i} className="absolute inset-0 overflow-hidden" style={blur > 0.05 ? { filter: `blur(${blur.toFixed(2)}px)` } : undefined}>
                             <div
