@@ -153,7 +153,11 @@ export const makeDebris = (): Debris => {
   const ghosts: Debris['ghosts'] = [];
   for (let i = 0; i < Math.round(22 * SQUARES); i++) { const [x, y] = at(); ghosts.push({ x, y, r: rnd(0.95, 1.25) }); things.push({ x, y, r: 1.3, what: 'Ghost of a lysed red cell' }); }
   const smudges: Debris['smudges'] = [];
-  for (let i = 0; i < Math.round(4 * SQUARES); i++) { const [x, y] = at(); smudges.push({ pts: flake(x, y, rnd(4, 12), 9, 0.4, rnd(0.5, 1)), o: rnd(0.05, 0.12) }); }
+  for (let i = 0; i < Math.round(4 * SQUARES); i++) {
+    const [x, y] = at(), r = rnd(4, 12);
+    smudges.push({ pts: flake(x, y, r, 9, 0.4, rnd(0.5, 1)), o: rnd(0.05, 0.12) });
+    things.push({ x, y, r: r * 0.8, what: 'Smudge on the chamber floor, not a cell' });
+  }
   const fibres: Debris['fibres'] = [];
   for (let i = 0; i < 14; i++) { const f = fibre([14, 55], 'Fibre, not a cell'); fibres.push({ d: f.d, w: rnd(0.2, 0.45), o: rnd(0.25, 0.45) }); things.push(...f.things); }
   const clumps: Debris['clumps'] = [];
