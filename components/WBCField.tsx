@@ -79,7 +79,11 @@ export const makeWBCs = (perSquare = 38): WBC[] => {
   return cells;
 };
 
+// Something that is not a white cell but can be tapped, to be told what it is
+export interface Thing { x: number; y: number; r: number; what: string }
+
 export interface Debris {
+  things: Thing[];
   grains: { d: string; fill: string; o: number }[];
   specks: { pts: string; fill: string; o: number }[];
   ghosts: { x: number; y: number; r: number }[];
@@ -104,9 +108,11 @@ export const makeDebris = (): Debris => {
     for (let i = 0; i < Math.round(95 * SQUARES); i++) d += circlePath(rnd(FIELD_MIN, FIELD_MAX), rnd(FIELD_MIN, FIELD_MAX), rnd(0.1, 0.26));
     return { d, fill: fill as string, o: o as number };
   });
+  const things: Thing[] = [];
   const specks: Debris['specks'] = [];
   for (let i = 0; i < Math.round(80 * SQUARES); i++) {
     const [x, y] = at(), kind = Math.random();
+    if (kind < 0.23) things.push({ x, y, r: kind < 0.13 ? 1.5 : 2.6, what: 'Debris, not a cell' });
     if (kind < 0.13) {
       // A dark roundish speck the size of a small cell: looks like one until the focus is racked
       specks.push({ pts: flake(x, y, rnd(0.9, 1.5), 7, 0.25, rnd(0.75, 1)), fill: pick(['#3f3a5c', '#454a5e', '#4a4038']), o: rnd(0.55, 0.8) });
@@ -117,7 +123,7 @@ export const makeDebris = (): Debris => {
     }
   }
   const ghosts: Debris['ghosts'] = [];
-  for (let i = 0; i < Math.round(22 * SQUARES); i++) { const [x, y] = at(); ghosts.push({ x, y, r: rnd(0.95, 1.25) }); }
+  for (let i = 0; i < Math.round(22 * SQUARES); i++) { const [x, y] = at(); ghosts.push({ x, y, r: rnd(0.95, 1.25) }); things.push({ x, y, r: 1.3, what: 'Ghost of a lysed red cell' }); }
   const smudges: Debris['smudges'] = [];
   for (let i = 0; i < Math.round(4 * SQUARES); i++) { const [x, y] = at(); smudges.push({ pts: flake(x, y, rnd(4, 12), 9, 0.4, rnd(0.5, 1)), o: rnd(0.05, 0.12) }); }
   const fibres: Debris['fibres'] = [];
@@ -125,25 +131,46 @@ export const makeDebris = (): Debris => {
   const clumps: Debris['clumps'] = [];
   for (let i = 0; i < 6; i++) {
     const [x, y] = at(), flakes: string[] = [];
+    things.push({ x, y, r: 9, what: 'Clump of debris, not a cell' });
     let grains = '';
     for (let k = 0; k < 7; k++) flakes.push(flake(x + rnd(-6, 6), y + rnd(-5, 5), rnd(2.5, 4.5), 8, 0.35));
     for (let k = 0; k < 22; k++) grains += circlePath(x + rnd(-8, 8), y + rnd(-7, 7), rnd(0.12, 0.3));
     clumps.push({ flakes, grains });
   }
-  return { grains, specks, ghosts, smudges, fibres, clumps };
+  return { things, grains, specks, ghosts, smudges, fibres, clumps };
 };
 
-export interface Dust { blobs: { pts: string; o: number }[]; fibres: { d: string; w: number; o: number }[] }
+export interface Dust { things: Thing[]; blobs: { pts: string; o: number }[]; fibres: { d: string; w: number; o: number }[] }
 
 // Dust on the cover slip: above the cells, so it is sharp at a different setting of the fine focus
 export const makeDust = (): Dust => {
-  const blobs: Dust['blobs'] = [];
+  const blobs: Dust['blobs'] = [], things: Thing[] = [];
   for (let i = 0; i < Math.round(2.6 * SQUARES); i++) {
-    blobs.push({ pts: flake(rnd(FIELD_MIN, FIELD_MAX), rnd(FIELD_MIN, FIELD_MAX), rnd(1.4, 4.2), 8, 0.5, rnd(0.5, 1)), o: rnd(0.45, 0.8) });
+    const x = rnd(FIELD_MIN, FIELD_MAX), y = rnd(FIELD_MIN, FIELD_MAX), r = rnd(1.4, 4.2);
+    blobs.push({ pts: flake(x, y, r, 8, 0.5, rnd(0.5, 1)), o: rnd(0.45, 0.8) });
+    things.push({ x, y, r, what: 'Dust on the cover slip' });
   }
   const fibres: Dust['fibres'] = [];
   for (let i = 0; i < 6; i++) fibres.push({ d: fibre([30, 90]), w: rnd(0.5, 0.9), o: rnd(0.4, 0.6) });
-  return { blobs, fibres };
+  return { things, blobs, fibres };
+};
+
+// Where a white cell lies for the count. The four W squares are the corner 1 mm squares, numbered 0-3 (top left, top
+// right, bottom left, bottom right). A cell touching the top or left line of its square is counted in it; one touching
+// the bottom or right line is not.
+export const W_SQUARES = [[0, 0], [600, 0], [0, 600], [600, 600]];
+export const W_NAMES = ['Top left', 'Top right', 'Bottom left', 'Bottom right'];
+export const placeCell = (c: WBC): { square: number; note: string } => {
+  for (let i = 0; i < 4; i++) {
+    const [x0, y0] = W_SQUARES[i], dx = c.x - x0, dy = c.y - y0;
+    if (dx < -c.r || dx > 300 + c.r || dy < -c.r || dy > 300 + c.r) continue;
+    if (dx >= 300 - c.r) return { square: -1, note: 'White cell on the right line: not counted' };
+    if (dy >= 300 - c.r) return { square: -1, note: 'White cell on the bottom line: not counted' };
+    if (dx < c.r) return { square: i, note: 'White cell on the left line: counted' };
+    if (dy < c.r) return { square: i, note: 'White cell on the top line: counted' };
+    return { square: i, note: 'White cell: counted' };
+  }
+  return { square: -1, note: 'White cell, but outside the W squares' };
 };
 
 export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (

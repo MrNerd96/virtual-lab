@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE } from './components/WBCField';
+import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE, placeCell, W_NAMES } from './components/WBCField';
 import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, NeubauerRuling, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
@@ -365,12 +365,14 @@ interface MicroscopeStageProps {
   // Fine focus (-100 to 100), the layers over the slide with their own blur, and the field colour; see Eyepiece
   focus?: number;
   slideDefocus?: number;
+  // A tap on the eyepiece: the point in ruling units, and the size of one screen pixel there in the same units
+  onTap?: (gx: number, gy: number, pxUnit: number) => void;
   layers?: { render: (zoom: number) => React.ReactNode; defocus: number }[];
   background?: string;
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, slideDefocus, layers, background
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, slideDefocus, onTap, layers, background
 }) => {
   const stage = useMicroscopeStage(initialPosition, initialZoom);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -410,7 +412,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} slideDefocus={slideDefocus} layers={layers} background={background} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
+        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} slideDefocus={slideDefocus} onTap={onTap && ((gx, gy) => onTap(gx, gy, 1 / (stage.scale * (800 / 900))))} layers={layers} background={background} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
 
         {/* Right: Controls Panel */}
         <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 flex-1 lg:flex-none shrink-0 z-20 shadow-xl overflow-y-auto">
@@ -442,6 +444,38 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [focus, setFocus] = useState(0);   // fine focus: 0 = cells sharp
   const look = wbcLook(focus);
 
+  // The count: a tap on a white cell in a W square counts it (again to uncount); a tap on anything else says what it is
+  const [counted, setCounted] = useState<Set<number>>(() => new Set());
+  const [checked, setChecked] = useState(false);
+  const [tapLabel, setTapLabel] = useState<{ x: number; y: number; text: string; color: string; k: number; t: number } | null>(null);
+  const places = useMemo(() => new Map(cells.map(c => [c.id, placeCell(c)])), [cells]);
+  const expected = useMemo(() => [0, 1, 2, 3].map(i => cells.filter(c => places.get(c.id)!.square === i).length), [cells, places]);
+  const tally = [0, 1, 2, 3].map(i => cells.filter(c => counted.has(c.id) && places.get(c.id)!.square === i).length);
+  const total = tally.reduce((a, b) => a + b, 0), expectedTotal = expected.reduce((a, b) => a + b, 0);
+  const tapAt = (gx: number, gy: number, k: number) => {
+    const say = (x: number, y: number, text: string, color: string) => {
+      const t = performance.now();
+      setTapLabel({ x, y, text, color, k, t });
+      window.setTimeout(() => setTapLabel(l => (l && l.t === t ? null : l)), 2200);
+    };
+    const reach = Math.max(2, 16 * k);
+    let cell: typeof cells[number] | null = null, cellD = reach;
+    for (const c of cells) { const d = Math.hypot(c.x - gx, c.y - gy); if (d < cellD) { cell = c; cellD = d; } }
+    if (cell) {
+      const place = places.get(cell.id)!;
+      if (place.square < 0) return say(cell.x, cell.y, place.note, '#fbbf24');
+      const had = counted.has(cell.id);
+      setCounted(s => { const n = new Set(s); if (had) n.delete(cell!.id); else n.add(cell!.id); return n; });
+      return say(cell.x, cell.y, had ? 'Removed from the count' : place.note, had ? '#cbd5e1' : '#34d399');
+    }
+    let thing: { x: number; y: number; r: number; what: string } | null = null, thingD = Infinity;
+    for (const th of [...debris.things, ...dust.things]) {
+      const d = Math.hypot(th.x - gx, th.y - gy);
+      if (d < Math.max(reach, th.r) && d < thingD) { thing = th; thingD = d; }
+    }
+    if (thing) say(thing.x, thing.y, thing.what, '#fca5a5');
+  };
+
   // Calculate initial position to center on Top Left WBC square
   // Grid Logic:
   // Top Left WBC Square is at (0,0) in grid coordinates.
@@ -472,6 +506,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       quizId="wbc-count"
       focus={focus}
       slideDefocus={look.slideDefocus}
+      onTap={tapAt}
       background={WBC_FIELD_BG}
       layers={[
         // The blue core of the ruling on the bright side of focus: the ruling again, less blurred than the slide's
@@ -497,10 +532,64 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <CoverSlipDust dust={dust} />
           </svg>
         ) },
+        // Marks of the count, always sharp: a ring on each counted cell, after the check a dashed ring on each one
+        // missed, and the note of the last tap
+        { defocus: 0, render: () => (
+          <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible" pointerEvents="none">
+            {cells.map(c => {
+              const mine = counted.has(c.id), missed = checked && !mine && places.get(c.id)!.square >= 0;
+              if (!mine && !missed) return null;
+              return <circle key={c.id} cx={c.x} cy={c.y} r={c.r + 1.6} fill="none" stroke={mine ? '#10b981' : '#f59e0b'}
+                strokeWidth={0.45} strokeDasharray={missed ? '1 0.7' : undefined} />;
+            })}
+            {tapLabel && (() => {
+              const k = tapLabel.k, fs = 13 * k, w = tapLabel.text.length * 7.1 * k + 14 * k, h = 22 * k;
+              const lx = tapLabel.x, ly = tapLabel.y - 14 * k;
+              return (
+                <g>
+                  <rect x={lx - w / 2} y={ly - h} width={w} height={h} rx={5 * k} fill="#0f172a" opacity={0.9} />
+                  <text x={lx} y={ly - h / 2 + fs * 0.36} textAnchor="middle" fontSize={fs} fontWeight="bold" fill={tapLabel.color}>{tapLabel.text}</text>
+                </g>
+              );
+            })()}
+          </svg>
+        ) },
       ]}
       infoPanel={
         <>
         <FocusKnob value={focus} onChange={setFocus} />
+        <div className="bg-slate-800 rounded-lg border border-slate-700 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-slate-200">Your count</h3>
+            <span className="text-xl font-mono text-emerald-400">{total}</span>
+          </div>
+          <p className="text-xs text-slate-400 mb-2">Tap a cell to count it. Tap it again to remove it.</p>
+          <div className="grid grid-cols-2 gap-2">
+            {W_NAMES.map((name, i) => (
+              <div key={name} className="flex justify-between items-center px-2 py-1.5 bg-slate-900/60 rounded border border-slate-700 text-xs">
+                <span className="text-slate-300">{name}</span>
+                <span className="font-mono text-slate-100">
+                  {tally[i]}{checked && <span className={tally[i] === expected[i] ? 'text-emerald-400' : 'text-amber-300'}> / {expected[i]}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+          {checked && (
+            <div className="mt-3 text-xs text-slate-300 leading-relaxed">
+              <p>
+                You counted <span className="font-bold text-white">{total}</span> of <span className="font-bold text-white">{expectedTotal}</span> cells.
+                {total < expectedTotal && ' The ones you missed have a dashed ring.'}
+              </p>
+              <p className="mt-1">
+                WBC count = cells × 20 (dilution) × 10 (depth) ÷ 4 (squares) = {total} × 50 = <span className="font-bold text-white">{(total * 50).toLocaleString()} per mm³</span>
+              </p>
+            </div>
+          )}
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => setChecked(true)} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Check my count</button>
+            <button onClick={() => { setCounted(new Set()); setChecked(false); }} className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm font-semibold border border-slate-600">Reset</button>
+          </div>
+        </div>
         <HowToCount>
           <p className="text-sm text-slate-300 mb-2">
             Count cells in the <span className="text-white font-bold">4 Corner Squares</span> (W).
