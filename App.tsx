@@ -558,11 +558,14 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       infoPanel={
         <>
         <FocusKnob value={focus} onChange={setFocus} />
-        <div className="bg-slate-800 rounded-lg border border-slate-700 px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-slate-200">Your count</h3>
-            <span className="text-xl font-mono text-emerald-400">{total}</span>
-          </div>
+        <details className="group bg-slate-800 rounded-lg border border-slate-700">
+          <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden text-sm font-semibold text-slate-200 hover:text-white">
+            <ListChecks className="w-4 h-4 text-indigo-400" />
+            Your count
+            <span className="ml-auto text-lg font-mono text-emerald-400">{total}</span>
+            <ChevronDown className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="px-4 pb-4">
           <p className="text-xs text-slate-400 mb-2">Tap a cell to count it. Tap it again to remove it.</p>
           <div className="grid grid-cols-2 gap-2">
             {W_NAMES.map((name, i) => (
@@ -589,7 +592,8 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button onClick={() => setChecked(true)} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Check my count</button>
             <button onClick={() => { setCounted(new Set()); setChecked(false); }} className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm font-semibold border border-slate-600">Reset</button>
           </div>
-        </div>
+          </div>
+        </details>
         <HowToCount>
           <p className="text-sm text-slate-300 mb-2">
             Count cells in the <span className="text-white font-bold">4 Corner Squares</span> (W).
