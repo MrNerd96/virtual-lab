@@ -67,4 +67,5 @@
 /* Bright-line counting chamber: the ruling drawn by the shared helpers, recoloured (CSS wins over the stroke attribute) */
 .bright-line line {
   stroke: var(--ruling, #f5f9ff);
+  stroke-width: var(--ruling-width, 1px);
 }

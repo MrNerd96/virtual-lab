@@ -364,12 +364,13 @@ interface MicroscopeStageProps {
   chamberMap?: boolean; // show the Neubauer ruling in the stage mini-map
   // Fine focus (-100 to 100), the layers over the slide with their own blur, and the field colour; see Eyepiece
   focus?: number;
+  slideDefocus?: number;
   layers?: { render: (zoom: number) => React.ReactNode; defocus: number }[];
   background?: string;
 }
 
 const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
-  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, layers, background
+  title, subtitle, onBack, renderSlide, controls, infoPanel, initialPosition, initialZoom, quizId, chamberMap, focus, slideDefocus, layers, background
 }) => {
   const stage = useMicroscopeStage(initialPosition, initialZoom);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -409,7 +410,7 @@ const MicroscopeStage: React.FC<MicroscopeStageProps> = ({
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Left: Microscope View */}
-        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} layers={layers} background={background} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
+        <Eyepiece stage={stage} renderSlide={renderSlide} chamberMap={chamberMap} focus={focus} slideDefocus={slideDefocus} layers={layers} background={background} className="flex-none pt-20 pb-6 lg:flex-1 lg:p-0" />
 
         {/* Right: Controls Panel */}
         <div className="bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-6 w-full lg:w-96 flex-1 lg:flex-none shrink-0 z-20 shadow-xl overflow-y-auto">
@@ -470,13 +471,14 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       initialPosition={{ x: initialX, y: initialY }}
       quizId="wbc-count"
       focus={focus}
+      slideDefocus={look.slideDefocus}
       background={WBC_FIELD_BG}
       layers={[
         // The blue core of the ruling on the bright side of focus: the ruling again, less blurred than the slide's
         { defocus: look.blueCoreDefocus, render: () => (
           <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible"
             style={{ opacity: look.blueCore, visibility: look.blueCore < 0.01 ? 'hidden' : 'visible' }}>
-            <g className="bright-line" style={{ ['--ruling' as any]: RULING_BLUE }}><NeubauerRuling /></g>
+            <g className="bright-line" style={{ ['--ruling' as any]: RULING_BLUE, ['--ruling-width' as any]: `${look.blueCoreWidth}px` }}><NeubauerRuling /></g>
           </svg>
         ) },
         // White cells: each look is its own layer, cross-faded by the fine focus
@@ -519,7 +521,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <FloorDebris debris={debris} />
 
               {/* The ruling of a bright-line chamber: white lines, fainter as the fine focus widens them */}
-              <g className="bright-line" style={{ opacity: look.lineOpacity }}><NeubauerRuling /></g>
+              <g className="bright-line" style={{ opacity: look.lineOpacity, ['--ruling-width' as any]: `${look.lineWidth}px` }}><NeubauerRuling /></g>
             </svg>
           </div>
         );

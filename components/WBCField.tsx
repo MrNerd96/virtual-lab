@@ -233,12 +233,17 @@ export const wbcLook = (focus: number) => {
     darkLobes: step(2, 8, down) * (1 - step(16, 30, down)),
     blob: step(12, 28, down) * (1 - 0.7 * step(35, 95, down)),
     cellDefocus: up * 0.3 + down * 0.9,
-    lineOpacity: 1 - 0.45 * step(15, 80, down) - 0.35 * step(50, 100, up),
-    blueCore: step(5, 26, up) * 0.9,
-    blueCoreDefocus: up * 0.45,
+    // The ruling stays fairly thin on the dark side while the cells are already blobs; on the bright side it spreads
+    // into a wide band
+    slideDefocus: up + down * 0.5,
+    lineOpacity: 1 - 0.4 * step(25, 95, down) - 0.15 * step(50, 100, up),
+    lineWidth: 1 + up * 0.05,
+    blueCore: step(4, 26, up) * 0.6,
+    blueCoreDefocus: up * 0.4,
+    blueCoreWidth: 1 + up * 0.022,
   };
 };
-export const RULING_BLUE = '#8f9df0';
+export const RULING_BLUE = '#8794ee';
 
 // The plane of the cover-slip dust on the same scale
 export const COVER_SLIP_PLANE = 62;

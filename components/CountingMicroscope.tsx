@@ -84,9 +84,10 @@ export const Eyepiece: React.FC<{
     // further from it the more the slide blurs. layers are drawn over the slide, each blurred by its own defocus (on
     // the same scale): cells, whose look changes with focus more than their sharpness does, and dust on the cover slip.
     focus?: number;
+    slideDefocus?: number;  // blur of the slide itself, when it is not simply how far the focus is from 0
     layers?: { render: (zoom: Objective) => React.ReactNode; defocus: number }[];
     background?: string;    // colour of the field, also seen beyond the edge of the slide
-}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false, focus, layers, background }) => {
+}> = ({ stage, renderSlide, onTap, className = '', chamberMap = false, focus, slideDefocus, layers, background }) => {
     const { zoom, setZoom, position, setPosition, scale, setFit, setMaxPan } = stage;
     const maxPan = chamberMap ? MAX_PAN + CHAMBER_EXTRA_PAN : MAX_PAN;
     useLayoutEffect(() => { setMaxPan(maxPan); }, [maxPan, setMaxPan]);
@@ -166,7 +167,7 @@ export const Eyepiece: React.FC<{
 
                 {/* The slide and the layers over it. Each is blurred by how far the fine focus is from it; the blur is on
                     an eyepiece-sized wrapper, not on the scaled slide, so it stays cheap at 100x. */}
-                {[{ render: renderSlide, defocus: focus === undefined ? 0 : Math.abs(focus) }, ...(layers ?? [])].map((layer, i) => {
+                {[{ render: renderSlide, defocus: slideDefocus ?? (focus === undefined ? 0 : Math.abs(focus)) }, ...(layers ?? [])].map((layer, i) => {
                     const blur = (layer.defocus / 100) * 3.2 * Math.pow(scale, 0.55);
                     return (
                         <div key={i} className="absolute inset-0 overflow-hidden" style={blur > 0.05 ? { filter: `blur(${blur.toFixed(2)}px)` } : undefined}>
