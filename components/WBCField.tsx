@@ -90,12 +90,32 @@ export interface Debris {
   smudges: { pts: string; o: number }[];
   fibres: { d: string; w: number; o: number }[];
   clumps: { flakes: string[]; grains: string }[];
+  precipitate: string[];                                   // crystals of stain, as polygon points
+  bubbles: { x: number; y: number; r: number }[];
+  epithelial: { outline: string; folds: string; grains: string; nx: number; ny: number; nr: number }[];
 }
 
-const fibre = (len: [number, number]) => {
+// A curved thread: its path, and points along it so that a tap anywhere on it finds it
+const fibre = (len: [number, number], what: string) => {
   const x = rnd(FIELD_MIN, FIELD_MAX), y = rnd(FIELD_MIN, FIELD_MAX), a = rnd(0, Math.PI * 2), l = rnd(len[0], len[1]);
   const ex = x + Math.cos(a) * l, ey = y + Math.sin(a) * l, bend = rnd(-0.35, 0.35) * l;
-  return `M${n2(x)},${n2(y)}Q${n2((x + ex) / 2 - Math.sin(a) * bend)},${n2((y + ey) / 2 + Math.cos(a) * bend)} ${n2(ex)},${n2(ey)}`;
+  const cx = (x + ex) / 2 - Math.sin(a) * bend, cy = (y + ey) / 2 + Math.cos(a) * bend;
+  const things: Thing[] = [];
+  const n = Math.ceil(l / 4);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    things.push({ x: u * u * x + 2 * u * t * cx + t * t * ex, y: u * u * y + 2 * u * t * cy + t * t * ey, r: 2.2, what });
+  }
+  return { d: `M${n2(x)},${n2(y)}Q${n2(cx)},${n2(cy)} ${n2(ex)},${n2(ey)}`, things };
+};
+// A straight-edged, angular outline: a crystal of stain
+const shard = (cx: number, cy: number, r: number) => {
+  const n = 4 + Math.floor(Math.random() * 3), a0 = rnd(0, Math.PI * 2), squash = rnd(0.5, 0.9), pts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = a0 + ((i + rnd(-0.25, 0.25)) / n) * Math.PI * 2, rr = r * rnd(0.6, 1.1);
+    pts.push(`${n2(cx + Math.cos(a) * rr)},${n2(cy + Math.sin(a) * rr * squash)}`);
+  }
+  return pts.join(' ');
 };
 
 // What lies on the chamber floor with the cells: specks and flakes (a few as big as a cell), the faint ghosts of
@@ -109,9 +129,17 @@ export const makeDebris = (): Debris => {
     return { d, fill: fill as string, o: o as number };
   });
   const things: Thing[] = [];
+  const precipitate: string[] = [];
   const specks: Debris['specks'] = [];
   for (let i = 0; i < Math.round(80 * SQUARES); i++) {
     const [x, y] = at(), kind = Math.random();
+    if (kind < 0.06) {
+      // A crystal of the stain: dark violet like a nucleus, but angular
+      const r = rnd(0.8, 1.9);
+      precipitate.push(shard(x, y, r));
+      things.push({ x, y, r: r + 0.4, what: 'Stain precipitate, not a cell' });
+      continue;
+    }
     if (kind < 0.23) things.push({ x, y, r: kind < 0.13 ? 1.5 : 2.6, what: 'Debris, not a cell' });
     if (kind < 0.13) {
       // A dark roundish speck the size of a small cell: looks like one until the focus is racked
@@ -127,7 +155,7 @@ export const makeDebris = (): Debris => {
   const smudges: Debris['smudges'] = [];
   for (let i = 0; i < Math.round(4 * SQUARES); i++) { const [x, y] = at(); smudges.push({ pts: flake(x, y, rnd(4, 12), 9, 0.4, rnd(0.5, 1)), o: rnd(0.05, 0.12) }); }
   const fibres: Debris['fibres'] = [];
-  for (let i = 0; i < 14; i++) fibres.push({ d: fibre([14, 55]), w: rnd(0.2, 0.45), o: rnd(0.25, 0.45) });
+  for (let i = 0; i < 14; i++) { const f = fibre([14, 55], 'Fibre, not a cell'); fibres.push({ d: f.d, w: rnd(0.2, 0.45), o: rnd(0.25, 0.45) }); things.push(...f.things); }
   const clumps: Debris['clumps'] = [];
   for (let i = 0; i < 6; i++) {
     const [x, y] = at(), flakes: string[] = [];
@@ -137,7 +165,26 @@ export const makeDebris = (): Debris => {
     for (let k = 0; k < 22; k++) grains += circlePath(x + rnd(-8, 8), y + rnd(-7, 7), rnd(0.12, 0.3));
     clumps.push({ flakes, grains });
   }
-  return { things, grains, specks, ghosts, smudges, fibres, clumps };
+  // Air bubbles: perfect circles of any size with a thick dark rim
+  const bubbles: Debris['bubbles'] = [];
+  for (let i = 0; i < 8; i++) {
+    const [x, y] = at(), r = Math.random() < 0.6 ? rnd(2.2, 4.5) : rnd(5, 11);
+    bubbles.push({ x, y, r }); things.push({ x, y, r, what: 'Air bubble, not a cell' });
+  }
+  // Epithelial cells (squames from the skin): large, flat and folded, with a small nucleus
+  const epithelial: Debris['epithelial'] = [];
+  for (let i = 0; i < 9; i++) {
+    const [x, y] = at(), r = rnd(10, 16), a = rnd(0, Math.PI * 2);
+    let folds = '', grains = '';
+    for (let k = 0; k < 2; k++) {
+      const fa = a + rnd(-0.6, 0.6) + k * 1.4, fx = x + Math.cos(fa) * r * rnd(0.1, 0.45), fy = y + Math.sin(fa) * r * rnd(0.1, 0.45), fl = r * rnd(0.5, 0.9);
+      folds += `M${n2(fx - Math.sin(fa) * fl / 2)},${n2(fy + Math.cos(fa) * fl / 2)}Q${n2(fx + Math.cos(fa) * r * 0.15)},${n2(fy + Math.sin(fa) * r * 0.15)} ${n2(fx + Math.sin(fa) * fl / 2)},${n2(fy - Math.cos(fa) * fl / 2)}`;
+    }
+    for (let k = 0; k < 26; k++) { const ga = rnd(0, Math.PI * 2), gr = r * 0.6 * Math.sqrt(Math.random()); grains += circlePath(x + Math.cos(ga) * gr, y + Math.sin(ga) * gr, rnd(0.1, 0.24)); }
+    epithelial.push({ outline: flake(x, y, r, 9, 0.28, rnd(0.65, 0.9)), folds, grains, nx: x + rnd(-1.5, 1.5), ny: y + rnd(-1.5, 1.5), nr: rnd(1.3, 1.8) });
+    things.push({ x, y, r: r * 0.8, what: 'Epithelial cell, not a white cell' });
+  }
+  return { things, grains, specks, ghosts, smudges, fibres, clumps, precipitate, bubbles, epithelial };
 };
 
 export interface Dust { things: Thing[]; blobs: { pts: string; o: number }[]; fibres: { d: string; w: number; o: number }[] }
@@ -151,7 +198,7 @@ export const makeDust = (): Dust => {
     things.push({ x, y, r, what: 'Dust on the cover slip' });
   }
   const fibres: Dust['fibres'] = [];
-  for (let i = 0; i < 6; i++) fibres.push({ d: fibre([30, 90]), w: rnd(0.5, 0.9), o: rnd(0.4, 0.6) });
+  for (let i = 0; i < 6; i++) { const f = fibre([30, 90], 'Fibre on the cover slip'); fibres.push({ d: f.d, w: rnd(0.5, 0.9), o: rnd(0.4, 0.6) }); things.push(...f.things); }
   return { things, blobs, fibres };
 };
 
@@ -185,7 +232,22 @@ export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
       </g>
     ))}
     {debris.fibres.map((f, i) => <path key={`f${i}`} d={f.d} fill="none" stroke="#5f6877" strokeWidth={f.w} strokeLinecap="round" opacity={f.o} />)}
+    {debris.epithelial.map((e, i) => (
+      <g key={`e${i}`}>
+        <path d={e.outline} fill="#8f98a2" fillOpacity={0.42} stroke="#4f5761" strokeWidth={0.3} strokeOpacity={0.85} />
+        <path d={e.folds} fill="none" stroke="#5f6770" strokeWidth={0.2} strokeOpacity={0.55} strokeLinecap="round" />
+        <path d={e.grains} fill="#59616c" opacity={0.45} />
+        <circle cx={e.nx} cy={e.ny} r={e.nr} fill="#6d6c8c" fillOpacity={0.8} stroke="#3f3d55" strokeWidth={0.18} />
+      </g>
+    ))}
+    {debris.bubbles.map((b, i) => (
+      <g key={`b${i}`}>
+        <circle cx={b.x} cy={b.y} r={b.r * 0.86} fill="#d5dade" fillOpacity={0.75} stroke="#23282f" strokeWidth={b.r * 0.28} />
+        <circle cx={b.x} cy={b.y} r={b.r * 0.55} fill="none" stroke="#ffffff" strokeWidth={b.r * 0.06} strokeOpacity={0.6} />
+      </g>
+    ))}
     {debris.specks.map((s, i) => <path key={`s${i}`} d={s.pts} fill={s.fill} opacity={s.o} />)}
+    {debris.precipitate.map((pts, i) => <polygon key={`p${i}`} points={pts} fill="#2c2350" opacity={0.88} />)}
   </g>
 ));
 
