@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE } from './components/WBCField';
+import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE } from './components/WBCField';
 import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, NeubauerRuling, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
@@ -484,6 +484,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         // White cells: each look is its own layer, cross-faded by the fine focus
         { defocus: look.cellDefocus, render: () => (
           <div className="relative w-full h-full">
+            <CellLayer opacity={look.grainShine}><GrainShine debris={debris} /></CellLayer>
             <CellLayer opacity={look.blob}><WBCBlob cells={cells} /></CellLayer>
             <CellLayer opacity={look.darkLobes}><WBCDarkLobes cells={cells} /></CellLayer>
             <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
@@ -521,7 +522,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <FloorDebris debris={debris} />
 
               {/* The ruling of a bright-line chamber: white lines, fainter as the fine focus widens them */}
-              <g className="bright-line" style={{ opacity: look.lineOpacity, ['--ruling-width' as any]: `${look.lineWidth}px` }}><NeubauerRuling /></g>
+              <g className="bright-line" style={{ opacity: look.lineOpacity, ['--ruling' as any]: look.lineColor, ['--ruling-width' as any]: `${look.lineWidth}px` }}><NeubauerRuling /></g>
             </svg>
           </div>
         );

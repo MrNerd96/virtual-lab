@@ -42,7 +42,8 @@ const flake = (cx: number, cy: number, r: number, n = 7, jitter = 0.5, squash = 
 export interface WBC { id: number; x: number; y: number; r: number; nucleus: string; dots: string }
 
 // White cells at the density of a normal count (about 50 to a 1 mm square), now and then two lying together
-export const makeWBCs = (perSquare = 50): WBC[] => {
+// 38 to a 1 mm square is a count of about 7,600 per cubic mm at the usual 1 in 20 dilution: mid-normal
+export const makeWBCs = (perSquare = 38): WBC[] => {
   const cells: WBC[] = [];
   const total = Math.round(perSquare * SQUARES);
   for (let id = 0; id < total; id++) {
@@ -176,7 +177,7 @@ export const WBCSharp = React.memo(({ cells }: { cells: WBC[] }) => (
     {cells.map(c => (
       <React.Fragment key={c.id}>
         <circle cx={c.x} cy={c.y} r={c.r} fill="#8d959e" fillOpacity={0.25} stroke="#5f6770" strokeWidth={0.12} strokeOpacity={0.45} />
-        <path d={c.nucleus} fill="#6f7781" fillOpacity={0.85} stroke="#3a4149" strokeWidth={0.24} />
+        <path d={c.nucleus} fill="#6d6c8c" fillOpacity={0.85} stroke="#38364e" strokeWidth={0.24} />
       </React.Fragment>
     ))}
   </g>
@@ -199,7 +200,7 @@ export const WBCDarkLobes = React.memo(({ cells }: { cells: WBC[] }) => (
     {cells.map(c => (
       <React.Fragment key={c.id}>
         <circle cx={c.x} cy={c.y} r={c.r * 1.05} fill="#7b838d" fillOpacity={0.3} />
-        <path d={c.nucleus} fill="#59616c" stroke="#59616c" strokeWidth={0.34} strokeLinejoin="round" />
+        <path d={c.nucleus} fill="#595a70" stroke="#595a70" strokeWidth={0.34} strokeLinejoin="round" />
       </React.Fragment>
     ))}
   </g>
@@ -207,7 +208,14 @@ export const WBCDarkLobes = React.memo(({ cells }: { cells: WBC[] }) => (
 // ...and further out: one solid dark round blob
 export const WBCBlob = React.memo(({ cells }: { cells: WBC[] }) => (
   <g pointerEvents="none">
-    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 1.1} fill="#646c77" />)}
+    {cells.map(c => <circle key={c.id} cx={c.x} cy={c.y} r={c.r * 1.1} fill="#62637a" />)}
+  </g>
+));
+
+// The finest grains again, in white: faded in above focus, where refractile specks shine too
+export const GrainShine = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.grains.slice(0, 1).map((g, i) => <path key={i} d={g.d} fill="#f4f6f8" />)}
   </g>
 ));
 
@@ -219,6 +227,7 @@ export const CellLayer: React.FC<{ opacity: number; children: React.ReactNode }>
   </svg>
 );
 
+const mix = (c1: number[], c2: number[], t: number) => `rgb(${c1.map((v, i) => Math.round(v + (c2[i] - v) * t)).join(',')})`;
 const step = (a: number, b: number, v: number) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // What shows at a fine-focus setting (-100 to 100, 0 = cells and ruling in focus; above 0 is the side on which the
@@ -238,6 +247,11 @@ export const wbcLook = (focus: number) => {
     slideDefocus: up + down * 0.5,
     lineOpacity: 1 - 0.4 * step(25, 95, down) - 0.15 * step(50, 100, up),
     lineWidth: 1 + up * 0.05,
+    // Colour fringes of an achromatic objective: the bright lines turn greenish below focus, and above it a
+    // yellow-green band with the blue core. (A real effect of the lens, opposite in sign either side of focus.)
+    lineColor: down > 0 ? mix([245, 249, 255], [176, 236, 206], step(5, 40, down)) : mix([245, 249, 255], [226, 240, 200], step(8, 45, up)),
+    // Small refractile grains of debris also turn pale above focus, as the cells do
+    grainShine: step(4, 16, up) * (1 - step(40, 80, up)) * 0.7,
     blueCore: step(4, 26, up) * 0.6,
     blueCoreDefocus: up * 0.4,
     blueCoreWidth: 1 + up * 0.022,
@@ -267,7 +281,7 @@ export const FocusKnob: React.FC<{ value: number; onChange: (v: number) => void 
         <button type="button" className={nudge} onClick={() => set(value + 2)} aria-label="Focus up"><Plus className="w-4 h-4" /></button>
       </div>
       <p className="text-xs text-slate-400 mt-2 leading-snug">
-        Rack the focus slowly both ways. On one side a white cell's nucleus shines as bright dots; on the other the cell turns into a dark round blob. Debris only goes soft and stays dull.
+        Rack the focus slowly both ways. A white cell is round, of even size, and shows its nucleus when sharp; above focus the nucleus shines, below it the cell is a dark round blob. Debris is irregular, of any size, and never shows a nucleus.
       </p>
     </div>
   );
