@@ -390,13 +390,13 @@ export const RULING_BLUE = '#8794ee';
 // The plane of the cover-slip dust on the same scale
 export const COVER_SLIP_PLANE = 62;
 // Bubbles float in the fluid, their sharpest plane a little above the cells on the floor
-export const BUBBLE_PLANE = 12;
+export const BUBBLE_PLANE = 5;
 export const bubbleLook = (focus: number) => {
   const d = focus - BUBBLE_PLANE, up = Math.max(0, d), down = Math.max(0, -d);
   return {
-    sharp: 1 - step(4, 30, Math.abs(d)),
-    up: step(4, 30, up) * (1 - 0.8 * step(50, 100, up)),
-    down: step(4, 30, down) * (1 - 0.7 * step(50, 100, down)),
+    sharp: 1 - step(2, 16, Math.abs(d)),
+    up: step(2, 16, up) * (1 - 0.8 * step(50, 100, up)),
+    down: step(2, 16, down) * (1 - 0.7 * step(50, 100, down)),
     defocus: Math.abs(d) * 0.5,
   };
 };
