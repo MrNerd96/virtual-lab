@@ -262,14 +262,18 @@ export const RULING_BLUE = '#8794ee';
 // The plane of the cover-slip dust on the same scale
 export const COVER_SLIP_PLANE = 62;
 
-// Fine-focus control: a slider with nudge buttons either side. It says nothing about where focus is or what to
-// look for: finding the focus is the student's job, as on a real microscope.
+// Fine-focus control: a slider with nudge buttons either side, and a label saying whether the cells are in focus.
+// It does not say what to look for.
 export const FocusKnob: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => {
   const set = (v: number) => onChange(Math.max(-100, Math.min(100, v)));
+  const inFocus = Math.abs(value) <= 5;
   const nudge = 'shrink-0 w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-100 flex items-center justify-center border border-slate-600';
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 px-4 py-3">
-      <label htmlFor="fine-focus" className="block text-sm font-semibold text-slate-200 mb-2">Fine focus</label>
+      <div className="flex items-center justify-between mb-2">
+        <label htmlFor="fine-focus" className="text-sm font-semibold text-slate-200">Fine focus</label>
+        <span className={`text-xs font-semibold ${inFocus ? 'text-emerald-400' : 'text-amber-300'}`}>{inFocus ? 'Cells in focus' : 'Out of focus'}</span>
+      </div>
       <div className="flex items-center gap-3">
         <button type="button" className={nudge} onClick={() => set(value - 2)} aria-label="Focus down"><Minus className="w-4 h-4" /></button>
         <input id="fine-focus" type="range" min={-100} max={100} step={1} value={value}
