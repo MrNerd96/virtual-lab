@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE, placeCell, W_NAMES } from './components/WBCField';
+import { makeWBCs, makeDebris, makeDust, wbcLook, bubbleLook, BubbleSharp, BubbleUp, BubbleDown, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE, placeCell, W_NAMES } from './components/WBCField';
 import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, NeubauerRuling, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
@@ -443,6 +443,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [dust] = useState(makeDust);
   const [focus, setFocus] = useState(0);   // fine focus: 0 = cells sharp
   const look = wbcLook(focus);
+  const bubble = bubbleLook(focus);
 
   // The count: a tap on a white cell in a W square counts it (again to uncount); a tap on anything else says what it is
   const [counted, setCounted] = useState<Set<number>>(() => new Set());
@@ -524,6 +525,14 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <CellLayer opacity={look.darkLobes}><WBCDarkLobes cells={cells} /></CellLayer>
             <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
             <CellLayer opacity={look.bright}><WBCBright cells={cells} /></CellLayer>
+          </div>
+        ) },
+        // Air bubbles in the fluid, each look cross-faded by the fine focus
+        { defocus: bubble.defocus, render: () => (
+          <div className="relative w-full h-full">
+            <CellLayer opacity={bubble.down}><BubbleDown debris={debris} /></CellLayer>
+            <CellLayer opacity={bubble.sharp}><BubbleSharp debris={debris} /></CellLayer>
+            <CellLayer opacity={bubble.up}><BubbleUp debris={debris} /></CellLayer>
           </div>
         ) },
         // Dust on the cover slip, sharp in a higher plane

@@ -91,7 +91,7 @@ export interface Debris {
   fibres: { d: string; w: number; o: number }[];
   clumps: { flakes: string[]; grains: string }[];
   precipitate: string[];                                   // crystals of stain, as polygon points
-  bubbles: { x: number; y: number; r: number }[];
+  bubbles: { x: number; y: number; r: number; rim: number }[];   // rim: width of the dark ring, as a fraction of r
   epithelial: { outline: string; folds: string; grains: string; nx: number; ny: number; nr: number }[];
 }
 
@@ -165,11 +165,14 @@ export const makeDebris = (): Debris => {
     for (let k = 0; k < 22; k++) grains += circlePath(x + rnd(-8, 8), y + rnd(-7, 7), rnd(0.12, 0.3));
     clumps.push({ flakes, grains });
   }
-  // Air bubbles: perfect circles of any size with a thick dark rim
+  // Air bubbles: perfect circles of any size with a thick dark rim. Air has a lower refractive index than the fluid,
+  // so a bubble is a diverging lens: light through its edge is bent out of the objective (the black ring) and light
+  // through its middle passes (the bright centre). A small bubble is a sphere with a thick rim; one wider than the
+  // chamber is deep (0.1 mm, about 30 units) is squashed flat between floor and cover slip, and its rim is thinner.
   const bubbles: Debris['bubbles'] = [];
   for (let i = 0; i < 8; i++) {
-    const [x, y] = at(), r = Math.random() < 0.6 ? rnd(2.2, 4.5) : rnd(5, 11);
-    bubbles.push({ x, y, r }); things.push({ x, y, r, what: 'Air bubble, not a cell' });
+    const u = Math.random(), [x, y] = at(), r = u < 0.55 ? rnd(2.2, 4.5) : u < 0.88 ? rnd(5, 11) : rnd(14, 26);
+    bubbles.push({ x, y, r, rim: r < 12 ? rnd(0.26, 0.34) : rnd(0.12, 0.18) }); things.push({ x, y, r, what: 'Air bubble, not a cell' });
   }
   // Epithelial cells (squames from the skin): large, flat and folded, with a small nucleus
   const epithelial: Debris['epithelial'] = [];
@@ -240,12 +243,6 @@ export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
         <circle cx={e.nx} cy={e.ny} r={e.nr} fill="#6d6c8c" fillOpacity={0.8} stroke="#3f3d55" strokeWidth={0.18} />
       </g>
     ))}
-    {debris.bubbles.map((b, i) => (
-      <g key={`b${i}`}>
-        <circle cx={b.x} cy={b.y} r={b.r * 0.86} fill="#d5dade" fillOpacity={0.75} stroke="#23282f" strokeWidth={b.r * 0.28} />
-        <circle cx={b.x} cy={b.y} r={b.r * 0.55} fill="none" stroke="#ffffff" strokeWidth={b.r * 0.06} strokeOpacity={0.6} />
-      </g>
-    ))}
     {debris.specks.map((s, i) => <path key={`s${i}`} d={s.pts} fill={s.fill} opacity={s.o} />)}
     {debris.precipitate.map((pts, i) => <polygon key={`p${i}`} points={pts} fill="#2c2350" opacity={0.88} />)}
   </g>
@@ -308,6 +305,48 @@ export const GrainShine = React.memo(({ debris }: { debris: Debris }) => (
   </g>
 ));
 
+// The looks of an air bubble through the fine focus, cross-faded by bubbleLook like the cells. Bubbles sit in the
+// fluid above the floor, so the ruling and cells under one show faintly through its clear centre.
+// In focus: a black ring round a clear centre, with a thin bright line just inside the ring
+export const BubbleSharp = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.bubbles.map((b, i) => (
+      <g key={i}>
+        <circle cx={b.x} cy={b.y} r={b.r * (1 - b.rim)} fill="#e6eaed" fillOpacity={0.4} stroke="#ffffff" strokeWidth={b.r * 0.04} strokeOpacity={0.7} />
+        <circle cx={b.x} cy={b.y} r={b.r * (1 - b.rim / 2)} fill="none" stroke="#1f242b" strokeWidth={b.r * b.rim} />
+        {b.r < 12 && <circle cx={b.x} cy={b.y} r={b.r * 0.12} fill="#ffffff" fillOpacity={0.45} />}
+      </g>
+    ))}
+  </g>
+));
+// Focus raised: the bright (Becke) line moves into the bubble, the lower index, and gathers into a bright centre spot
+// while the dark ring widens
+export const BubbleUp = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.bubbles.map((b, i) => {
+      const rim = Math.min(0.55, b.rim * 1.6);
+      return (
+        <g key={i}>
+          <circle cx={b.x} cy={b.y} r={b.r * (1 - rim / 2)} fill="#eef1f3" fillOpacity={0.5} stroke="#262b33" strokeWidth={b.r * rim} />
+          <circle cx={b.x} cy={b.y} r={b.r * (b.r < 12 ? 0.22 : 0.4)} fill="#ffffff" fillOpacity={0.9} />
+        </g>
+      );
+    })}
+  </g>
+));
+// Focus lowered: the bright line moves out into the fluid as a pale halo round a thinner, greyer ring, and the
+// centre dims to grey
+export const BubbleDown = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.bubbles.map((b, i) => (
+      <g key={i}>
+        <circle cx={b.x} cy={b.y} r={b.r * 1.08} fill="none" stroke="#ffffff" strokeWidth={b.r * 0.1} strokeOpacity={0.6} />
+        <circle cx={b.x} cy={b.y} r={b.r * (1 - b.rim * 0.35)} fill="#9aa1a8" fillOpacity={0.45} stroke="#454c55" strokeWidth={b.r * b.rim * 0.7} strokeOpacity={0.85} />
+      </g>
+    ))}
+  </g>
+));
+
 // One look as its own layer over the slide: fading a layer is then done by the compositor, with no repainting
 export const CellLayer: React.FC<{ opacity: number; children: React.ReactNode }> = ({ opacity, children }) => (
   <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible" className="absolute inset-0"
@@ -350,6 +389,17 @@ export const RULING_BLUE = '#8794ee';
 
 // The plane of the cover-slip dust on the same scale
 export const COVER_SLIP_PLANE = 62;
+// Bubbles float in the fluid, their sharpest plane a little above the cells on the floor
+export const BUBBLE_PLANE = 12;
+export const bubbleLook = (focus: number) => {
+  const d = focus - BUBBLE_PLANE, up = Math.max(0, d), down = Math.max(0, -d);
+  return {
+    sharp: 1 - step(4, 30, Math.abs(d)),
+    up: step(4, 30, up) * (1 - 0.8 * step(50, 100, up)),
+    down: step(4, 30, down) * (1 - 0.7 * step(50, 100, down)),
+    defocus: Math.abs(d) * 0.5,
+  };
+};
 
 // Fine-focus control: a slider with nudge buttons either side, and a label saying whether the cells are in focus.
 // It does not say what to look for.
