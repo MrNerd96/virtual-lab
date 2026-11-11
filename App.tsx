@@ -447,15 +447,15 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // The count: a tap on a white cell in a W square counts it (again to uncount); a tap on anything else says what it is
   const [counted, setCounted] = useState<Set<number>>(() => new Set());
   const [checked, setChecked] = useState(false);
-  const [tapLabel, setTapLabel] = useState<{ x: number; y: number; text: string; color: string; k: number; t: number } | null>(null);
+  const [tapLabel, setTapLabel] = useState<{ x: number; y: number; text: string; color: string; k: number; t: number; wrong?: number } | null>(null);   // wrong: radius of the red ring round something that is not counted
   const places = useMemo(() => new Map(cells.map(c => [c.id, placeCell(c)])), [cells]);
   const expected = useMemo(() => [0, 1, 2, 3].map(i => cells.filter(c => places.get(c.id)!.square === i).length), [cells, places]);
   const tally = [0, 1, 2, 3].map(i => cells.filter(c => counted.has(c.id) && places.get(c.id)!.square === i).length);
   const total = tally.reduce((a, b) => a + b, 0), expectedTotal = expected.reduce((a, b) => a + b, 0);
   const tapAt = (gx: number, gy: number, k: number) => {
-    const say = (x: number, y: number, text: string, color: string) => {
+    const say = (x: number, y: number, text: string, color: string, wrong?: number) => {
       const t = performance.now();
-      setTapLabel({ x, y, text, color, k, t });
+      setTapLabel({ x, y, text, color, k, t, wrong });
       window.setTimeout(() => setTapLabel(l => (l && l.t === t ? null : l)), 2200);
     };
     const reach = Math.max(2, 16 * k);
@@ -463,7 +463,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     for (const c of cells) { const d = Math.hypot(c.x - gx, c.y - gy); if (d < cellD) { cell = c; cellD = d; } }
     if (cell) {
       const place = places.get(cell.id)!;
-      if (place.square < 0) return say(cell.x, cell.y, place.note, '#fbbf24');
+      if (place.square < 0) return say(cell.x, cell.y, place.note, '#fbbf24', cell.r + 1.6);
       const had = counted.has(cell.id);
       setCounted(s => { const n = new Set(s); if (had) n.delete(cell!.id); else n.add(cell!.id); return n; });
       return say(cell.x, cell.y, had ? 'Removed from the count' : place.note, had ? '#cbd5e1' : '#34d399');
@@ -473,7 +473,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const d = Math.hypot(th.x - gx, th.y - gy);
       if (d < Math.max(reach, th.r) && d < thingD) { thing = th; thingD = d; }
     }
-    if (thing) say(thing.x, thing.y, thing.what, '#fca5a5');
+    if (thing) say(thing.x, thing.y, thing.what, '#fca5a5', Math.max(thing.r + 1.2, 6 * k));
   };
 
   // Calculate initial position to center on Top Left WBC square
@@ -547,6 +547,8 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               const lx = tapLabel.x, ly = tapLabel.y - 14 * k;
               return (
                 <g>
+                  {tapLabel.wrong && <circle key={tapLabel.t} className="wrong-tap-ring" cx={tapLabel.x} cy={tapLabel.y} r={tapLabel.wrong}
+                    fill="rgba(239,68,68,0.12)" stroke="#ef4444" strokeWidth={Math.max(0.45, 2 * k)} />}
                   <rect x={lx - w / 2} y={ly - h} width={w} height={h} rx={5 * k} fill="#0f172a" opacity={0.9} />
                   <text x={lx} y={ly - h / 2 + fs * 0.36} textAnchor="middle" fontSize={fs} fontWeight="bold" fill={tapLabel.color}>{tapLabel.text}</text>
                 </g>

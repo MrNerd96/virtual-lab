@@ -69,3 +69,12 @@
   stroke: var(--ruling, #f5f9ff);
   stroke-width: var(--ruling-width, 1px);
 }
+
+/* Red ring round something tapped that is not counted: shown, then fades away */
+.wrong-tap-ring {
+  animation: wrong-tap-ring 2.2s ease-out forwards;
+}
+@keyframes wrong-tap-ring {
+  0%, 45% { opacity: 1; }
+  100% { opacity: 0; }
+}
