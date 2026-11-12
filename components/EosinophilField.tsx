@@ -155,7 +155,7 @@ const EosBlob = React.memo(({ cells }: { cells: Eos[] }) => (
 ));
 
 // Desktop layout (lg and wider), where the fine focus sits in the side panel instead of under the eyepiece
-function useWideScreen() {
+export function useWideScreen() {
   const query = '(min-width: 1024px)';
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
   useEffect(() => {

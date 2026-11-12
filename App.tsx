@@ -34,6 +34,7 @@ const BloodGrouping = lazy(() => import('./components/BloodGrouping').then(m => 
 const BleedingClottingTime = lazy(() => import('./components/BleedingClottingTime').then(m => ({ default: m.BleedingClottingTime })).catch(reloadForNewVersion));
 const PlateletCount = lazy(() => import('./components/HemocytometerCount').then(m => ({ default: m.PlateletCount })).catch(reloadForNewVersion));
 const AbsoluteEosinophilCount = lazy(() => import('./components/HemocytometerCount').then(m => ({ default: m.AbsoluteEosinophilCount })).catch(reloadForNewVersion));
+const ReticulocyteCount = lazy(() => import('./components/ReticulocyteCount').then(m => ({ default: m.ReticulocyteCount })).catch(reloadForNewVersion));
 const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })).catch(reloadForNewVersion));
 const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })).catch(reloadForNewVersion));
 const InstrumentViewer = lazy(() => import('./components/InstrumentViewer').then(m => ({ default: m.InstrumentViewer })).catch(reloadForNewVersion));
@@ -89,7 +90,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -119,6 +120,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'bt-ct': 'Bleeding & Clotting Time',
   'platelet-count': 'Platelet Count',
   'aec-count': 'Absolute Eosinophil Count',
+  'reticulocyte-count': 'Reticulocyte Count',
   'question-bank': 'Question Bank',
   'genesis-tetanus': 'Genesis of Tetanus',
   'effect-of-temperature': 'Effect of Temperature',
@@ -162,6 +164,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'bt-ct': 'Hematology',
   'platelet-count': 'Hematology',
   'aec-count': 'Hematology',
+  'reticulocyte-count': 'Hematology',
   'question-bank': 'Navigation',
   'microscope': 'Microscope',
   'instruments': 'Navigation',
@@ -2555,8 +2558,7 @@ const App: React.FC = () => {
                 description="Supravital staining with brilliant cresyl blue; count reticulocytes per 1000 red cells."
                 icon={<Network className="w-8 h-8" />}
                 colorClass="blue"
-                onClick={() => {}}
-                comingSoon
+                onClick={() => navigateTo('reticulocyte-count')}
               />
             </div>
           </div>
@@ -2685,6 +2687,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Absolute Eosinophil Count..." />}>
           <AbsoluteEosinophilCount onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'reticulocyte-count':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Reticulocyte Count..." />}>
+          <ReticulocyteCount onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'question-bank':

@@ -13,6 +13,7 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'bt-ct', title: 'Bleeding Time & Clotting Time', section: 'Hematology', load: () => import('./bt-ct').then(m => m.BT_CT_QUESTIONS) },
     { id: 'platelet-count', title: 'Platelet Count', section: 'Hematology', load: () => import('./platelet-count').then(m => m.PLATELET_QUESTIONS) },
     { id: 'aec-count', title: 'Absolute Eosinophil Count', section: 'Hematology', load: () => import('./aec').then(m => m.AEC_QUESTIONS) },
+    { id: 'reticulocyte-count', title: 'Reticulocyte Count', section: 'Hematology', load: () => import('./reticulocyte').then(m => m.RETICULOCYTE_QUESTIONS) },
     { id: 'twitch', title: 'Simple Muscle Twitch', section: 'Amphibian', load: () => import('./twitch').then(m => m.TWITCH_QUESTIONS) },
     { id: 'load', title: 'Effect of Load', section: 'Amphibian', load: () => import('./effect-of-load').then(m => m.LOAD_QUESTIONS) },
     { id: 'effect-of-temperature', title: 'Effect of Temperature', section: 'Amphibian', load: () => import('./effect-of-temperature').then(m => m.TEMP_QUESTIONS) },
