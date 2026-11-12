@@ -4,50 +4,77 @@ import { useHoverLabel, HoverLabel } from './HoverLabel';
 import { ZoomableSvg } from './ZoomableSvg';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
-import { useMicroscopeStage, Eyepiece, NeubauerRuling, positionFor } from './CountingMicroscope';
+import { useMicroscopeStage, Eyepiece, NeubauerRuling, positionFor, type MicroscopeStageState, type Objective } from './CountingMicroscope';
 import { Finger, Lancet, pulpSite, useNarrowScreen, wrapCaption, easeInOut, easeOut, lerp, clamp01, type Pt } from './fingerPrick';
+import { makeEosSample, EosinophilScope, type EosSample } from './EosinophilField';
 
 // Cell counts made with the haemocytometer from a finger prick: blood drawn into a diluting pipette, diluted with a
 // fluid made for the cells to be counted, mixed, the first drops discarded, the Neubauer chamber charged and the cells
-// counted under high power. Platelet count by the Rees–Ecker method follows GK Pal (Ch 18), AK Jain (Ch 14) and
-// CL Ghai (pp. 114–115): blood to 0.5 in the RBC pipette and Rees–Ecker fluid to 101 (1 in 200), shaken for a minute,
-// the charged chamber kept 15 minutes under a petri dish lined with moist filter paper, and the platelets counted in
-// all 25 medium squares of the central square (1 mm², 0.1 µL), so the count per µL is N × 2000.
+// counted under high power. The bench work is shared; each count brings its own pipette, fluid, steps, counting field
+// and calculation as a CountConfig.
+//
+// Platelet count by the Rees–Ecker method follows GK Pal (Ch 18), AK Jain (Ch 14) and CL Ghai (pp. 114–115): blood to
+// 0.5 in the RBC pipette and Rees–Ecker fluid to 101 (1 in 200), shaken for a minute, the charged chamber kept 15
+// minutes under a petri dish lined with moist filter paper, and the platelets counted in all 25 medium squares of the
+// central square (1 mm², 0.1 µL), so the count per µL is N × 2000.
+//
+// Absolute eosinophil count by the direct method follows GK Pal (Ch 13, pp. 89–92), with AK Jain (Ch 16) and CL Ghai
+// (pp. 87–88): blood to 0.5 in the WBC pipette and Pilot's fluid to 11 (1 in 20), shaken gently for 2 minutes, the
+// pipette kept 15 minutes under a petri dish lined with moist filter paper while the fluid lyses and stains, mixed
+// again, the first drops discarded, and the eosinophils counted under high power in the four corner (WBC) squares
+// (4 mm², 0.4 µL), so the count per µL is N × 50. (Ghai takes blood to the 1 mark: 1 in 10, N × 25.)
 
-type StepId = 'clean' | 'prick' | 'blood' | 'fluid' | 'mix' | 'discard' | 'charge' | 'settle' | 'count' | 'calc';
+export type StepId = 'clean' | 'prick' | 'blood' | 'fluid' | 'mix' | 'stain' | 'discard' | 'charge' | 'settle' | 'count' | 'calc';
 
-interface Subject { id: string; name: string; n: [number, number] }   // n: range of the true count in the counted area
+export interface Subject { id: string; name: string; n: [number, number] }   // n: range of the true count in the counted area
 
-interface CountConfig {
-    title: string; subtitle: string; quizId: string;
-    pipette: 'rbc' | 'wbc';
-    fluid: { name: string; color: string; mixed: string };
-    steps: StepId[];
-    subjects: Subject[];
-    racking?: boolean;          // fine focus and iris controls: the cells to count shine only on racking
+// What every counting field knows about its sample: the cells that are to be counted, and the square each lies in
+export interface FieldSample { valid: { id: number; sq: number }[] }
+
+// The chamber under the microscope, drawn by the count's own field
+export interface ScopeProps<S> {
+    sample: S;
+    stage: MicroscopeStageState;
+    counted: Set<number>;
+    setCounted: React.Dispatch<React.SetStateAction<Set<number>>>;
+    active: boolean;            // the count is on: taps count cells
+    showMissed: boolean;        // ring the cells that have not been counted
+    setMessage: (m: string | null) => void;
+    visible: boolean;           // the microscope, not the bench, is on screen
+    controlsSlot: HTMLElement | null;   // a place in the side panel for the field's own controls
 }
 
-const PLATELET: CountConfig = {
-    title: 'Platelet Count',
-    subtitle: 'Rees–Ecker method • Neubauer chamber',
-    quizId: 'platelet-count',
-    pipette: 'rbc',
-    // Brilliant cresyl blue colours the Rees–Ecker fluid; diluted blood in it looks a faint lilac
-    fluid: { name: 'Rees–Ecker fluid', color: '#60a5fa', mixed: '#a5a8f0' },
-    steps: ['clean', 'prick', 'blood', 'fluid', 'mix', 'discard', 'charge', 'settle', 'count', 'calc'],
-    // Platelets in the 25 squares (× 2000 per µL): normal 1.8–3.6 lakh, dengue 30,000–70,000, after splenectomy 5–6.4 lakh
-    subjects: [
-        { id: 'normal', name: 'Normal subject', n: [90, 180] },
-        { id: 'low', name: 'Dengue fever (thrombocytopenia)', n: [15, 35] },
-        { id: 'high', name: 'After splenectomy (thrombocytosis)', n: [250, 320] },
-    ],
-    // Platelets are refractile: they are found by racking the fine adjustment up and down with the iris diaphragm
-    // partly closed, when they shine silvery and dust does not (Jain p. 53, Ghai p. 115, Pal p. 126)
-    racking: true,
-};
+interface CountConfig<S extends FieldSample = any> {
+    title: string; subtitle: string; quizId: string;
+    pipette: 'rbc' | 'wbc';
+    fluid: { name: string; color: string; mixed: string; label: string };   // label: colour of the name on the bench
+    steps: StepId[];
+    subjects: Subject[];
+    shake: { seconds: number; amp: number; cycles: number; label: string }; // how the pipette is rocked to mix
+    drops: number;              // drops discarded from the stem
+    wait: string;               // what the 15 minutes on the stopwatch are for
+    prompts: Partial<Record<StepId, string>>;    // "Step n: …" for each step
+    progress: Partial<Record<StepId, string>>;   // caption while a step runs
+    cell: { one: string; many: string; Many: string };
+    area: {
+        squares: number; cols: number; short: string;
+        centre: (sq: number) => { x: number; y: number };   // of a square, in ruling units
+        zoom: Objective;        // objective used when the stage is sent to a square
+    };
+    start: { zoom: Objective; position: { x: number; y: number } };          // where the microscope opens
+    field: { make: (subject: Subject) => S; Scope: React.FC<ScopeProps<S>> };
+    rules: React.ReactNode;     // counting rules, as list items
+    calc: {
+        dilutions: number[]; volumes: number[]; dilution: number; volume: number;
+        wrongDilution: string; wrongVolume: string;
+        format: (perMicrolitre: number) => string;
+        normal: string;
+        notes: Record<string, (n: number) => string | null>;                // by subject id
+    };
+}
 
 const STEP_NAMES: Record<StepId, string> = {
-    clean: 'Clean', prick: 'Prick', blood: 'Blood', fluid: 'Fluid', mix: 'Mix', discard: 'Discard', charge: 'Charge', settle: 'Settle', count: 'Count', calc: 'Result',
+    clean: 'Clean', prick: 'Prick', blood: 'Blood', fluid: 'Fluid', mix: 'Mix', stain: 'Stain', discard: 'Discard', charge: 'Charge', settle: 'Settle', count: 'Count', calc: 'Result',
 };
 
 // --- Timing (ms) ---
@@ -65,9 +92,8 @@ const SETTLE_MIN = 15;
 const DUR: Record<StepId, number> = {
     clean: CLEAN_TIME, prick: PRICK_TIME + DROP_TIME,
     blood: MOVE + DRAW + MOVE, fluid: MOVE + FLUID + MOVE, mix: MOVE + SHAKE + MOVE, discard: MOVE + DISCARD + MOVE, charge: MOVE + CHARGE + MOVE,
-    settle: LID + WAIT + LID, count: 0, calc: 0,
+    stain: LID + WAIT + LID, settle: LID + WAIT + LID, count: 0, calc: 0,
 };
-const DROPS = 4;                // drops discarded from the stem
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -265,7 +291,7 @@ const gx = (u: number) => ORIGIN + u * SQ_UNITS;
 const MARGIN = 0.4;             // cells are drawn this far round the central square too
 
 interface Particle { id: number; u: number; v: number; kind: 'plt' | 'dust'; rot: number; size: number; sq: number | null }
-interface Sample { particles: Particle[]; rbcs: { u: number; v: number }[]; n: number }
+interface Sample extends FieldSample { particles: Particle[]; rbcs: { u: number; v: number }[]; n: number }
 
 function makeSample(subject: Subject): Sample {
     const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -299,7 +325,8 @@ function makeSample(subject: Subject): Sample {
     for (const p of particles) p.sq = p.kind === 'plt' ? squareOf(p.u, p.v) : null;
     // Red cells are not lysed by Rees–Ecker fluid: about 100 in each medium square at 1 in 200
     const rbcs = Array.from({ length: Math.round(100 * (N_SQ + 2 * MARGIN) ** 2) }, () => ({ u: rnd(-MARGIN, N_SQ + MARGIN), v: rnd(-MARGIN, N_SQ + MARGIN) }));
-    return { particles, rbcs, n };
+    const valid = particles.filter(p => p.kind === 'plt' && p.sq !== null).map(p => ({ id: p.id, sq: p.sq! }));
+    return { valid, particles, rbcs, n };
 }
 
 // The suspension in the chamber: red cells, platelets and dust drawn to scale over the ruling (platelets a little
@@ -315,52 +342,14 @@ const RedCells = React.memo(({ rbcs }: { rbcs: Sample['rbcs'] }) => (
     </g>
 ));
 
-// --- Main component ---
-const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = ({ cfg, onBack }) => {
-    const [subject, setSubject] = useState<Subject>(cfg.subjects[0]);
-    const [sample, setSample] = useState<Sample>(() => makeSample(cfg.subjects[0]));
-    const [acts, setActs] = useState<Partial<Record<StepId, number>>>({});
-    const [view, setView] = useState<'bench' | 'scope'>('bench');
-    const [counted, setCounted] = useState<Set<number>>(new Set());
-    const [finished, setFinished] = useState(false);
-    const [checks, setChecks] = useState(0);               // tries at "I have finished counting" that missed some
-    const stage = useMicroscopeStage();
+// The platelet count under the microscope. Platelets are refractile: they are found by racking the fine adjustment up
+// and down with the iris diaphragm partly closed, when they shine silvery and dust does not (Jain p. 53, Ghai p. 115,
+// Pal p. 126), so the field has a fine-focus slider and an iris switch.
+const PlateletScope: React.FC<ScopeProps<Sample>> = ({ sample, stage, counted, setCounted, active, showMissed, setMessage }) => {
     const [focus, setFocus] = useState(0);                 // fine adjustment, -1 (racked down) to 1 (racked up); 0 sharp
     const [autoRack, setAutoRack] = useState(false);
     const [irisClosed, setIrisClosed] = useState(false);
     const [tapLabel, setTapLabel] = useState<{ x: number; y: number; text: string; color: string; t: number } | null>(null);
-    const [calc, setCalc] = useState<{ dil: number | null; vol: number | null; checked: boolean | null }>({ dil: null, vol: null, checked: null });
-    const [now, setNow] = useState(() => performance.now());
-    const [message, setMessage] = useState<string | null>(null);
-    const [quizOpen, setQuizOpen] = useState(false);
-    const { label: hoverLabel, hover } = useHoverLabel();
-    const narrow = useNarrowScreen();
-    const L = narrow ? NARROW : WIDE;
-    const questionSet = questionSetFor(cfg.quizId);
-    const fl = cfg.fluid;
-
-    const at = (id: StepId) => acts[id] ?? null;
-    const done = (id: StepId) => at(id) !== null && performance.now() - at(id)! >= DUR[id];
-    const busy = (id: StepId) => at(id) !== null && now - at(id)! < DUR[id];
-
-    const countDone = finished;
-    const stepIdx = cfg.steps.findIndex(id => (id === 'count' ? !countDone : id === 'calc' ? true : at(id) === null));
-    const step = stepIdx + 1;
-    const lastStep = cfg.steps.length;
-    const stepId = cfg.steps[stepIdx];
-    const prevId = stepIdx > 0 ? cfg.steps[stepIdx - 1] : null;
-    const prevBusy = prevId !== null && prevId !== 'count' && !done(prevId);
-
-    const animating = useMemo(() => cfg.steps.some(id => busy(id) || (at(id) !== null && now - at(id)! < DUR[id] + INSET_FADE + 50)),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [acts, now]);
-    useEffect(() => {
-        if (!animating) return;
-        let raf = 0;
-        const tick = () => { setNow(performance.now()); raf = requestAnimationFrame(tick); };
-        raf = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(raf);
-    }, [animating]);
 
     useEffect(() => {
         if (!autoRack) return;
@@ -368,50 +357,6 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
         const id = window.setInterval(() => setFocus(0.6 * Math.sin(((performance.now() - t0) / 2400) * Math.PI * 2)), 50);
         return () => window.clearInterval(id);
     }, [autoRack]);
-
-    const act = (id: StepId) => {
-        if (id !== stepId || prevBusy) return;
-        if (id === 'prick' && !done('clean')) { setMessage('Let the spirit dry completely before pricking.'); return; }
-        const t = performance.now();
-        setNow(t); setMessage(null);
-        setActs(a => (a[id] === undefined ? { ...a, [id]: t } : a));
-        if (id === 'count') { setView('scope'); stage.setZoom(10); stage.setPosition({ x: 0, y: 0 }); }
-    };
-
-    // Skip the bench work: every step before the count is done at once and the chamber goes under the microscope
-    const skipToCount = () => {
-        const t = performance.now();
-        const a: Partial<Record<StepId, number>> = {};
-        for (const id of cfg.steps) { if (id === 'count' || id === 'calc') break; a[id] = t - 100000; }
-        setActs({ ...a, count: t }); setNow(t); setMessage(null);
-        setView('scope'); stage.setZoom(10); stage.setPosition({ x: 0, y: 0 });
-    };
-
-    // Going back: step i and every step after it are undone. Back from the result returns to the count with the taps
-    // kept; going back to the bench clears the count, as the chamber is charged afresh.
-    const undoFrom = (i: number) => {
-        const id = cfg.steps[i];
-        if (id === 'calc') return;
-        setMessage(null); setFinished(false); setCalc({ dil: null, vol: null, checked: null }); setNow(performance.now());
-        if (id === 'count') return;
-        setActs(a => { const n = { ...a }; for (const s of cfg.steps.slice(i)) delete n[s]; return n; });
-        setCounted(new Set()); setChecks(0); setView('bench');
-    };
-    const back = () => { if (stepIdx > 0) undoFrom(stepIdx - 1); };
-
-    const reset = (subj: Subject = subject) => {
-        setSample(makeSample(subj));
-        setActs({}); setView('bench'); setCounted(new Set()); setFinished(false); setChecks(0); setFocus(0); setAutoRack(false); setIrisClosed(false); setTapLabel(null);
-        setCalc({ dil: null, vol: null, checked: null }); setMessage(null); setNow(performance.now());
-    };
-    const changeSubject = (id: string) => { const s = cfg.subjects.find(x => x.id === id)!; setSubject(s); reset(s); };
-
-    // --- Counting ---
-    const valid = useMemo(() => sample.particles.filter(p => p.kind === 'plt' && p.sq !== null), [sample]);
-    const tally = Array.from({ length: N_SQ * N_SQ }, () => 0);
-    const total = Array.from({ length: N_SQ * N_SQ }, () => 0);
-    for (const p of valid) { total[p.sq!]++; if (counted.has(p.id)) tally[p.sq!]++; }
-    const countedN = tally.reduce((a, b) => a + b, 0);
 
     // A tap on the eyepiece, at a point of the ruling: the nearest platelet or speck of dust within reach is counted
     // (or uncounted, or explained)
@@ -422,7 +367,7 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
         window.setTimeout(() => setTapLabel(l => (l && l.t === t ? null : l)), 1800);
     };
     const tapAt = (x: number, y: number) => {
-        if (countDone || stepId !== 'count') return;
+        if (!active) return;
         const reach = Math.max(1.6, 14 / (stage.scale * (800 / 900)));
         let best: Particle | null = null, bestD = reach;
         for (const p of sample.particles) {
@@ -468,14 +413,194 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
             : 'That platelet is outside the central square (the 25 squares in triple lines). Count only inside it.');
     };
 
+    // How the slide looks at this focus. Platelets just above best focus shine silvery (refractile); below it they
+    // look dull grey with a dark rim; red cells only go softer; dust stays dark. With the iris open the bright field
+    // washes the shine out; partly closed, the field dims and the shine stands out.
+    const glint = Math.max(0, 1 - ((focus - 0.35) / 0.3) ** 2) * (irisClosed ? 1 : 0.3);
+    const dull = clamp01(-focus * 2);
+    const rbcSoft = 1 - 0.4 * Math.min(1, Math.abs(focus) * 1.5);
+    const plateletLayer = useMemo(() => sample.particles.map(p => {
+        const x = gx(p.u), y = gx(p.v);
+        return p.kind === 'plt' ? (
+            <g key={p.id} transform={`translate(${x} ${y}) rotate(${p.rot}) scale(${p.size})`}>
+                <ellipse cx={0} cy={0} rx={0.58} ry={0.45} fill="#dbe4f8" stroke="#9fb2dc" strokeWidth={0.13} />
+            </g>
+        ) : (
+            <path key={p.id} transform={`translate(${x} ${y}) rotate(${p.rot}) scale(${0.2 * p.size})`} d="M -5 -3 L 1 -6 L 6 -1 L 3 5 L -3 4 L -6 1 Z" fill="#44403c" opacity={0.85} />
+        );
+    }), [sample]);
+    const glintLayer = useMemo(() => sample.particles.filter(p => p.kind === 'plt').map(p => (
+        <g key={p.id}>
+            <circle cx={gx(p.u)} cy={gx(p.v)} r={1.25 * p.size} fill="#e2e8f0" opacity={0.55} />
+            <circle cx={gx(p.u)} cy={gx(p.v)} r={0.6 * p.size} fill="#ffffff" />
+        </g>
+    )), [sample]);
+    const dullLayer = useMemo(() => sample.particles.filter(p => p.kind === 'plt').map(p => (
+        <circle key={p.id} cx={gx(p.u)} cy={gx(p.v)} r={0.6 * p.size} fill="#94a3b8" stroke="#334155" strokeWidth={0.2} />
+    )), [sample]);
+    const renderSlide = () => (
+        <div className="relative w-full h-full bg-[#f8fafc]">
+            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
+                <NeubauerRuling />
+                <g opacity={rbcSoft}><RedCells rbcs={sample.rbcs} /></g>
+                {plateletLayer}
+                <g opacity={dull}>{dullLayer}</g>
+                {irisClosed && <rect x={0} y={0} width={900} height={900} fill="#0f172a" opacity={0.22} />}
+                <g opacity={glint}>{glintLayer}</g>
+                {sample.particles.map(p => {
+                    const isCounted = counted.has(p.id);
+                    const missed = showMissed && p.sq !== null && p.kind === 'plt' && !isCounted;
+                    if (!isCounted && !missed) return null;
+                    const x = gx(p.u), y = gx(p.v);
+                    return (
+                        <g key={p.id}>
+                            {isCounted && <circle cx={x} cy={y} r={1.5} fill="none" stroke="#10b981" strokeWidth={0.32} />}
+                            {missed && <circle cx={x} cy={y} r={1.9} fill="none" stroke="#f59e0b" strokeWidth={0.32} strokeDasharray="0.6 0.4" />}
+                        </g>
+                    );
+                })}
+                {tapLabel && (() => {
+                    const k = 1 / (stage.scale * (800 / 900));    // one screen pixel in slide units
+                    const fs = 13 * k, w = tapLabel.text.length * 7.2 * k + 12 * k, h = 20 * k;
+                    const lx = tapLabel.x, ly = tapLabel.y - 12 * k;
+                    return (
+                        <g pointerEvents="none">
+                            <rect x={lx - w / 2} y={ly - h} width={w} height={h} rx={5 * k} fill="#0f172a" opacity={0.85} />
+                            <text x={lx} y={ly - h / 2 + fs * 0.36} textAnchor="middle" fontSize={fs} fontWeight="bold" fill={tapLabel.color}>{tapLabel.text}</text>
+                        </g>
+                    );
+                })()}
+            </svg>
+        </div>
+    );
+
+    return (
+        <>
+            <Eyepiece stage={stage} renderSlide={renderSlide} onTap={tapAt} chamberMap className="rounded-xl min-h-[360px] md:min-h-[560px]" />
+            {active && (
+                <div className="mt-2 md:mt-0 md:absolute md:bottom-3 md:left-3 z-30 bg-slate-900/90 border border-slate-700 rounded-lg p-2 space-y-1.5 text-[11px] font-bold text-slate-300 w-full md:w-44">
+                    <label className="block">
+                        <span className="flex justify-between"><span>Fine focus</span><span className="text-slate-500">{focus > 0.05 ? 'racked up' : focus < -0.05 ? 'racked down' : 'sharp'}</span></span>
+                        <input type="range" min={-1} max={1} step={0.02} value={focus} aria-label="Fine adjustment"
+                            onChange={e => { setAutoRack(false); setFocus(Number(e.target.value)); }} className="w-full accent-indigo-500" />
+                    </label>
+                    <div className="grid grid-cols-2 gap-1">
+                        <button onClick={() => setAutoRack(a => !a)}
+                            className={`py-1 rounded-md border ${autoRack ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-600 hover:bg-slate-700'}`}>
+                            {autoRack ? 'Racking…' : 'Rack up/down'}
+                        </button>
+                        <button onClick={() => setIrisClosed(c => !c)}
+                            className={`py-1 rounded-md border ${irisClosed ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-600 hover:bg-slate-700'}`}>
+                            Iris: {irisClosed ? 'part closed' : 'open'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
+
+// --- Main component ---
+const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = ({ cfg, onBack }) => {
+    const [subject, setSubject] = useState<Subject>(cfg.subjects[0]);
+    const [sample, setSample] = useState<FieldSample>(() => cfg.field.make(cfg.subjects[0]));
+    const [run, setRun] = useState(0);                     // a new chamber each test: the microscope starts afresh
+    const [acts, setActs] = useState<Partial<Record<StepId, number>>>({});
+    const [view, setView] = useState<'bench' | 'scope'>('bench');
+    const [counted, setCounted] = useState<Set<number>>(new Set());
+    const [finished, setFinished] = useState(false);
+    const [checks, setChecks] = useState(0);               // tries at "I have finished counting" that missed some
+    const stage = useMicroscopeStage();
+    const [controlsSlot, setControlsSlot] = useState<HTMLDivElement | null>(null);
+    const [calc, setCalc] = useState<{ dil: number | null; vol: number | null; checked: boolean | null }>({ dil: null, vol: null, checked: null });
+    const [now, setNow] = useState(() => performance.now());
+    const [message, setMessage] = useState<string | null>(null);
+    const [quizOpen, setQuizOpen] = useState(false);
+    const { label: hoverLabel, hover } = useHoverLabel();
+    const narrow = useNarrowScreen();
+    const L = narrow ? NARROW : WIDE;
+    const questionSet = questionSetFor(cfg.quizId);
+    const fl = cfg.fluid;
+    const top = PIP[cfg.pipette].top;
+    const Scope = cfg.field.Scope;
+
+    const at = (id: StepId) => acts[id] ?? null;
+    const done = (id: StepId) => at(id) !== null && performance.now() - at(id)! >= DUR[id];
+    const busy = (id: StepId) => at(id) !== null && now - at(id)! < DUR[id];
+
+    const countDone = finished;
+    const stepIdx = cfg.steps.findIndex(id => (id === 'count' ? !countDone : id === 'calc' ? true : at(id) === null));
+    const step = stepIdx + 1;
+    const lastStep = cfg.steps.length;
+    const stepId = cfg.steps[stepIdx];
+    const prevId = stepIdx > 0 ? cfg.steps[stepIdx - 1] : null;
+    const prevBusy = prevId !== null && prevId !== 'count' && !done(prevId);
+
+    const animating = useMemo(() => cfg.steps.some(id => busy(id) || (at(id) !== null && now - at(id)! < DUR[id] + INSET_FADE + 50)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [acts, now]);
+    useEffect(() => {
+        if (!animating) return;
+        let raf = 0;
+        const tick = () => { setNow(performance.now()); raf = requestAnimationFrame(tick); };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [animating]);
+
+    const openScope = () => { setView('scope'); stage.setZoom(cfg.start.zoom); stage.setPosition(cfg.start.position); };
+    const act = (id: StepId) => {
+        if (id !== stepId || prevBusy) return;
+        if (id === 'prick' && !done('clean')) { setMessage('Let the spirit dry completely before pricking.'); return; }
+        const t = performance.now();
+        setNow(t); setMessage(null);
+        setActs(a => (a[id] === undefined ? { ...a, [id]: t } : a));
+        if (id === 'count') openScope();
+    };
+
+    // Skip the bench work: every step before the count is done at once and the chamber goes under the microscope
+    const skipToCount = () => {
+        const t = performance.now();
+        const a: Partial<Record<StepId, number>> = {};
+        for (const id of cfg.steps) { if (id === 'count' || id === 'calc') break; a[id] = t - 100000; }
+        setActs({ ...a, count: t }); setNow(t); setMessage(null);
+        openScope();
+    };
+
+    // Going back: step i and every step after it are undone. Back from the result returns to the count with the taps
+    // kept; going back to the bench clears the count, as the chamber is charged afresh.
+    const undoFrom = (i: number) => {
+        const id = cfg.steps[i];
+        if (id === 'calc') return;
+        setMessage(null); setFinished(false); setCalc({ dil: null, vol: null, checked: null }); setNow(performance.now());
+        if (id === 'count') return;
+        setActs(a => { const n = { ...a }; for (const s of cfg.steps.slice(i)) delete n[s]; return n; });
+        setCounted(new Set()); setChecks(0); setView('bench');
+    };
+    const back = () => { if (stepIdx > 0) undoFrom(stepIdx - 1); };
+
+    const reset = (subj: Subject = subject) => {
+        setSample(cfg.field.make(subj)); setRun(r => r + 1);
+        setActs({}); setView('bench'); setCounted(new Set()); setFinished(false); setChecks(0);
+        setCalc({ dil: null, vol: null, checked: null }); setMessage(null); setNow(performance.now());
+    };
+    const changeSubject = (id: string) => { const s = cfg.subjects.find(x => x.id === id)!; setSubject(s); reset(s); };
+
+    // --- Counting ---
+    const valid = sample.valid;
+    const area = cfg.area;
+    const tally = Array.from({ length: area.squares }, () => 0);
+    const total = Array.from({ length: area.squares }, () => 0);
+    for (const p of valid) { total[p.sq]++; if (counted.has(p.id)) tally[p.sq]++; }
+    const countedN = tally.reduce((a, b) => a + b, 0);
+
     const checkCount = () => {
         const left = valid.filter(p => !counted.has(p.id));
         if (!left.length) { setFinished(true); setMessage(null); return; }
         setChecks(c => c + 1);
         const squares = total.filter((t, sq) => tally[sq] < t).length;
         setMessage(checks >= 1
-            ? `${left.length} platelet${left.length > 1 ? 's are' : ' is'} still not counted: they are circled in amber.`
-            : `Not yet: ${squares} square${squares > 1 ? 's have' : ' has'} platelets you have not counted (outlined in amber in the grid). Remember the cells on the top and left lines.`);
+            ? `${left.length} ${left.length > 1 ? `${cfg.cell.many} are` : `${cfg.cell.one} is`} still not counted: they are circled in amber.`
+            : `Not yet: ${squares} square${squares > 1 ? 's have' : ' has'} ${cfg.cell.many} you have not counted (outlined in amber in the grid). Remember the cells on the top and left lines.`);
     };
     // Jumping ahead: every step before step i is done at once (any still running is finished), and step i becomes the
     // next one. Jumping to the result counts all 25 squares too.
@@ -495,37 +620,39 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
     };
     const countRest = () => { setCounted(new Set([...counted, ...valid.map(p => p.id)])); setMessage(null); };
     const goToSquare = (sq: number) => {
-        stage.setZoom(40);
-        stage.setPosition(positionFor(gx((sq % N_SQ) + 0.5), gx(Math.floor(sq / N_SQ) + 0.5)));
+        const c = area.centre(sq);
+        stage.setZoom(area.zoom);
+        stage.setPosition(positionFor(c.x, c.y));
         setView('scope'); setMessage(null);
     };
 
     const N = valid.length;
-    const result = N * 2000;
+    const factor = Math.round(cfg.calc.dilution / cfg.calc.volume);   // cells per µL of blood for each cell counted
+    const result = N * factor;
 
     // --- Captions ---
+    // Each step is asked for as "Step n: …"; while the step before it is still running, the caption says what is
+    // happening instead
     const e = (id: StepId) => (at(id) === null ? -1 : now - at(id)!);
-    const caption = (() => {
-        switch (stepId) {
-            case 'clean': return 'Step 1: Clean the fingertip with spirit and let it dry';
-            case 'prick': return busy('clean') ? 'Letting the spirit dry completely…' : 'Step 2: Prick the fingertip with a sterile lancet; do not squeeze the finger';
-            case 'blood': return 'Step 3: Suck blood exactly up to the 0.5 mark of the RBC pipette';
-            case 'fluid': return busy('blood') ? 'Sucking blood up to the 0.5 mark…' : `Step 4: Wipe the tip, then quickly draw ${fl.name} up to the 101 mark (1 in 200)`;
-            case 'mix': return busy('fluid') ? `Drawing ${fl.name} up to 101…` : 'Step 5: Shake the pipette for at least 1 minute to mix';
-            case 'discard': return busy('mix') ? 'Shaking: the bead in the bulb mixes the blood with the fluid…' : 'Step 6: Discard the first 3–5 drops: the stem holds only diluting fluid';
-            case 'charge': return busy('discard') ? 'Discarding the first drops…' : 'Step 7: Charge the chamber: pipette at 45° at the edge of the coverslip; let the drop touch the platform';
-            case 'settle': {
-                if (!busy('charge')) return 'Step 8: Cover with a petri dish lined with moist filter paper; wait 15 min';
-                const t = e('charge') - MOVE;
-                return t < CH_FORM ? 'Pipette at 45°, just above the platform at the coverslip edge: a drop forms at the tip…'
-                    : t < CH_FORM + CH_TOUCH ? 'The drop, not the pipette, touches the platform and the edge of the coverslip…'
-                        : t < CH_FORM + CH_TOUCH + CH_FILL ? 'The pipette is lifted away; capillary action draws the drop under the coverslip…'
-                            : 'The counting area is filled up to the trench, without overflowing';
-            }
-            case 'count': return busy('settle') ? 'Waiting 15 minutes for the platelets to settle in one plane…' : 'Step 9: Count the platelets in all 25 squares of the central square under high power';
-            default: return `Platelets counted in 25 squares: ${N}`;
+    const PROMPTS: Partial<Record<StepId, string>> = {
+        clean: 'Clean the fingertip with spirit and let it dry',
+        prick: 'Prick the fingertip with a sterile lancet; do not squeeze the finger',
+        charge: 'Charge the chamber: pipette at 45° at the edge of the coverslip; let the drop touch the platform',
+        ...cfg.prompts,
+    };
+    const progress = (id: StepId): string | undefined => {
+        if (id === 'clean') return 'Letting the spirit dry completely…';
+        if (id === 'charge') {
+            const t = e('charge') - MOVE;
+            return t < CH_FORM ? 'Pipette at 45°, just above the platform at the coverslip edge: a drop forms at the tip…'
+                : t < CH_FORM + CH_TOUCH ? 'The drop, not the pipette, touches the platform and the edge of the coverslip…'
+                    : t < CH_FORM + CH_TOUCH + CH_FILL ? 'The pipette is lifted away; capillary action draws the drop under the coverslip…'
+                        : 'The counting area is filled up to the trench, without overflowing';
         }
-    })();
+        return cfg.progress[id];
+    };
+    const caption = stepId === 'calc' ? `${cfg.cell.Many} counted in ${area.short}: ${N}`
+        : (prevId && busy(prevId) && progress(prevId)) || `Step ${step}: ${PROMPTS[stepId]}`;
 
     // --- Bench drawing state ---
     const tip = L.tip;
@@ -569,7 +696,8 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
     }
     // Shaking: rocked end over end about its middle
     const shaking = activeId === 'mix' && effK > 0 && effK < 1;
-    if (shaking) pose = { ...pose, a: 28 * Math.sin(effK * Math.PI * 2 * 6) };
+    const rock = Math.sin(effK * Math.PI * 2 * cfg.shake.cycles);
+    if (shaking) pose = { ...pose, a: cfg.shake.amp * rock };
 
     // Liquid in the pipette
     const fluidE = e('fluid');
@@ -597,105 +725,53 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
     if (chargeK > 0 && segs.length) segs[0] = { ...segs[0], x0: 60 * chargeK };
     const bulbColor = mixK > 0 ? fl.mixed : fl.color;
     const streak = fluidE < 0 ? 0 : 1 - mixK;
-    const bead = shaking ? Math.sin(effK * Math.PI * 2 * 6) : 0;
+    const bead = shaking ? rock : 0;
 
     // Drops falling from the tip when discarding
+    const DROPS = cfg.drops;
     const tipNow = { x: pose.x - mid * Math.cos((pose.a * Math.PI) / 180), y: pose.y - mid * Math.sin((pose.a * Math.PI) / 180) };
     const fallingDrops = activeId === 'discard' && discardK > 0 && discardK < 1
         ? Array.from({ length: DROPS }, (_, i) => { const k = discardK * DROPS - i; return k > 0 && k < 1 ? { x: tipNow.x, y: lerp(tipNow.y + 4, L.paper.y, easeOut(k)), i } : null; }).filter(Boolean) as { x: number; y: number; i: number }[]
         : [];
-    const spotsOnPaper = Math.min(DROPS, Math.floor(discardK * DROPS + (discardK >= 1 ? 0 : 0)));
+    const spotsOnPaper = Math.min(DROPS, Math.floor(discardK * DROPS));
 
     // Side view while charging, faded out once it is done
     const insetOn = at('charge') === null ? 0 : Math.min(clamp01(e('charge') / 300), 1 - clamp01((e('charge') - DUR.charge) / INSET_FADE));
 
-    // Petri dish over the charged chamber: lowered, 15 minutes on the stopwatch, lifted
-    const settleE = e('settle');
-    const lid = settleE < 0 ? 0 : settleE < LID ? easeOut(settleE / LID) : settleE < LID + WAIT ? 1 : settleE < DUR.settle ? 1 - easeOut((settleE - LID - WAIT) / LID) : 0;
-    const waitedS = settleE < LID ? 0 : clamp01((settleE - LID) / WAIT) * SETTLE_MIN * 60;
-    const waiting = settleE >= LID && settleE < LID + WAIT;
-    const mixedS = mixK * 60;
+    // The 15 minutes under a petri dish lined with moist filter paper: the dish is lowered, the stopwatch runs, the
+    // dish is lifted. In the platelet count it covers the charged chamber while the platelets settle; in the
+    // eosinophil count it covers the pipette while the fluid lyses and stains.
+    const lidOf = (t: number) => (t < 0 ? 0 : t < LID ? easeOut(t / LID) : t < LID + WAIT ? 1 : t < LID + WAIT + LID ? 1 - easeOut((t - LID - WAIT) / LID) : 0);
+    const settleE = e('settle'), stainE = e('stain');
+    const lid = lidOf(settleE), stainLid = lidOf(stainE);
+    const waitE = Math.max(settleE, stainE);
+    const waitedS = waitE < LID ? 0 : clamp01((waitE - LID) / WAIT) * SETTLE_MIN * 60;
+    const waiting = waitE >= LID && waitE < LID + WAIT;
+    const watchOn = waitE >= 0 && waitE < LID + WAIT + LID;
+    const mixedS = mixK * cfg.shake.seconds;
+    // The petri dish for the pipette, a little above where the pipette lies on the bench (clear of the chamber): the
+    // pipette is laid in it and taken out again as the lid goes on and off
+    const DISH_UP = 34;
+    const dish = { x: L.rest.x + 267 * L.pip, y: L.rest.y - DISH_UP, rx: 300 * L.pip, ry: 60 };
+    if (stainLid > 0) pose = { ...pose, y: pose.y - DISH_UP * stainLid };
 
     const showMissed = checks >= 2 && !countDone;
-    // How the slide looks at this focus. Platelets just above best focus shine silvery (refractile); below it they
-    // look dull grey with a dark rim; red cells only go softer; dust stays dark. With the iris open the bright field
-    // washes the shine out; partly closed, the field dims and the shine stands out.
-    const racks = !!cfg.racking;
-    const glint = racks ? Math.max(0, 1 - ((focus - 0.35) / 0.3) ** 2) * (irisClosed ? 1 : 0.3) : 0;
-    const dull = racks ? clamp01(-focus * 2) : 0;
-    const rbcSoft = racks ? 1 - 0.4 * Math.min(1, Math.abs(focus) * 1.5) : 1;
-    const plateletLayer = useMemo(() => sample.particles.map(p => {
-        const x = gx(p.u), y = gx(p.v);
-        return p.kind === 'plt' ? (
-            <g key={p.id} transform={`translate(${x} ${y}) rotate(${p.rot}) scale(${p.size})`}>
-                {!racks && <ellipse cx={0} cy={0} rx={0.95} ry={0.82} fill="#ffffff" opacity={0.8} />}
-                <ellipse cx={0} cy={0} rx={0.58} ry={0.45} fill={racks ? '#dbe4f8' : '#c7d7fe'} stroke={racks ? '#9fb2dc' : '#3b82f6'} strokeWidth={0.13} />
-                {!racks && <circle cx={-0.15} cy={-0.1} r={0.16} fill="#ffffff" />}
-            </g>
-        ) : (
-            <path key={p.id} transform={`translate(${x} ${y}) rotate(${p.rot}) scale(${0.2 * p.size})`} d="M -5 -3 L 1 -6 L 6 -1 L 3 5 L -3 4 L -6 1 Z" fill="#44403c" opacity={0.85} />
-        );
-    }), [sample, racks]);
-    const glintLayer = useMemo(() => racks ? sample.particles.filter(p => p.kind === 'plt').map(p => (
-        <g key={p.id}>
-            <circle cx={gx(p.u)} cy={gx(p.v)} r={1.25 * p.size} fill="#e2e8f0" opacity={0.55} />
-            <circle cx={gx(p.u)} cy={gx(p.v)} r={0.6 * p.size} fill="#ffffff" />
-        </g>
-    )) : null, [sample, racks]);
-    const dullLayer = useMemo(() => racks ? sample.particles.filter(p => p.kind === 'plt').map(p => (
-        <circle key={p.id} cx={gx(p.u)} cy={gx(p.v)} r={0.6 * p.size} fill="#94a3b8" stroke="#334155" strokeWidth={0.2} />
-    )) : null, [sample, racks]);
-    const renderSlide = () => (
-        <div className="relative w-full h-full bg-[#f8fafc]">
-            <svg width="100%" height="100%" viewBox="0 0 900 900" className="opacity-90" overflow="visible">
-                <NeubauerRuling />
-                <g opacity={rbcSoft}><RedCells rbcs={sample.rbcs} /></g>
-                {plateletLayer}
-                {racks && <g opacity={dull}>{dullLayer}</g>}
-                {racks && irisClosed && <rect x={0} y={0} width={900} height={900} fill="#0f172a" opacity={0.22} />}
-                {racks && <g opacity={glint}>{glintLayer}</g>}
-                {sample.particles.map(p => {
-                    const isCounted = counted.has(p.id);
-                    const missed = showMissed && p.sq !== null && p.kind === 'plt' && !isCounted;
-                    if (!isCounted && !missed) return null;
-                    const x = gx(p.u), y = gx(p.v);
-                    return (
-                        <g key={p.id}>
-                            {isCounted && <circle cx={x} cy={y} r={1.5} fill="none" stroke="#10b981" strokeWidth={0.32} />}
-                            {missed && <circle cx={x} cy={y} r={1.9} fill="none" stroke="#f59e0b" strokeWidth={0.32} strokeDasharray="0.6 0.4" />}
-                        </g>
-                    );
-                })}
-                {tapLabel && (() => {
-                    const k = 1 / (stage.scale * (800 / 900));    // one screen pixel in slide units
-                    const fs = 13 * k, w = tapLabel.text.length * 7.2 * k + 12 * k, h = 20 * k;
-                    const lx = tapLabel.x, ly = tapLabel.y - 12 * k;
-                    return (
-                        <g pointerEvents="none">
-                            <rect x={lx - w / 2} y={ly - h} width={w} height={h} rx={5 * k} fill="#0f172a" opacity={0.85} />
-                            <text x={lx} y={ly - h / 2 + fs * 0.36} textAnchor="middle" fontSize={fs} fontWeight="bold" fill={tapLabel.color}>{tapLabel.text}</text>
-                        </g>
-                    );
-                })()}
-            </svg>
-        </div>
-    );
 
     const stepTitle: Record<StepId, string> = {
-        clean: 'Clean with spirit', prick: 'Prick the finger', blood: 'Blood to 0.5', fluid: `${fl.name.split(' ')[0]} fluid to ${PIP[cfg.pipette].top}`,
-        mix: 'Shake to mix', discard: 'Discard first drops', charge: 'Charge the chamber', settle: 'Cover, wait 15 min', count: 'Look under high power', calc: 'Calculate',
+        clean: 'Clean with spirit', prick: 'Prick the finger', blood: 'Blood to 0.5', fluid: `${fl.name.split(' ')[0]} fluid to ${top}`,
+        mix: 'Shake to mix', stain: 'Petri dish, wait 15 min', discard: 'Discard first drops', charge: 'Charge the chamber', settle: 'Cover, wait 15 min', count: 'Look under high power', calc: 'Calculate',
     };
     const stepColor: Partial<Record<StepId, string>> = {
         clean: 'bg-sky-600 hover:bg-sky-500 border-sky-500', prick: 'bg-rose-600 hover:bg-rose-500 border-rose-500', blood: 'bg-red-600 hover:bg-red-500 border-red-500',
         fluid: 'bg-blue-600 hover:bg-blue-500 border-blue-500', mix: 'bg-violet-600 hover:bg-violet-500 border-violet-500', discard: 'bg-slate-600 hover:bg-slate-500 border-slate-500',
+        stain: 'bg-teal-600 hover:bg-teal-500 border-teal-500',
         charge: 'bg-indigo-600 hover:bg-indigo-500 border-indigo-500', settle: 'bg-teal-600 hover:bg-teal-500 border-teal-500', count: 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500',
     };
     const counting = stepId === 'count' && at('count') !== null;
 
     // --- Calculation ---
-    const DIL = [20, 200], VOL = [0.004, 0.1, 0.4];
-    const calcRight = calc.dil === 200 && calc.vol === 0.1;
-    const lakh = (x: number) => (x / 100000).toFixed(2);
+    const calcRight = calc.dil === cfg.calc.dilution && calc.vol === cfg.calc.volume;
+    const note = cfg.calc.notes[subject.id]?.(N);
 
     return (
         <div className="flex flex-col min-h-screen lg:h-screen bg-slate-950 text-slate-100 font-sans">
@@ -721,7 +797,15 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                             ))}
                         </div>
                     )}
-                    {view === 'bench' ? (
+                    {/* The chamber under the microscope: kept once the count has begun, so its focus is not lost on a look
+                        back at the bench */}
+                    {at('count') !== null && (
+                        <div className={view === 'scope' ? 'relative flex flex-col lg:flex-1 min-h-0' : 'hidden'}>
+                            <Scope key={run} sample={sample} stage={stage} counted={counted} setCounted={setCounted} active={stepId === 'count' && !countDone}
+                                showMissed={showMissed} setMessage={setMessage} visible={view === 'scope'} controlsSlot={controlsSlot} />
+                        </div>
+                    )}
+                    {view === 'bench' && (
                         <div className="relative lg:flex-1 lg:min-h-[300px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center">
                             <HoverLabel label={hoverLabel} />
                             <ZoomableSvg w={L.w} h={L.h} className="w-full h-auto lg:h-full max-h-[75vh]">
@@ -733,14 +817,14 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                                 <g transform={`translate(${L.glass.x} ${L.glass.y}) scale(${L.glass.s})`} {...hover(`Watch glass of ${fl.name}`)}>
                                     <ellipse cx={0} cy={6} rx={78} ry={24} fill="rgba(226, 240, 255, 0.15)" stroke="#94a3b8" strokeWidth={1.5} />
                                     <ellipse cx={0} cy={4} rx={58} ry={14} fill={fl.color} opacity={0.6} />
-                                    <text x={0} y={52} textAnchor="middle" fontSize={14} fill="#93c5fd" fontWeight="bold">{fl.name}</text>
+                                    <text x={0} y={52} textAnchor="middle" fontSize={14} fill={fl.label} fontWeight="bold">{fl.name}</text>
                                 </g>
 
                                 {/* Filter paper for the discarded drops */}
                                 <g transform={`translate(${L.paper.x} ${L.paper.y}) scale(${L.paper.s})`} {...hover('Filter paper: the first drops are discarded here')}>
                                     <rect x={-45} y={-20} width={90} height={50} rx={3} fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1.2} />
                                     {Array.from({ length: spotsOnPaper }, (_, i) => (
-                                        <circle key={i} cx={-24 + i * 16} cy={4 + (i % 2) * 6} r={6} fill={i < 2 ? fl.color : fl.mixed} opacity={0.75} />
+                                        <circle key={i} cx={-24 + i * 16} cy={4 + (i % 2) * 6} r={6} fill={i < DROPS / 2 ? fl.color : fl.mixed} opacity={0.75} />
                                     ))}
                                     <text x={0} y={46} textAnchor="middle" fontSize={11} fill="#94a3b8" fontWeight="bold">Filter paper</text>
                                 </g>
@@ -760,23 +844,42 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                                     </text>
                                 </g>
 
+                                {/* Petri dish for the pipette while the fluid lyses and stains: its base, lined with moist filter
+                                    paper, under the pipette */}
+                                {stainLid > 0 && (
+                                    <g transform={`translate(${dish.x} ${dish.y})`} opacity={Math.min(1, stainLid * 2.5)} {...hover('Petri dish lined with moist filter paper: keeps the fluid in the pipette from evaporating')}>
+                                        <ellipse cx={0} cy={6} rx={dish.rx} ry={dish.ry} fill="#64748b" opacity={0.4} />
+                                        <ellipse cx={0} cy={0} rx={dish.rx} ry={dish.ry} fill="rgba(226, 240, 255, 0.12)" stroke="#94a3b8" strokeWidth={2} />
+                                        <ellipse cx={0} cy={0} rx={dish.rx * 0.94} ry={dish.ry * 0.86} fill="#dbe7f1" opacity={0.75} />
+                                        <text x={dish.rx * 0.3} y={-dish.ry - 12} textAnchor="middle" fontSize={15} fill="#94a3b8" fontWeight="bold">Petri dish lined with moist filter paper</text>
+                                    </g>
+                                )}
+
                                 {/* The pipette */}
                                 <g transform={`translate(${pose.x} ${pose.y}) rotate(${pose.a}) scale(${L.pip}) translate(${-PIP_MID} 0)`} {...hover(cfg.pipette === 'rbc' ? 'RBC pipette: marks 0.5, 1 and 101; red bead in the bulb' : 'WBC pipette: marks 0.5, 1 and 11; white bead in the bulb')}>
                                     <Pipette kind={cfg.pipette} segs={segs} bulb={bulbK} bulbColor={bulbColor} streak={streak} bead={bead} neck={fK >= 1} fluidColor={fl.color} />
                                 </g>
-                                {fallingDrops.map(d => <circle key={d.i} cx={d.x} cy={d.y} r={5} fill={d.i < 2 ? fl.color : fl.mixed} />)}
+                                {fallingDrops.map(d => <circle key={d.i} cx={d.x} cy={d.y} r={5} fill={d.i < DROPS / 2 ? fl.color : fl.mixed} />)}
                                 {activeId === 'charge' && formK > 0 && chargeK < 1 && <circle cx={tipNow.x + 2} cy={tipNow.y + 3} r={6 * formK * (1 - 0.7 * chargeK)} fill={fl.mixed} />}
 
-                                {/* Timers: the minute of shaking, the 15-minute wait */}
-                                {shaking && (
-                                    <text x={L.w / 2} y={44} textAnchor="middle" fontSize={24} fontWeight="bold" fill="#c4b5fd">Shaking… {mmss(mixedS)}</text>
+                                {/* ...and its lid, lowered over the pipette */}
+                                {stainLid > 0 && (
+                                    <g transform={`translate(${dish.x} ${dish.y - 150 * (1 - stainLid)})`} opacity={Math.min(1, stainLid * 2)} pointerEvents="none">
+                                        <ellipse cx={0} cy={-4} rx={dish.rx * 1.02} ry={dish.ry * 1.04} fill="rgba(226, 240, 255, 0.14)" stroke="#e2e8f0" strokeWidth={2} />
+                                        <ellipse cx={-dish.rx * 0.35} cy={-dish.ry * 0.5} rx={dish.rx * 0.3} ry={dish.ry * 0.16} fill="#ffffff" opacity={0.14} />
+                                    </g>
                                 )}
-                                {(waiting || (settleE >= 0 && settleE < DUR.settle)) && (
-                                    <g {...hover('Stopwatch: 15 minutes for the platelets to settle')}>
+
+                                {/* Timers: the shaking, the 15-minute wait */}
+                                {shaking && (
+                                    <text x={L.w / 2} y={44} textAnchor="middle" fontSize={24} fontWeight="bold" fill="#c4b5fd">{cfg.shake.label}… {mmss(mixedS)}</text>
+                                )}
+                                {watchOn && (
+                                    <g {...hover(`Stopwatch: 15 minutes ${cfg.wait}`)}>
                                         <rect x={L.watch.x - 90} y={L.watch.y - 46} width={180} height={92} rx={22} fill="#1e293b" stroke="#475569" strokeWidth={3} />
                                         <rect x={L.watch.x - 72} y={L.watch.y - 30} width={144} height={52} rx={8} fill="#a3b18a" />
                                         <text x={L.watch.x} y={L.watch.y + 12} textAnchor="middle" fontSize={40} fontWeight="bold" fill="#1f2937" fontFamily="monospace">{mmss(waitedS)}</text>
-                                        <text x={L.watch.x} y={L.watch.y + 38} textAnchor="middle" fontSize={13} fill="#94a3b8" fontWeight="bold">SETTLING</text>
+                                        <text x={L.watch.x} y={L.watch.y + 38} textAnchor="middle" fontSize={13} fill="#94a3b8" fontWeight="bold">{stainE >= 0 && settleE < 0 ? 'STAINING' : 'SETTLING'}</text>
                                     </g>
                                 )}
 
@@ -801,29 +904,6 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                                     {wrapCaption(caption, L.caption.maxChars).map((line, i) => <tspan key={i} x={L.caption.x} dy={i === 0 ? 0 : 28}>{line}</tspan>)}
                                 </text>
                             </ZoomableSvg>
-                        </div>
-                    ) : (
-                        <div className="relative flex flex-col lg:flex-1 min-h-0">
-                            <Eyepiece stage={stage} renderSlide={renderSlide} onTap={tapAt} chamberMap className="rounded-xl min-h-[360px] md:min-h-[560px]" />
-                            {racks && !countDone && (
-                                <div className="mt-2 md:mt-0 md:absolute md:bottom-3 md:left-3 z-30 bg-slate-900/90 border border-slate-700 rounded-lg p-2 space-y-1.5 text-[11px] font-bold text-slate-300 w-full md:w-44">
-                                    <label className="block">
-                                        <span className="flex justify-between"><span>Fine focus</span><span className="text-slate-500">{focus > 0.05 ? 'racked up' : focus < -0.05 ? 'racked down' : 'sharp'}</span></span>
-                                        <input type="range" min={-1} max={1} step={0.02} value={focus} aria-label="Fine adjustment"
-                                            onChange={e => { setAutoRack(false); setFocus(Number(e.target.value)); }} className="w-full accent-indigo-500" />
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-1">
-                                        <button onClick={() => setAutoRack(a => !a)}
-                                            className={`py-1 rounded-md border ${autoRack ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-600 hover:bg-slate-700'}`}>
-                                            {autoRack ? 'Racking…' : 'Rack up/down'}
-                                        </button>
-                                        <button onClick={() => setIrisClosed(c => !c)}
-                                            className={`py-1 rounded-md border ${irisClosed ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-600 hover:bg-slate-700'}`}>
-                                            Iris: {irisClosed ? 'part closed' : 'open'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
@@ -888,20 +968,19 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                     <p className="text-[11px] text-slate-500 -mt-1">Tip: tap any step above to go back or skip ahead to it.</p>
                     {message && <p className="text-sm text-amber-400">{message}</p>}
 
-                    {/* Counting: tally of the 25 squares, stage controls and the rules */}
+                    {/* A place for the microscope's own controls (the fine focus of the eosinophil count, on a desktop) */}
+                    <div ref={setControlsSlot} className="empty:hidden" />
+
+                    {/* Counting: the rules, the tally of the squares and the buttons */}
                     {at('count') !== null && !countDone && (
                         <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 text-sm space-y-2">
                             <h3 className="font-bold text-white flex items-center gap-2"><Grid3X3 className="w-4 h-4 text-sky-400" /> Counting rules</h3>
-                            <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
-                                <li>Use the <span className="text-white font-bold">40x</span> objective; count in all <span className="text-white font-bold">25 squares</span> of the central square.</li>
-                                <li>Platelets: tiny round or oval bodies between the red cells. {racks ? <>Close the iris a little and <span className="text-white font-bold">rack the fine focus</span> up and down: platelets shine silvery, dust does not.</> : null} Tap one to count it, tap again to undo.</li>
-                                <li>Include cells on the top and left lines; leave those on the bottom and right lines.</li>
-                            </ul>
+                            <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">{cfg.rules}</ul>
                             <div className="flex items-center gap-3 pt-1">
-                                <div className="grid grid-cols-5 gap-0.5 shrink-0" aria-label="Platelets counted in each of the 25 squares">
+                                <div className="grid gap-0.5 shrink-0" style={{ gridTemplateColumns: `repeat(${area.cols}, minmax(0, 1fr))` }} aria-label={`${cfg.cell.Many} counted in each of the ${area.squares} squares`}>
                                     {tally.map((t, sq) => (
                                         <button key={sq} onClick={() => goToSquare(sq)} title="Move the stage to this square"
-                                            className={`w-8 h-8 text-xs font-bold rounded-sm border ${checks > 0 && t < total[sq] ? 'border-amber-400 ring-1 ring-amber-400' : 'border-slate-600'} ${t > 0 ? 'bg-emerald-900/60 text-emerald-200' : 'bg-slate-900 text-slate-500'}`}>
+                                            className={`${area.cols > 2 ? 'w-8 h-8 text-xs' : 'w-12 h-12 text-base'} font-bold rounded-sm border ${checks > 0 && t < total[sq] ? 'border-amber-400 ring-1 ring-amber-400' : 'border-slate-600'} ${t > 0 ? 'bg-emerald-900/60 text-emerald-200' : 'bg-slate-900 text-slate-500'}`}>
                                             {t || ''}
                                         </button>
                                     ))}
@@ -913,10 +992,10 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                                 </div>
                             </div>
                             <button onClick={checkCount} className="w-full bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 rounded-lg py-1.5 font-bold flex items-center justify-center gap-1.5">
-                                <CheckCircle2 className="w-4 h-4" /> I have counted all 25 squares
+                                <CheckCircle2 className="w-4 h-4" /> I have counted all {area.squares} squares
                             </button>
                             <button onClick={countRest} className="w-full bg-slate-900 hover:bg-slate-700 border border-indigo-500/40 text-indigo-200 rounded-lg py-1.5 font-bold flex items-center justify-center gap-1.5">
-                                <Wand2 className="w-4 h-4" /> {countedN > 0 ? 'Count the rest for me' : 'Count all 25 squares for me'}
+                                <Wand2 className="w-4 h-4" /> {countedN > 0 ? 'Count the rest for me' : `Count all ${area.squares} squares for me`}
                             </button>
                         </div>
                     )}
@@ -924,36 +1003,35 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
                     {/* Calculation and result */}
                     {countDone && (
                         <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 text-sm space-y-2">
-                            <p className="text-slate-200">Platelets in the 25 squares: <span className="font-bold text-white text-base">N = {N}</span></p>
+                            <p className="text-slate-200">{cfg.cell.Many} in the {area.short}: <span className="font-bold text-white text-base">N = {N}</span></p>
                             <label className="block text-[11px] font-bold text-slate-400 uppercase">Dilution</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {DIL.map(d => (
+                            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cfg.calc.dilutions.length}, minmax(0, 1fr))` }}>
+                                {cfg.calc.dilutions.map(d => (
                                     <button key={d} onClick={() => setCalc(c => ({ ...c, dil: d, checked: null }))}
                                         className={`py-1.5 rounded-lg border font-bold ${calc.dil === d ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>1 in {d}</button>
                                 ))}
                             </div>
                             <label className="block text-[11px] font-bold text-slate-400 uppercase">Volume of diluted blood counted</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {VOL.map(v => (
+                            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cfg.calc.volumes.length}, minmax(0, 1fr))` }}>
+                                {cfg.calc.volumes.map(v => (
                                     <button key={v} onClick={() => setCalc(c => ({ ...c, vol: v, checked: null }))}
                                         className={`py-1.5 rounded-lg border font-bold ${calc.vol === v ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>{v} µL</button>
                                 ))}
                             </div>
-                            <button onClick={() => setCalc(c => ({ ...c, checked: c.dil === 200 && c.vol === 0.1 }))} disabled={calc.dil === null || calc.vol === null}
+                            <button onClick={() => setCalc(c => ({ ...c, checked: c.dil === cfg.calc.dilution && c.vol === cfg.calc.volume }))} disabled={calc.dil === null || calc.vol === null}
                                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 rounded-lg text-sm disabled:opacity-50">Check</button>
                             {calc.checked === false && (
                                 <p className="text-red-400 flex items-start gap-2"><XCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                    {calc.dil !== 200 ? 'Blood to 0.5 and fluid to 101 in the RBC pipette: the bulb holds 100 parts with 0.5 of blood, a dilution of 1 in 200.' : 'The 25 squares cover 1 mm² and the chamber is 0.1 mm deep: 1 × 1 × 0.1 = 0.1 mm³, that is 0.1 µL.'}</p>
+                                    {calc.dil !== cfg.calc.dilution ? cfg.calc.wrongDilution : cfg.calc.wrongVolume}</p>
                             )}
                             {calc.checked === true && calcRight && (
                                 <>
-                                    <p className="text-slate-300 font-mono">{N} × 200 ÷ 0.1 = {N} × 2000</p>
+                                    <p className="text-slate-300 font-mono">{N} × {cfg.calc.dilution} ÷ {cfg.calc.volume} = {N} × {factor}</p>
                                     <p className={`font-bold flex items-center gap-2 ${subject.id === 'normal' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        <CheckCircle2 className="w-4 h-4" /> {result.toLocaleString('en-IN')} per µL ({lakh(result)} lakh/µL)
+                                        <CheckCircle2 className="w-4 h-4" /> {cfg.calc.format(result)}
                                     </p>
-                                    <p className="text-slate-300">Normal: 1.5–4 lakh/µL (Pal, Jain); 2.5–5 lakh/µL (Ghai).</p>
-                                    {subject.id === 'low' && <p className="text-slate-300">Thrombocytopenia. Causes include viral infections such as dengue, bone marrow depression, hypersplenism and drugs. Below about 50,000/µL bleeding into the skin (purpura) appears, and the bleeding time is prolonged.</p>}
-                                    {subject.id === 'high' && <p className="text-slate-300">Thrombocytosis. The spleen normally holds a share of the platelets and destroys old ones, so the count rises after it is removed. It also rises after trauma or surgery and with stress (adrenaline).</p>}
+                                    <p className="text-slate-300">{cfg.calc.normal}</p>
+                                    {note && <p className="text-slate-300">{note}</p>}
                                 </>
                             )}
                         </div>
@@ -978,4 +1056,137 @@ const HemocytometerCount: React.FC<{ cfg: CountConfig; onBack: () => void }> = (
     );
 };
 
+const B = ({ children }: { children: React.ReactNode }) => <span className="text-white font-bold">{children}</span>;
+const lakh = (x: number) => (x / 100000).toFixed(2);
+
+// --- Platelet count (Rees–Ecker) ---
+const PLATELET: CountConfig<Sample> = {
+    title: 'Platelet Count',
+    subtitle: 'Rees–Ecker method • Neubauer chamber',
+    quizId: 'platelet-count',
+    pipette: 'rbc',
+    // Brilliant cresyl blue colours the Rees–Ecker fluid; diluted blood in it looks a faint lilac
+    fluid: { name: 'Rees–Ecker fluid', color: '#60a5fa', mixed: '#a5a8f0', label: '#93c5fd' },
+    steps: ['clean', 'prick', 'blood', 'fluid', 'mix', 'discard', 'charge', 'settle', 'count', 'calc'],
+    // Platelets in the 25 squares (× 2000 per µL): normal 1.8–3.6 lakh, dengue 30,000–70,000, after splenectomy 5–6.4 lakh
+    subjects: [
+        { id: 'normal', name: 'Normal subject', n: [90, 180] },
+        { id: 'low', name: 'Dengue fever (thrombocytopenia)', n: [15, 35] },
+        { id: 'high', name: 'After splenectomy (thrombocytosis)', n: [250, 320] },
+    ],
+    shake: { seconds: 60, amp: 28, cycles: 6, label: 'Shaking' },
+    drops: 4,
+    wait: 'for the platelets to settle',
+    prompts: {
+        blood: 'Suck blood exactly up to the 0.5 mark of the RBC pipette',
+        fluid: 'Wipe the tip, then quickly draw Rees–Ecker fluid up to the 101 mark (1 in 200)',
+        mix: 'Shake the pipette for at least 1 minute to mix',
+        discard: 'Discard the first 3–5 drops: the stem holds only diluting fluid',
+        settle: 'Cover with a petri dish lined with moist filter paper; wait 15 min',
+        count: 'Count the platelets in all 25 squares of the central square under high power',
+    },
+    progress: {
+        blood: 'Sucking blood up to the 0.5 mark…',
+        fluid: 'Drawing Rees–Ecker fluid up to 101…',
+        mix: 'Shaking: the bead in the bulb mixes the blood with the fluid…',
+        discard: 'Discarding the first drops…',
+        settle: 'Waiting 15 minutes for the platelets to settle in one plane…',
+    },
+    cell: { one: 'platelet', many: 'platelets', Many: 'Platelets' },
+    // The 25 medium squares of the central square
+    area: {
+        squares: N_SQ * N_SQ, cols: N_SQ, short: '25 squares',
+        centre: sq => ({ x: gx((sq % N_SQ) + 0.5), y: gx(Math.floor(sq / N_SQ) + 0.5) }),
+        zoom: 40,
+    },
+    start: { zoom: 10, position: { x: 0, y: 0 } },
+    field: { make: makeSample, Scope: PlateletScope },
+    rules: (
+        <>
+            <li>Use the <B>40x</B> objective; count in all <B>25 squares</B> of the central square.</li>
+            <li>Platelets: tiny round or oval bodies between the red cells. Close the iris a little and <B>rack the fine focus</B> up and down: platelets shine silvery, dust does not. Tap one to count it, tap again to undo.</li>
+            <li>Include cells on the top and left lines; leave those on the bottom and right lines.</li>
+        </>
+    ),
+    calc: {
+        dilutions: [20, 200], volumes: [0.004, 0.1, 0.4], dilution: 200, volume: 0.1,
+        wrongDilution: 'Blood to 0.5 and fluid to 101 in the RBC pipette: the bulb holds 100 parts with 0.5 of blood, a dilution of 1 in 200.',
+        wrongVolume: 'The 25 squares cover 1 mm² and the chamber is 0.1 mm deep: 1 × 1 × 0.1 = 0.1 mm³, that is 0.1 µL.',
+        format: x => `${x.toLocaleString('en-IN')} per µL (${lakh(x)} lakh/µL)`,
+        normal: 'Normal: 1.5–4 lakh/µL (Pal, Jain); 2.5–5 lakh/µL (Ghai).',
+        notes: {
+            low: () => 'Thrombocytopenia. Causes include viral infections such as dengue, bone marrow depression, hypersplenism and drugs. Below about 50,000/µL bleeding into the skin (purpura) appears, and the bleeding time is prolonged.',
+            high: () => 'Thrombocytosis. The spleen normally holds a share of the platelets and destroys old ones, so the count rises after it is removed. It also rises after trauma or surgery and with stress (adrenaline).',
+        },
+    },
+};
+
+// --- Absolute eosinophil count (direct method, Pilot's fluid) ---
+// The four corner (WBC) squares, 1 mm² each, numbered top left, top right, bottom left, bottom right
+const W_CENTRES = [[150, 150], [750, 150], [150, 750], [750, 750]];
+const AEC: CountConfig<EosSample> = {
+    title: 'Absolute Eosinophil Count',
+    subtitle: "Direct method • Pilot's fluid • Neubauer chamber",
+    quizId: 'aec-count',
+    pipette: 'wbc',
+    // Phloxine colours Pilot's fluid pink; with the lysed blood in it the mixture is a clear rose red
+    fluid: { name: "Pilot's fluid", color: '#f472b6', mixed: '#f0607e', label: '#f9a8d4' },
+    steps: ['clean', 'prick', 'blood', 'fluid', 'mix', 'stain', 'discard', 'charge', 'count', 'calc'],
+    // Eosinophils in the four W squares (× 50 per µL): normal 100–400 (range 40–440, Pal), eosinophilia 700–1,400,
+    // and none at all in eosinopenia
+    subjects: [
+        { id: 'normal', name: 'Normal subject', n: [2, 8] },
+        { id: 'high', name: 'Bronchial asthma (eosinophilia)', n: [14, 28] },
+        { id: 'low', name: 'Cushing syndrome (eosinopenia)', n: [0, 0] },
+    ],
+    // Mixed gently, so that the eosinophils are not ruptured (Pal p. 91)
+    shake: { seconds: 120, amp: 12, cycles: 4, label: 'Shaking gently' },
+    drops: 3,
+    wait: 'for the fluid to lyse the other cells and stain the eosinophils',
+    prompts: {
+        blood: 'Suck blood exactly up to the 0.5 mark of the WBC pipette',
+        fluid: "Wipe the tip, then draw Pilot's fluid to the 11 mark (1 in 20)",
+        mix: 'Shake gently for 2 minutes; rough shaking ruptures eosinophils',
+        stain: 'Pipette under a petri dish with moist filter paper for 15 min',
+        discard: 'Mix gently again, then discard the first 2–3 drops',
+        count: 'Count eosinophils in the 4 corner (WBC) squares under high power',
+    },
+    progress: {
+        blood: 'Sucking blood up to the 0.5 mark…',
+        fluid: "Drawing Pilot's fluid up to 11…",
+        mix: 'Shaking gently: the bead in the bulb mixes the blood with the fluid…',
+        stain: 'The fluid lyses the other cells; phloxine stains the eosinophils…',
+        discard: 'Mixed gently again; discarding the first drops…',
+    },
+    cell: { one: 'eosinophil', many: 'eosinophils', Many: 'Eosinophils' },
+    area: {
+        squares: 4, cols: 2, short: '4 corner squares',
+        centre: sq => ({ x: W_CENTRES[sq][0], y: W_CENTRES[sq][1] }),
+        zoom: 10,
+    },
+    // Opens at low power on the top-left corner square, as the WBC count does
+    start: { zoom: 10, position: { x: -265, y: -265 } },
+    field: { make: makeEosSample, Scope: EosinophilScope },
+    rules: (
+        <>
+            <li>Find a <B>corner (W) square</B> at 10x, then count under the <B>40x</B> objective, through all 16 small squares of each of the 4 corners.</li>
+            <li>Eosinophils: round cells crowded with <B>red granules</B>, with a two-lobed nucleus. Turn the <B>fine focus</B>: the granules shine on one side of focus and the cell darkens on the other; stain precipitate and debris do neither. Tap a cell to count it, tap again to undo.</li>
+            <li>Include cells on the top and left lines; leave those on the bottom and right lines.</li>
+            <li>Finish within 30 minutes of charging: eosinophils slowly break up in the fluid.</li>
+        </>
+    ),
+    calc: {
+        dilutions: [10, 20, 200], volumes: [0.004, 0.1, 0.4], dilution: 20, volume: 0.4,
+        wrongDilution: 'Blood to 0.5 and fluid to 11 in the WBC pipette: the bulb holds 10 parts with 0.5 of blood, a dilution of 1 in 20.',
+        wrongVolume: 'Each corner square is 1 mm² and the chamber is 0.1 mm deep, so the four hold 4 × 1 × 0.1 = 0.4 mm³, that is 0.4 µL.',
+        format: x => `${x.toLocaleString('en-IN')} per µL (mm³) of blood`,
+        normal: 'Normal: 40–440 per µL (Pal); 10–400 (Ghai); 150–300 (Jain).',
+        notes: {
+            high: () => 'Eosinophilia. It is seen in allergic diseases (bronchial asthma, hay fever, food allergy), parasitic infestations (hookworm, roundworm, filaria), skin diseases such as eczema, tropical pulmonary eosinophilia and Addison\'s disease.',
+            low: n => `Eosinopenia. ${n === 0 ? 'No eosinophil in the four squares means fewer than 50 per µL, as each cell seen stands for 50. ' : ''}Cortisol lowers the circulating eosinophils, so the count falls in Cushing syndrome and with ACTH therapy (the basis of the Thorn test); it is also low in aplastic anaemia. For low counts the Fuchs–Rosenthal chamber, 0.2 mm deep, is preferred as it holds more fluid.`,
+        },
+    },
+};
+
 export const PlateletCount: React.FC<{ onBack: () => void }> = ({ onBack }) => <HemocytometerCount cfg={PLATELET} onBack={onBack} />;
+export const AbsoluteEosinophilCount: React.FC<{ onBack: () => void }> = ({ onBack }) => <HemocytometerCount cfg={AEC} onBack={onBack} />;

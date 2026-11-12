@@ -33,6 +33,7 @@ const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then
 const BloodGrouping = lazy(() => import('./components/BloodGrouping').then(m => ({ default: m.BloodGrouping })).catch(reloadForNewVersion));
 const BleedingClottingTime = lazy(() => import('./components/BleedingClottingTime').then(m => ({ default: m.BleedingClottingTime })).catch(reloadForNewVersion));
 const PlateletCount = lazy(() => import('./components/HemocytometerCount').then(m => ({ default: m.PlateletCount })).catch(reloadForNewVersion));
+const AbsoluteEosinophilCount = lazy(() => import('./components/HemocytometerCount').then(m => ({ default: m.AbsoluteEosinophilCount })).catch(reloadForNewVersion));
 const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })).catch(reloadForNewVersion));
 const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })).catch(reloadForNewVersion));
 const InstrumentViewer = lazy(() => import('./components/InstrumentViewer').then(m => ({ default: m.InstrumentViewer })).catch(reloadForNewVersion));
@@ -88,7 +89,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -117,6 +118,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'blood-grouping': 'Blood Grouping',
   'bt-ct': 'Bleeding & Clotting Time',
   'platelet-count': 'Platelet Count',
+  'aec-count': 'Absolute Eosinophil Count',
   'question-bank': 'Question Bank',
   'genesis-tetanus': 'Genesis of Tetanus',
   'effect-of-temperature': 'Effect of Temperature',
@@ -159,6 +161,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'blood-grouping': 'Hematology',
   'bt-ct': 'Hematology',
   'platelet-count': 'Hematology',
+  'aec-count': 'Hematology',
   'question-bank': 'Navigation',
   'microscope': 'Microscope',
   'instruments': 'Navigation',
@@ -2545,8 +2548,7 @@ const App: React.FC = () => {
                 description="Pilot's fluid and the WBC pipette: count eosinophils in the four corner squares."
                 icon={<Sparkles className="w-8 h-8" />}
                 colorClass="pink"
-                onClick={() => {}}
-                comingSoon
+                onClick={() => navigateTo('aec-count')}
               />
               <MenuCard
                 title="Reticulocyte Count"
@@ -2677,6 +2679,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Platelet Count..." />}>
           <PlateletCount onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'aec-count':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Absolute Eosinophil Count..." />}>
+          <AbsoluteEosinophilCount onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'question-bank':

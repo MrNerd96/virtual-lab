@@ -15,17 +15,17 @@ import { Minus, Plus } from 'lucide-react';
 
 export const WBC_FIELD_BG = '#b4bac0';
 
-const FIELD_MIN = -260, FIELD_MAX = 1160;
+export const FIELD_MIN = -260, FIELD_MAX = 1160;
 const SPAN = FIELD_MAX - FIELD_MIN;
-const SQUARES = (SPAN * SPAN) / (300 * 300);          // field area in 1 mm squares
+export const SQUARES = (SPAN * SPAN) / (300 * 300);   // field area in 1 mm squares
 
-const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+export const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 const n2 = (v: number) => v.toFixed(2);
-const circlePath = (cx: number, cy: number, r: number) =>
+export const circlePath = (cx: number, cy: number, r: number) =>
   `M${n2(cx - r)},${n2(cy)}a${n2(r)},${n2(r)} 0 1,0 ${n2(2 * r)},0a${n2(r)},${n2(r)} 0 1,0 ${n2(-2 * r)},0`;
 // An irregular rounded outline around a point, as a closed path: a flake of debris, not a cell
-const flake = (cx: number, cy: number, r: number, n = 7, jitter = 0.5, squash = 1) => {
+export const flake = (cx: number, cy: number, r: number, n = 7, jitter = 0.5, squash = 1) => {
   const a0 = rnd(0, Math.PI * 2), tilt = rnd(0, Math.PI);
   const pts: [number, number][] = [];
   for (let i = 0; i < n; i++) {
@@ -119,8 +119,9 @@ const shard = (cx: number, cy: number, r: number) => {
 };
 
 // What lies on the chamber floor with the cells: specks and flakes (a few as big as a cell), the faint ghosts of
-// lysed red cells, pale smudges, the odd fibre and a few clumps of squames
-export const makeDebris = (): Debris => {
+// lysed red cells, pale smudges, the odd fibre and a few clumps of squames. precipitate is the share of the specks that
+// are crystals of stain (fewer in a filtered fluid such as Pilot's).
+export const makeDebris = ({ precipitate: crystals = 0.06 }: { precipitate?: number } = {}): Debris => {
   const at = () => [rnd(FIELD_MIN, FIELD_MAX), rnd(FIELD_MIN, FIELD_MAX)] as const;
   // Fine grain everywhere: thousands of dots, drawn as three paths
   const grains: Debris['grains'] = [['#5b6475', 0.45], ['#7a6a55', 0.4], ['#8a93a6', 0.5]].map(([fill, o]) => {
@@ -133,7 +134,7 @@ export const makeDebris = (): Debris => {
   const specks: Debris['specks'] = [];
   for (let i = 0; i < Math.round(80 * SQUARES); i++) {
     const [x, y] = at(), kind = Math.random();
-    if (kind < 0.06) {
+    if (kind < crystals) {
       // A crystal of the stain: dark violet like a nucleus, but angular
       const r = rnd(0.8, 1.9);
       precipitate.push(shard(x, y, r));
@@ -214,20 +215,21 @@ export const makeDust = (): Dust => {
 // the bottom or right line is not.
 export const W_SQUARES = [[0, 0], [600, 0], [0, 600], [600, 600]];
 export const W_NAMES = ['Top left', 'Top right', 'Bottom left', 'Bottom right'];
-export const placeCell = (c: WBC): { square: number; note: string } => {
+export const placeCell = (c: { x: number; y: number; r: number }, name = 'White cell'): { square: number; note: string } => {
   for (let i = 0; i < 4; i++) {
     const [x0, y0] = W_SQUARES[i], dx = c.x - x0, dy = c.y - y0;
     if (dx < -c.r || dx > 300 + c.r || dy < -c.r || dy > 300 + c.r) continue;
-    if (dx >= 300 - c.r) return { square: -1, note: 'White cell on the right line: not counted' };
-    if (dy >= 300 - c.r) return { square: -1, note: 'White cell on the bottom line: not counted' };
-    if (dx < c.r) return { square: i, note: 'White cell on the left line: counted' };
-    if (dy < c.r) return { square: i, note: 'White cell on the top line: counted' };
-    return { square: i, note: 'White cell: counted' };
+    if (dx >= 300 - c.r) return { square: -1, note: `${name} on the right line: not counted` };
+    if (dy >= 300 - c.r) return { square: -1, note: `${name} on the bottom line: not counted` };
+    if (dx < c.r) return { square: i, note: `${name} on the left line: counted` };
+    if (dy < c.r) return { square: i, note: `${name} on the top line: counted` };
+    return { square: i, note: `${name}: counted` };
   }
-  return { square: -1, note: 'White cell, but outside the W squares' };
+  return { square: -1, note: `${name}, but outside the W squares` };
 };
 
-export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
+// stain: colour of the crystals of stain (gentian violet in the WBC count)
+export const FloorDebris = React.memo(({ debris, stain = '#2c2350' }: { debris: Debris; stain?: string }) => (
   <g pointerEvents="none">
     {debris.smudges.map((s, i) => <path key={`m${i}`} d={s.pts} fill="#6f7882" opacity={s.o * 1.6} />)}
     {debris.grains.map((g, i) => <path key={`n${i}`} d={g.d} fill={g.fill} opacity={g.o} />)}
@@ -248,7 +250,7 @@ export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
       </g>
     ))}
     {debris.specks.map((s, i) => <path key={`s${i}`} d={s.pts} fill={s.fill} opacity={s.o} />)}
-    {debris.precipitate.map((pts, i) => <polygon key={`p${i}`} points={pts} fill="#2c2350" opacity={0.88} />)}
+    {debris.precipitate.map((pts, i) => <polygon key={`p${i}`} points={pts} fill={stain} opacity={0.88} />)}
   </g>
 ));
 
