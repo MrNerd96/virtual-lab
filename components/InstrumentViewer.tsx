@@ -35,15 +35,16 @@ const VIEWS: Record<InstrumentId, { all: View; closeUp?: Record<string, View> }>
         all: { center: [0, -1, 0], halfW: 44, halfH: 21, from: [0.15, 1.3, 0.9] },
         closeUp: { grid: { center: [0, -0.1, 7.6], halfW: 1.7, halfH: 1.7, from: [0, 1, 0.3] } },
     },
-    // Kymograph from the front right, a little above; close-ups of the paper and the writing point, the speed dial
-    // and the contact
+    // Kymograph from the front right, a little above; close-ups of the paper and the writing point, the speed lever,
+    // the clutch and the contact
     kymograph: {
-        all: { center: [3, 23, 3], halfW: 24, halfH: 25, from: [0.35, 0.3, 1] },
+        all: { center: [7, 25, 3], halfW: 21, halfH: 26, from: [0.4, 0.3, 1] },
         closeUp: {
-            paper: { center: [-6.5, 26, 7.5], halfW: 9, halfH: 8, from: [0.15, 0.1, 1] },
-            stylus: { center: [-5.5, 30, 7.5], halfW: 4, halfH: 3.5, from: [0.5, 0.25, 1] },
-            speed: { center: [5, 6.4, 10], halfW: 5.5, halfH: 5.5, from: [0.1, 0.15, 1] },
-            contact: { center: [-4, 13.5, 4], halfW: 6, halfH: 4.5, from: [0.4, 0.5, 1] },
+            paper: { center: [0, 34.5, 7.5], halfW: 9, halfH: 8, from: [0.15, 0.1, 1] },
+            stylus: { center: [1, 34.5, 7.5], halfW: 4, halfH: 3.5, from: [0.5, 0.25, 1] },
+            speed: { center: [0, 14, 9.5], halfW: 4, halfH: 5.6, from: [0.05, 0.08, 1] },
+            clutch: { center: [9.5, 13, 0], halfW: 4, halfH: 4, from: [1, 0.12, 0.1] },
+            contact: { center: [-5.2, 22.6, -5.2], halfW: 6, halfH: 4.5, from: [-0.75, 0.45, -0.75] },
         },
     },
 };
