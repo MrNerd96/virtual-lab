@@ -6,17 +6,19 @@ import { ArrowLeft, Sun, Moon } from 'lucide-react';
 import { LabEnvironment } from './LabEnvironment';
 import { DilutingPipette } from './DilutingPipette';
 import { NeubauerChamber } from './NeubauerChamber';
+import { KymographModel, KymographControls, useKymograph, type Kymo } from './Kymograph';
 import { instrumentById, type InstrumentId } from '../instruments';
 
 // One screen for every instrument: a 3D model to turn and explore on the left (top on phones), and the
 // instrument card on the right with its parts. Hover or tap a part, in the
 // model or in the list, to highlight it and show its note.
 
-const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: string | null) => void; onSelect: (p: string) => void }> = ({ id, ...rest }) => {
+const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: string | null) => void; onSelect: (p: string) => void; kymo: Kymo }> = ({ id, kymo, ...rest }) => {
     switch (id) {
         case 'rbc-pipette': return <DilutingPipette kind="rbc" {...rest} />;
         case 'wbc-pipette': return <DilutingPipette kind="wbc" {...rest} />;
         case 'neubauer-chamber': return <NeubauerChamber {...rest} />;
+        case 'kymograph': return <KymographModel kymo={kymo} {...rest} />;
     }
 };
 
@@ -32,6 +34,17 @@ const VIEWS: Record<InstrumentId, { all: View; closeUp?: Record<string, View> }>
     'neubauer-chamber': {
         all: { center: [0, -1, 0], halfW: 44, halfH: 21, from: [0.15, 1.3, 0.9] },
         closeUp: { grid: { center: [0, -0.1, 7.6], halfW: 1.7, halfH: 1.7, from: [0, 1, 0.3] } },
+    },
+    // Kymograph from the front right, a little above; close-ups of the paper and the writing point, the speed dial
+    // and the contact
+    kymograph: {
+        all: { center: [3, 23, 3], halfW: 24, halfH: 25, from: [0.35, 0.3, 1] },
+        closeUp: {
+            paper: { center: [-6.5, 26, 7.5], halfW: 9, halfH: 8, from: [0.15, 0.1, 1] },
+            stylus: { center: [-5.5, 30, 7.5], halfW: 4, halfH: 3.5, from: [0.5, 0.25, 1] },
+            speed: { center: [5, 6.4, 10], halfW: 5.5, halfH: 5.5, from: [0.1, 0.15, 1] },
+            contact: { center: [-4, 13.5, 4], halfW: 6, halfH: 4.5, from: [0.4, 0.5, 1] },
+        },
     },
 };
 
@@ -82,6 +95,7 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
     const active = hovered ?? selected;
     const activePart = instrument.parts.find(p => p.id === active);
     const compare = instrument.compareWith && instrumentById(instrument.compareWith);
+    const kymo = useKymograph();
 
     return (
         <div className="w-full h-[100dvh] bg-slate-950 flex flex-col overflow-hidden text-slate-200 font-sans">
@@ -113,7 +127,7 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                         <LabEnvironment variant="studio" />
                         <ambientLight intensity={0.6} />
                         <directionalLight position={[5, 8, 6]} intensity={1} />
-                        <Model id={id} active={active} onHover={setHovered} onSelect={setSelected} />
+                        <Model id={id} active={active} onHover={setHovered} onSelect={setSelected} kymo={kymo} />
                         <OrbitControls makeDefault enablePan={false} zoomToCursor />
                         <FitCamera id={id} part={selected} />
                     </Canvas>
@@ -133,6 +147,8 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                 {/* Instrument card */}
                 <aside className="flex-1 md:flex-none md:w-96 min-h-0 overflow-y-auto bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 p-5 space-y-6 text-sm">
                     <p className="text-slate-300">{instrument.summary}</p>
+
+                    {id === 'kymograph' && <KymographControls kymo={kymo} />}
 
                     <section>
                         <h2 className="text-[10px] font-bold uppercase text-slate-500 tracking-widest mb-2">Parts</h2>

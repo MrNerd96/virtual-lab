@@ -4,7 +4,7 @@ import { GHAI, PAL, JAIN } from '../questions/books';
 // menu stays light; the 3D viewer and the models load only when an instrument is opened.
 // Facts from CL Ghai and GK Pal, written in our own words; page numbers are the printed pages of the user's copies.
 
-export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber';
+export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber' | 'kymograph';
 
 export interface InstrumentPart {
     id: string;   // matches the part's mesh in the 3D model
@@ -131,6 +131,46 @@ export const INSTRUMENTS: Instrument[] = [
         ],
         source: `${GHAI}, pp. 24, 28–30; ${PAL}, pp. 42–43; ${JAIN}, p. 10`,
         experiment: { view: 'rbc-count', label: 'RBC Count' },
+    },
+    {
+        id: 'kymograph',
+        name: 'Kymograph',
+        alsoCalled: 'Sherrington–Starling recording drum · student kymograph',
+        summary: 'A drum turning at a known, steady speed under a writing lever, so a movement is written out against time.',
+        usedFor: [
+            'Recording the movements of a muscle or the heart (amphibian practicals): simple muscle twitch, effect of load, temperature and successive stimuli, tetanus, fatigue, and the frog\'s heart beat.',
+        ],
+        parts: [
+            { id: 'base', name: 'Base (motor & gear box)', note: 'A heavy cast case holding a constant-speed electric motor and a gear box, which turn the spindle. Its weight keeps the drum steady while recording.' },
+            { id: 'speed', name: 'Speed selector', note: 'Picks one of eight gear steps, marked in millimetres of paper passing the writing point each second: 0.12, 0.25, 1.2, 2.5, 12.5, 25, 320 and 640 mm/s.' },
+            { id: 'switch', name: 'Mains switch & pilot lamp', note: 'Starts and stops the motor. The lamp glows while it is on.' },
+            { id: 'spindle', name: 'Spindle', note: 'Vertical stainless steel shaft, turned by the gear box. The drum is clamped on it and turns with it.' },
+            { id: 'lift', name: 'Screw lift', note: 'The knurled head on top of the spindle raises or lowers the drum on it, so several tracings can be written one above the other on the same paper.' },
+            { id: 'drum', name: 'Recording drum', note: 'A light aluminium cylinder, 15 cm across and 15 cm high, so its surface is 47 cm round. It carries the paper.' },
+            { id: 'paper', name: 'Smoked paper', note: 'Glazed paper wrapped round the drum, its ends glued, then blackened with soot from a smoky flame. The writing point scratches the soot away, leaving a white line. Afterwards the tracing is fixed by dipping it in varnish (shellac or resin in spirit).' },
+            { id: 'contact', name: 'Contact arm & terminals', note: 'An arm clamped on the spindle (there may be two) meets a fixed spring contact once every turn, closing a circuit through the terminals. It is set round so the curves fall clear of the paper\'s glued seam. Wired to the stimulator, it gives a stimulus at the same point on the paper each turn, so successive curves fall one on top of another.' },
+            { id: 'feet', name: 'Levelling screws', note: 'Screws under the base to stand it level, so the drum turns truly upright and a still lever writes a level line.' },
+            { id: 'lever', name: 'Writing lever', note: 'An accessory on its own stand. A light lever pivoted near one end: the muscle pulls the short arm, and the long arm magnifies the movement about ten times at the writing point.' },
+            { id: 'stylus', name: 'Writing point', note: 'A thin, flexible strip at the tip of the lever. It must lie parallel to the drum and touch it only lightly, or friction will spoil the curve.' },
+            { id: 'stand', name: 'Stand & clamps', note: 'Heavy stand with boss heads holding the lever\'s pivot and the femur of the muscle.' },
+            { id: 'muscle', name: 'Muscle & thread', note: 'Frog gastrocnemius, its femur clamped and its tendon tied by a thread to the hook on the lever\'s short arm. On stimulating it twitches: latent period about 10 ms, contraction 40 ms, relaxation 50 ms.' },
+        ],
+        facts: [
+            'Kymograph means wave writer (Greek kyma, wave; graphein, to write). Carl Ludwig introduced it in 1847.',
+            'The drum turns so the paper under the writing point moves to the left: the tracing reads from left to right in time.',
+            'Paper speed is distance per second, so time on a tracing = length ÷ speed. At 640 mm/s a twitch of 0.1 s is 64 mm long; at 2.5 mm/s it is a line only 0.25 mm wide.',
+            'With the drum still, a still lever makes a point and a twitch makes a vertical line; with the drum turning, a still lever writes a level base line.',
+        ],
+        viva: [
+            { q: 'What is a kymograph?', a: 'A recording drum turning at a known, steady speed, on which a writing lever records a movement against time.' },
+            { q: 'Why is the paper smoked?', a: 'A writing point scratching soot needs very little force, so the friction hardly alters the movement being recorded.' },
+            { q: 'Which drum speed is used to record a simple muscle twitch?', a: 'The fastest speed, so the 0.1 s twitch is spread out enough to measure its latent, contraction and relaxation periods.' },
+            { q: 'Which speed is used for fatigue or the heart beat?', a: 'A slow speed, so many contractions over minutes fit on one turn of the drum.' },
+            { q: 'How are successive curves superimposed?', a: 'By stimulating from the contact on the spindle, which closes at the same point of every turn.' },
+            { q: 'How is a tracing preserved?', a: 'It is cut off the drum, labelled, and dipped in varnish (shellac or resin dissolved in spirit) and dried, which fixes the soot.' },
+        ],
+        source: 'Instrument makers\' specifications for the electrically driven student kymograph (15 × 15 cm drum, eight speeds 0.12–640 mm/s); Science Museum Group and Physiological Society descriptions of the smoked drum',
+        experiment: { view: 'twitch', label: 'Simple Muscle Twitch' },
     },
 ];
 
