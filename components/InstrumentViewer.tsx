@@ -129,7 +129,7 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                         <ambientLight intensity={0.6} />
                         <directionalLight position={[5, 8, 6]} intensity={1} />
                         <Model id={id} active={active} onHover={setHovered} onSelect={setSelected} kymo={kymo} />
-                        <OrbitControls makeDefault enablePan={false} zoomToCursor />
+                        <OrbitControls makeDefault enablePan screenSpacePanning zoomToCursor />
                         <FitCamera id={id} part={selected} />
                     </Canvas>
 
@@ -140,7 +140,7 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                         </div>
                     ) : (
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-slate-900/70 rounded-full text-[11px] text-slate-300 whitespace-nowrap pointer-events-none">
-                            Drag to turn · tap a part to name it
+                            Drag to turn · two fingers to pan · tap a part
                         </div>
                     )}
                 </div>
