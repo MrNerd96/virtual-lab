@@ -134,9 +134,8 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                     </Canvas>
 
                     {activePart ? (
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-10 px-4 py-2.5 bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded-2xl shadow-lg">
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-4 py-1.5 bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
                             <div className="text-blue-300 font-bold text-[11px] uppercase tracking-wider">{activePart.name}</div>
-                            <div className="text-slate-200 text-xs leading-snug mt-0.5">{activePart.note}</div>
                         </div>
                     ) : (
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-slate-900/70 rounded-full text-[11px] text-slate-300 whitespace-nowrap pointer-events-none">
