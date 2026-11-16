@@ -6,6 +6,7 @@ import { ArrowLeft, Sun, Moon } from 'lucide-react';
 import { LabEnvironment } from './LabEnvironment';
 import { DilutingPipette } from './DilutingPipette';
 import { NeubauerChamber } from './NeubauerChamber';
+import { KymographModel, KymographControls, useKymograph, type Kymo } from './Kymograph';
 import { LangendorffApparatus } from './LangendorffApparatus';
 import { instrumentById, type InstrumentId } from '../instruments';
 
@@ -13,11 +14,12 @@ import { instrumentById, type InstrumentId } from '../instruments';
 // instrument card on the right with its parts. Hover or tap a part, in the
 // model or in the list, to highlight it and show its note.
 
-const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: string | null) => void; onSelect: (p: string) => void }> = ({ id, ...rest }) => {
+const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: string | null) => void; onSelect: (p: string) => void; kymo: Kymo }> = ({ id, kymo, ...rest }) => {
     switch (id) {
         case 'rbc-pipette': return <DilutingPipette kind="rbc" {...rest} />;
         case 'wbc-pipette': return <DilutingPipette kind="wbc" {...rest} />;
         case 'neubauer-chamber': return <NeubauerChamber {...rest} />;
+        case 'kymograph': return <KymographModel kymo={kymo} {...rest} />;
         case 'langendorff': return <LangendorffApparatus {...rest} />;
     }
 };
@@ -34,6 +36,18 @@ const VIEWS: Record<InstrumentId, { all: View; closeUp?: Record<string, View> }>
     'neubauer-chamber': {
         all: { center: [0, -1, 0], halfW: 44, halfH: 21, from: [0.15, 1.3, 0.9] },
         closeUp: { grid: { center: [0, -0.1, 7.6], halfW: 1.7, halfH: 1.7, from: [0, 1, 0.3] } },
+    },
+    // Kymograph from the front right, a little above; close-ups of the paper and the writing point, the speed lever,
+    // the clutch and the contact
+    kymograph: {
+        all: { center: [7, 25, 3], halfW: 21, halfH: 26, from: [0.4, 0.3, 1] },
+        closeUp: {
+            paper: { center: [0, 34.5, 7.5], halfW: 9, halfH: 8, from: [0.15, 0.1, 1] },
+            stylus: { center: [1, 34.5, 7.5], halfW: 4, halfH: 3.5, from: [0.5, 0.25, 1] },
+            speed: { center: [0, 14, 9.5], halfW: 4, halfH: 5.6, from: [0.05, 0.08, 1] },
+            clutch: { center: [9.5, 13, 0], halfW: 4, halfH: 4, from: [1, 0.12, 0.1] },
+            contact: { center: [-5.2, 22.6, -5.2], halfW: 6, halfH: 4.5, from: [-0.75, 0.45, -0.75] },
+        },
     },
     // A tall apparatus (about 1.2 m): seen whole from the front, with a close-up for each group of parts
     'langendorff': {
@@ -106,6 +120,7 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
     const active = hovered ?? selected;
     const activePart = instrument.parts.find(p => p.id === active);
     const compare = instrument.compareWith && instrumentById(instrument.compareWith);
+    const kymo = useKymograph();
 
     return (
         <div className="w-full h-[100dvh] bg-slate-950 flex flex-col overflow-hidden text-slate-200 font-sans">
@@ -137,19 +152,18 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                         <LabEnvironment variant="studio" />
                         <ambientLight intensity={0.6} />
                         <directionalLight position={[5, 8, 6]} intensity={1} />
-                        <Model id={id} active={active} onHover={setHovered} onSelect={setSelected} />
-                        <OrbitControls makeDefault enablePan={false} zoomToCursor />
+                        <Model id={id} active={active} onHover={setHovered} onSelect={setSelected} kymo={kymo} />
+                        <OrbitControls makeDefault enablePan screenSpacePanning zoomToCursor />
                         <FitCamera id={id} part={selected} />
                     </Canvas>
 
                     {activePart ? (
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-10 px-4 py-2.5 bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded-2xl shadow-lg">
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-4 py-1.5 bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
                             <div className="text-blue-300 font-bold text-[11px] uppercase tracking-wider">{activePart.name}</div>
-                            <div className="text-slate-200 text-xs leading-snug mt-0.5">{activePart.note}</div>
                         </div>
                     ) : (
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-slate-900/70 rounded-full text-[11px] text-slate-300 whitespace-nowrap pointer-events-none">
-                            Drag to turn · tap a part to name it
+                            Drag to turn · two fingers to pan · tap a part
                         </div>
                     )}
                 </div>
@@ -157,6 +171,8 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                 {/* Instrument card */}
                 <aside className="flex-1 md:flex-none md:w-96 min-h-0 overflow-y-auto bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 p-5 space-y-6 text-sm">
                     <p className="text-slate-300">{instrument.summary}</p>
+
+                    {id === 'kymograph' && <KymographControls kymo={kymo} />}
 
                     <section>
                         <h2 className="text-[10px] font-bold uppercase text-slate-500 tracking-widest mb-2">Parts</h2>

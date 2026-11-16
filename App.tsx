@@ -11,7 +11,7 @@ import { GenesisOfFatigue } from './components/GenesisOfFatigue';
 import { DataPoint } from './types';
 import { reloadForNewVersion } from './components/chunkReload';
 import { INSTRUMENTS, type InstrumentId } from './instruments';
-import { makeWBCs, makeDebris, makeDust, wbcLook, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE, placeCell, W_NAMES } from './components/WBCField';
+import { makeWBCs, makeDebris, makeDust, wbcLook, bubbleLook, BubbleSharp, BubbleUp, BubbleDown, FloorDebris, CoverSlipDust, WBCSharp, WBCBright, WBCBlob, WBCDarkLobes, GrainShine, CellLayer, FocusKnob, COVER_SLIP_PLANE, WBC_FIELD_BG, RULING_BLUE, placeCell, W_NAMES } from './components/WBCField';
 import { useMicroscopeStage, Eyepiece, positionFor, RulingFrame, NeubauerRuling, LINE_THICKNESS, render4x4Grid, renderCenterDenseGrid } from './components/CountingMicroscope';
 
 // Lazy load heavy components
@@ -33,6 +33,8 @@ const OsmoticFragility = lazy(() => import('./components/OsmoticFragility').then
 const BloodGrouping = lazy(() => import('./components/BloodGrouping').then(m => ({ default: m.BloodGrouping })).catch(reloadForNewVersion));
 const BleedingClottingTime = lazy(() => import('./components/BleedingClottingTime').then(m => ({ default: m.BleedingClottingTime })).catch(reloadForNewVersion));
 const PlateletCount = lazy(() => import('./components/HemocytometerCount').then(m => ({ default: m.PlateletCount })).catch(reloadForNewVersion));
+const AbsoluteEosinophilCount = lazy(() => import('./components/HemocytometerCount').then(m => ({ default: m.AbsoluteEosinophilCount })).catch(reloadForNewVersion));
+const ReticulocyteCount = lazy(() => import('./components/ReticulocyteCount').then(m => ({ default: m.ReticulocyteCount })).catch(reloadForNewVersion));
 const ESR = lazy(() => import('./components/ESR').then(m => ({ default: m.ESR })).catch(reloadForNewVersion));
 const QuestionBank = lazy(() => import('./components/QuestionBank').then(m => ({ default: m.QuestionBank })).catch(reloadForNewVersion));
 const InstrumentViewer = lazy(() => import('./components/InstrumentViewer').then(m => ({ default: m.InstrumentViewer })).catch(reloadForNewVersion));
@@ -88,7 +90,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-langendorff';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -117,6 +119,8 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'blood-grouping': 'Blood Grouping',
   'bt-ct': 'Bleeding & Clotting Time',
   'platelet-count': 'Platelet Count',
+  'aec-count': 'Absolute Eosinophil Count',
+  'reticulocyte-count': 'Reticulocyte Count',
   'question-bank': 'Question Bank',
   'genesis-tetanus': 'Genesis of Tetanus',
   'effect-of-temperature': 'Effect of Temperature',
@@ -130,6 +134,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'instrument-rbc-pipette': 'RBC Pipette',
   'instrument-wbc-pipette': 'WBC Pipette',
   'instrument-neubauer-chamber': 'Neubauer Chamber',
+  'instrument-kymograph': 'Kymograph',
   'instrument-langendorff': 'Langendorff Apparatus',
 };
 
@@ -160,12 +165,15 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'blood-grouping': 'Hematology',
   'bt-ct': 'Hematology',
   'platelet-count': 'Hematology',
+  'aec-count': 'Hematology',
+  'reticulocyte-count': 'Hematology',
   'question-bank': 'Navigation',
   'microscope': 'Microscope',
   'instruments': 'Navigation',
   'instrument-rbc-pipette': 'Instruments',
   'instrument-wbc-pipette': 'Instruments',
   'instrument-neubauer-chamber': 'Instruments',
+  'instrument-kymograph': 'Instruments',
   'instrument-langendorff': 'Instruments',
 };
 
@@ -445,6 +453,7 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [dust] = useState(makeDust);
   const [focus, setFocus] = useState(0);   // fine focus: 0 = cells sharp
   const look = wbcLook(focus);
+  const bubble = bubbleLook(focus);
 
   // The count: a tap on a white cell in a W square counts it (again to uncount); a tap on anything else says what it is
   const [counted, setCounted] = useState<Set<number>>(() => new Set());
@@ -526,6 +535,14 @@ const WBCExperiment: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <CellLayer opacity={look.darkLobes}><WBCDarkLobes cells={cells} /></CellLayer>
             <CellLayer opacity={look.sharp}><WBCSharp cells={cells} /></CellLayer>
             <CellLayer opacity={look.bright}><WBCBright cells={cells} /></CellLayer>
+          </div>
+        ) },
+        // Air bubbles in the fluid, each look cross-faded by the fine focus
+        { defocus: bubble.defocus, render: () => (
+          <div className="relative w-full h-full">
+            <CellLayer opacity={bubble.down}><BubbleDown debris={debris} /></CellLayer>
+            <CellLayer opacity={bubble.sharp}><BubbleSharp debris={debris} /></CellLayer>
+            <CellLayer opacity={bubble.up}><BubbleUp debris={debris} /></CellLayer>
           </div>
         ) },
         // Dust on the cover slip, sharp in a higher plane
@@ -2538,16 +2555,14 @@ const App: React.FC = () => {
                 description="Pilot's fluid and the WBC pipette: count eosinophils in the four corner squares."
                 icon={<Sparkles className="w-8 h-8" />}
                 colorClass="pink"
-                onClick={() => {}}
-                comingSoon
+                onClick={() => navigateTo('aec-count')}
               />
               <MenuCard
                 title="Reticulocyte Count"
                 description="Supravital staining with brilliant cresyl blue; count reticulocytes per 1000 red cells."
                 icon={<Network className="w-8 h-8" />}
                 colorClass="blue"
-                onClick={() => {}}
-                comingSoon
+                onClick={() => navigateTo('reticulocyte-count')}
               />
             </div>
           </div>
@@ -2577,19 +2592,11 @@ const App: React.FC = () => {
                   key={instrument.id}
                   title={instrument.name}
                   description={instrument.summary}
-                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : instrument.id === 'langendorff' ? <Heart className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
-                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal', 'langendorff': 'pink' }[instrument.id]}
+                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : instrument.id === 'kymograph' ? <Disc3 className="w-8 h-8" /> : instrument.id === 'langendorff' ? <Heart className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
+                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal', 'kymograph': 'yellow', 'langendorff': 'pink' }[instrument.id]}
                   onClick={() => navigateTo(`instrument-${instrument.id}`)}
                 />
               ))}
-              <MenuCard
-                title="Kymograph"
-                description="The recording drum used for the amphibian practicals."
-                icon={<Disc3 className="w-8 h-8" />}
-                colorClass="yellow"
-                onClick={() => {}}
-                comingSoon
-              />
               <MenuCard
                 title="Sahli's Haemoglobinometer"
                 description="Comparator, graduated tube, Hb pipette and stirrer used for haemoglobin estimation."
@@ -2614,6 +2621,7 @@ const App: React.FC = () => {
     case 'instrument-rbc-pipette':
     case 'instrument-wbc-pipette':
     case 'instrument-neubauer-chamber':
+    case 'instrument-kymograph':
     case 'instrument-langendorff': {
       const id = currentView.replace('instrument-', '') as InstrumentId;
       return (
@@ -2671,6 +2679,18 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Platelet Count..." />}>
           <PlateletCount onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'aec-count':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Absolute Eosinophil Count..." />}>
+          <AbsoluteEosinophilCount onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'reticulocyte-count':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Reticulocyte Count..." />}>
+          <ReticulocyteCount onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'question-bank':

@@ -15,17 +15,17 @@ import { Minus, Plus } from 'lucide-react';
 
 export const WBC_FIELD_BG = '#b4bac0';
 
-const FIELD_MIN = -260, FIELD_MAX = 1160;
+export const FIELD_MIN = -260, FIELD_MAX = 1160;
 const SPAN = FIELD_MAX - FIELD_MIN;
-const SQUARES = (SPAN * SPAN) / (300 * 300);          // field area in 1 mm squares
+export const SQUARES = (SPAN * SPAN) / (300 * 300);   // field area in 1 mm squares
 
-const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+export const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 const n2 = (v: number) => v.toFixed(2);
-const circlePath = (cx: number, cy: number, r: number) =>
+export const circlePath = (cx: number, cy: number, r: number) =>
   `M${n2(cx - r)},${n2(cy)}a${n2(r)},${n2(r)} 0 1,0 ${n2(2 * r)},0a${n2(r)},${n2(r)} 0 1,0 ${n2(-2 * r)},0`;
 // An irregular rounded outline around a point, as a closed path: a flake of debris, not a cell
-const flake = (cx: number, cy: number, r: number, n = 7, jitter = 0.5, squash = 1) => {
+export const flake = (cx: number, cy: number, r: number, n = 7, jitter = 0.5, squash = 1) => {
   const a0 = rnd(0, Math.PI * 2), tilt = rnd(0, Math.PI);
   const pts: [number, number][] = [];
   for (let i = 0; i < n; i++) {
@@ -91,7 +91,7 @@ export interface Debris {
   fibres: { d: string; w: number; o: number }[];
   clumps: { flakes: string[]; grains: string }[];
   precipitate: string[];                                   // crystals of stain, as polygon points
-  bubbles: { x: number; y: number; r: number }[];
+  bubbles: { x: number; y: number; r: number; rim: number }[];   // rim: width of the dark ring, as a fraction of r
   epithelial: { outline: string; folds: string; grains: string; nx: number; ny: number; nr: number }[];
 }
 
@@ -119,8 +119,9 @@ const shard = (cx: number, cy: number, r: number) => {
 };
 
 // What lies on the chamber floor with the cells: specks and flakes (a few as big as a cell), the faint ghosts of
-// lysed red cells, pale smudges, the odd fibre and a few clumps of squames
-export const makeDebris = (): Debris => {
+// lysed red cells, pale smudges, the odd fibre and a few clumps of squames. precipitate is the share of the specks that
+// are crystals of stain (fewer in a filtered fluid such as Pilot's).
+export const makeDebris = ({ precipitate: crystals = 0.06 }: { precipitate?: number } = {}): Debris => {
   const at = () => [rnd(FIELD_MIN, FIELD_MAX), rnd(FIELD_MIN, FIELD_MAX)] as const;
   // Fine grain everywhere: thousands of dots, drawn as three paths
   const grains: Debris['grains'] = [['#5b6475', 0.45], ['#7a6a55', 0.4], ['#8a93a6', 0.5]].map(([fill, o]) => {
@@ -133,7 +134,7 @@ export const makeDebris = (): Debris => {
   const specks: Debris['specks'] = [];
   for (let i = 0; i < Math.round(80 * SQUARES); i++) {
     const [x, y] = at(), kind = Math.random();
-    if (kind < 0.06) {
+    if (kind < crystals) {
       // A crystal of the stain: dark violet like a nucleus, but angular
       const r = rnd(0.8, 1.9);
       precipitate.push(shard(x, y, r));
@@ -153,7 +154,11 @@ export const makeDebris = (): Debris => {
   const ghosts: Debris['ghosts'] = [];
   for (let i = 0; i < Math.round(22 * SQUARES); i++) { const [x, y] = at(); ghosts.push({ x, y, r: rnd(0.95, 1.25) }); things.push({ x, y, r: 1.3, what: 'Ghost of a lysed red cell' }); }
   const smudges: Debris['smudges'] = [];
-  for (let i = 0; i < Math.round(4 * SQUARES); i++) { const [x, y] = at(); smudges.push({ pts: flake(x, y, rnd(4, 12), 9, 0.4, rnd(0.5, 1)), o: rnd(0.05, 0.12) }); }
+  for (let i = 0; i < Math.round(4 * SQUARES); i++) {
+    const [x, y] = at(), r = rnd(4, 12);
+    smudges.push({ pts: flake(x, y, r, 9, 0.4, rnd(0.5, 1)), o: rnd(0.05, 0.12) });
+    things.push({ x, y, r: r * 0.8, what: 'Smudge on the chamber floor, not a cell' });
+  }
   const fibres: Debris['fibres'] = [];
   for (let i = 0; i < 14; i++) { const f = fibre([14, 55], 'Fibre, not a cell'); fibres.push({ d: f.d, w: rnd(0.2, 0.45), o: rnd(0.25, 0.45) }); things.push(...f.things); }
   const clumps: Debris['clumps'] = [];
@@ -165,11 +170,14 @@ export const makeDebris = (): Debris => {
     for (let k = 0; k < 22; k++) grains += circlePath(x + rnd(-8, 8), y + rnd(-7, 7), rnd(0.12, 0.3));
     clumps.push({ flakes, grains });
   }
-  // Air bubbles: perfect circles of any size with a thick dark rim
+  // Air bubbles: perfect circles of any size with a thick dark rim. Air has a lower refractive index than the fluid,
+  // so a bubble is a diverging lens: light through its edge is bent out of the objective (the black ring) and light
+  // through its middle passes (the bright centre). A small bubble is a sphere with a thick rim; one wider than the
+  // chamber is deep (0.1 mm, about 30 units) is squashed flat between floor and cover slip, and its rim is thinner.
   const bubbles: Debris['bubbles'] = [];
   for (let i = 0; i < 8; i++) {
-    const [x, y] = at(), r = Math.random() < 0.6 ? rnd(2.2, 4.5) : rnd(5, 11);
-    bubbles.push({ x, y, r }); things.push({ x, y, r, what: 'Air bubble, not a cell' });
+    const u = Math.random(), [x, y] = at(), r = u < 0.55 ? rnd(2.2, 4.5) : u < 0.88 ? rnd(5, 11) : rnd(14, 26);
+    bubbles.push({ x, y, r, rim: r < 12 ? rnd(0.26, 0.34) : rnd(0.12, 0.18) }); things.push({ x, y, r, what: 'Air bubble, not a cell' });
   }
   // Epithelial cells (squames from the skin): large, flat and folded, with a small nucleus
   const epithelial: Debris['epithelial'] = [];
@@ -207,20 +215,21 @@ export const makeDust = (): Dust => {
 // the bottom or right line is not.
 export const W_SQUARES = [[0, 0], [600, 0], [0, 600], [600, 600]];
 export const W_NAMES = ['Top left', 'Top right', 'Bottom left', 'Bottom right'];
-export const placeCell = (c: WBC): { square: number; note: string } => {
+export const placeCell = (c: { x: number; y: number; r: number }, name = 'White cell'): { square: number; note: string } => {
   for (let i = 0; i < 4; i++) {
     const [x0, y0] = W_SQUARES[i], dx = c.x - x0, dy = c.y - y0;
     if (dx < -c.r || dx > 300 + c.r || dy < -c.r || dy > 300 + c.r) continue;
-    if (dx >= 300 - c.r) return { square: -1, note: 'White cell on the right line: not counted' };
-    if (dy >= 300 - c.r) return { square: -1, note: 'White cell on the bottom line: not counted' };
-    if (dx < c.r) return { square: i, note: 'White cell on the left line: counted' };
-    if (dy < c.r) return { square: i, note: 'White cell on the top line: counted' };
-    return { square: i, note: 'White cell: counted' };
+    if (dx >= 300 - c.r) return { square: -1, note: `${name} on the right line: not counted` };
+    if (dy >= 300 - c.r) return { square: -1, note: `${name} on the bottom line: not counted` };
+    if (dx < c.r) return { square: i, note: `${name} on the left line: counted` };
+    if (dy < c.r) return { square: i, note: `${name} on the top line: counted` };
+    return { square: i, note: `${name}: counted` };
   }
-  return { square: -1, note: 'White cell, but outside the W squares' };
+  return { square: -1, note: `${name}, but outside the W squares` };
 };
 
-export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
+// stain: colour of the crystals of stain (gentian violet in the WBC count)
+export const FloorDebris = React.memo(({ debris, stain = '#2c2350' }: { debris: Debris; stain?: string }) => (
   <g pointerEvents="none">
     {debris.smudges.map((s, i) => <path key={`m${i}`} d={s.pts} fill="#6f7882" opacity={s.o * 1.6} />)}
     {debris.grains.map((g, i) => <path key={`n${i}`} d={g.d} fill={g.fill} opacity={g.o} />)}
@@ -240,14 +249,8 @@ export const FloorDebris = React.memo(({ debris }: { debris: Debris }) => (
         <circle cx={e.nx} cy={e.ny} r={e.nr} fill="#6d6c8c" fillOpacity={0.8} stroke="#3f3d55" strokeWidth={0.18} />
       </g>
     ))}
-    {debris.bubbles.map((b, i) => (
-      <g key={`b${i}`}>
-        <circle cx={b.x} cy={b.y} r={b.r * 0.86} fill="#d5dade" fillOpacity={0.75} stroke="#23282f" strokeWidth={b.r * 0.28} />
-        <circle cx={b.x} cy={b.y} r={b.r * 0.55} fill="none" stroke="#ffffff" strokeWidth={b.r * 0.06} strokeOpacity={0.6} />
-      </g>
-    ))}
     {debris.specks.map((s, i) => <path key={`s${i}`} d={s.pts} fill={s.fill} opacity={s.o} />)}
-    {debris.precipitate.map((pts, i) => <polygon key={`p${i}`} points={pts} fill="#2c2350" opacity={0.88} />)}
+    {debris.precipitate.map((pts, i) => <polygon key={`p${i}`} points={pts} fill={stain} opacity={0.88} />)}
   </g>
 ));
 
@@ -308,6 +311,48 @@ export const GrainShine = React.memo(({ debris }: { debris: Debris }) => (
   </g>
 ));
 
+// The looks of an air bubble through the fine focus, cross-faded by bubbleLook like the cells. Bubbles sit in the
+// fluid above the floor, so the ruling and cells under one show faintly through its clear centre.
+// In focus: a black ring round a clear centre, with a thin bright line just inside the ring
+export const BubbleSharp = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.bubbles.map((b, i) => (
+      <g key={i}>
+        <circle cx={b.x} cy={b.y} r={b.r * (1 - b.rim)} fill="#e6eaed" fillOpacity={0.4} stroke="#ffffff" strokeWidth={b.r * 0.04} strokeOpacity={0.7} />
+        <circle cx={b.x} cy={b.y} r={b.r * (1 - b.rim / 2)} fill="none" stroke="#1f242b" strokeWidth={b.r * b.rim} />
+        {b.r < 12 && <circle cx={b.x} cy={b.y} r={b.r * 0.12} fill="#ffffff" fillOpacity={0.45} />}
+      </g>
+    ))}
+  </g>
+));
+// Focus raised: the bright (Becke) line moves into the bubble, the lower index, and gathers into a bright centre spot
+// while the dark ring widens
+export const BubbleUp = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.bubbles.map((b, i) => {
+      const rim = Math.min(0.55, b.rim * 1.6);
+      return (
+        <g key={i}>
+          <circle cx={b.x} cy={b.y} r={b.r * (1 - rim / 2)} fill="#eef1f3" fillOpacity={0.5} stroke="#262b33" strokeWidth={b.r * rim} />
+          <circle cx={b.x} cy={b.y} r={b.r * (b.r < 12 ? 0.22 : 0.4)} fill="#ffffff" fillOpacity={0.9} />
+        </g>
+      );
+    })}
+  </g>
+));
+// Focus lowered: the bright line moves out into the fluid as a pale halo round a thinner, greyer ring, and the
+// centre dims to grey
+export const BubbleDown = React.memo(({ debris }: { debris: Debris }) => (
+  <g pointerEvents="none">
+    {debris.bubbles.map((b, i) => (
+      <g key={i}>
+        <circle cx={b.x} cy={b.y} r={b.r * 1.08} fill="none" stroke="#ffffff" strokeWidth={b.r * 0.1} strokeOpacity={0.6} />
+        <circle cx={b.x} cy={b.y} r={b.r * (1 - b.rim * 0.35)} fill="#9aa1a8" fillOpacity={0.45} stroke="#454c55" strokeWidth={b.r * b.rim * 0.7} strokeOpacity={0.85} />
+      </g>
+    ))}
+  </g>
+));
+
 // One look as its own layer over the slide: fading a layer is then done by the compositor, with no repainting
 export const CellLayer: React.FC<{ opacity: number; children: React.ReactNode }> = ({ opacity, children }) => (
   <svg width="100%" height="100%" viewBox="0 0 900 900" overflow="visible" className="absolute inset-0"
@@ -350,6 +395,17 @@ export const RULING_BLUE = '#8794ee';
 
 // The plane of the cover-slip dust on the same scale
 export const COVER_SLIP_PLANE = 62;
+// Bubbles float in the fluid, their sharpest plane a little above the cells on the floor
+export const BUBBLE_PLANE = 5;
+export const bubbleLook = (focus: number) => {
+  const d = focus - BUBBLE_PLANE, up = Math.max(0, d), down = Math.max(0, -d);
+  return {
+    sharp: 1 - step(2, 16, Math.abs(d)),
+    up: step(2, 16, up) * (1 - 0.8 * step(50, 100, up)),
+    down: step(2, 16, down) * (1 - 0.7 * step(50, 100, down)),
+    defocus: Math.abs(d) * 0.5,
+  };
+};
 
 // Fine-focus control: a slider with nudge buttons either side, and a label saying whether the cells are in focus.
 // It does not say what to look for.

@@ -4,7 +4,7 @@ import { GHAI, PAL, JAIN } from '../questions/books';
 // menu stays light; the 3D viewer and the models load only when an instrument is opened.
 // Facts from CL Ghai and GK Pal, written in our own words; page numbers are the printed pages of the user's copies.
 
-export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber' | 'langendorff';
+export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber' | 'kymograph' | 'langendorff';
 
 export interface InstrumentPart {
     id: string;   // matches the part's mesh in the 3D model
@@ -131,6 +131,46 @@ export const INSTRUMENTS: Instrument[] = [
         ],
         source: `${GHAI}, pp. 24, 28–30; ${PAL}, pp. 42–43; ${JAIN}, p. 10`,
         experiment: { view: 'rbc-count', label: 'RBC Count' },
+    },
+    {
+        id: 'kymograph',
+        name: 'Kymograph',
+        alsoCalled: 'E-8 recording drum · Sherrington–Starling type · student kymograph',
+        summary: 'A drum turning at a known, steady speed under a writing lever, so a movement is written out against time.',
+        usedFor: [
+            'Recording the movements of a muscle or the heart (amphibian practicals): simple muscle twitch, effect of load, temperature and successive stimuli, tetanus, fatigue, and the frog\'s heart beat.',
+        ],
+        parts: [
+            { id: 'base', name: 'Cabinet (motor & gear box)', note: 'A white steel cabinet on rubber feet, holding a constant-speed electric motor and the gear box that turns the spindle. Louvres on the side let the motor cool.' },
+            { id: 'speed', name: 'Speed lever', note: 'Slides in a gated slot to one of eight gear steps, marked in millimetres of paper passing the writing point each second with the 6 inch drum: .12, .25, 1.25, 2.5, 12.5, 25, 320 and 640 mm/s. At N (neutral) the motor runs but the drum is not driven.' },
+            { id: 'switch', name: 'Mains switch', note: 'Red rocker switch that glows while the motor is on, beside the mains socket (220 V AC).' },
+            { id: 'clutch', name: 'Neutralising clutch', note: 'Lever on the side: ENG(aged) couples the drum to the gear box; DIS ENG(aged) frees it, so it stops at once and can be turned by hand to bring the paper to the writing point.' },
+            { id: 'spindle', name: 'Spindle', note: 'Vertical chrome-plated steel shaft, turned by the gear box. The drum is clamped on it and turns with it.' },
+            { id: 'lift', name: 'Screw lift', note: 'The stepped, knurled head on top of the spindle raises or lowers the drum on it, so several tracings can be written one above the other on the same paper.' },
+            { id: 'drum', name: 'Recording drum', note: 'A 6 inch (15 cm) cylinder with cross-spoked ends, so its surface is 47 cm round. A lever on its top hub clamps it to the spindle.' },
+            { id: 'paper', name: 'Smoked paper', note: 'Glazed paper wrapped round the drum, its ends glued, then blackened with soot from a smoky flame. The writing point scratches the soot away, leaving a white line. Afterwards the tracing is fixed by dipping it in varnish (shellac or resin in spirit).' },
+            { id: 'contact', name: 'Contact arm & terminals', note: 'A black arm clamped on the spindle meets a spring contact in a clear acrylic block once every turn, closing a circuit through the red and black terminals. Wired to the stimulator, it gives a stimulus at the same point on the paper each turn, so successive curves fall one on top of another. The arm is set round so they fall clear of the paper\'s glued seam.' },
+            { id: 'lever', name: 'Writing lever', note: 'An accessory on its own stand. A light lever pivoted near one end: the muscle pulls the short arm, and the long arm magnifies the movement about ten times at the writing point.' },
+            { id: 'stylus', name: 'Writing point', note: 'A thin, flexible strip at the tip of the lever. It must lie parallel to the drum and touch it only lightly, or friction will spoil the curve.' },
+            { id: 'stand', name: 'Stand & clamps', note: 'Heavy stand on a triangular cast foot, with boss heads holding the lever\'s pivot and the femur of the muscle.' },
+            { id: 'muscle', name: 'Muscle & thread', note: 'Frog gastrocnemius, its femur clamped and its tendon tied by a thread to the hook on the lever\'s short arm. On stimulating it twitches: latent period about 10 ms, contraction 40 ms, relaxation 50 ms.' },
+        ],
+        facts: [
+            'Kymograph means wave writer (Greek kyma, wave; graphein, to write). Carl Ludwig introduced it in 1847.',
+            'The drum turns so the paper under the writing point moves to the left: the tracing reads from left to right in time.',
+            'Paper speed is distance per second, so time on a tracing = length ÷ speed. At 640 mm/s a twitch of 0.1 s is 64 mm long; at 2.5 mm/s it is a line only 0.25 mm wide.',
+            'With the drum still, a still lever makes a point and a twitch makes a vertical line; with the drum turning, a still lever writes a level base line.',
+        ],
+        viva: [
+            { q: 'What is a kymograph?', a: 'A recording drum turning at a known, steady speed, on which a writing lever records a movement against time.' },
+            { q: 'Why is the paper smoked?', a: 'A writing point scratching soot needs very little force, so the friction hardly alters the movement being recorded.' },
+            { q: 'Which drum speed is used to record a simple muscle twitch?', a: 'The fastest speed, so the 0.1 s twitch is spread out enough to measure its latent, contraction and relaxation periods.' },
+            { q: 'Which speed is used for fatigue or the heart beat?', a: 'A slow speed, so many contractions over minutes fit on one turn of the drum.' },
+            { q: 'How are successive curves superimposed?', a: 'By stimulating from the contact on the spindle, which closes at the same point of every turn.' },
+            { q: 'How is a tracing preserved?', a: 'It is cut off the drum, labelled, and dipped in varnish (shellac or resin dissolved in spirit) and dried, which fixes the soot.' },
+        ],
+        source: 'Makers\' photographs and specifications of the E-8 electrically driven recording drum (6 inch drum, eight speeds 0.12–640 mm/s and neutral, neutralising clutch); Science Museum Group and Physiological Society descriptions of the smoked drum',
+        experiment: { view: 'twitch', label: 'Simple Muscle Twitch' },
     },
     {
         id: 'langendorff',
