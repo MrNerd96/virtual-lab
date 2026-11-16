@@ -4,7 +4,7 @@ import { GHAI, PAL, JAIN } from '../questions/books';
 // menu stays light; the 3D viewer and the models load only when an instrument is opened.
 // Facts from CL Ghai and GK Pal, written in our own words; page numbers are the printed pages of the user's copies.
 
-export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber';
+export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber' | 'langendorff';
 
 export interface InstrumentPart {
     id: string;   // matches the part's mesh in the 3D model
@@ -22,7 +22,7 @@ export interface Instrument {
     facts: string[];                            // how it works
     viva: { q: string; a: string }[];
     source: string;
-    experiment: { view: string; label: string }; // the practical it is used in
+    experiment?: { view: string; label: string }; // the practical it is used in, if the app has it
     compareWith?: InstrumentId;
 }
 
@@ -131,6 +131,44 @@ export const INSTRUMENTS: Instrument[] = [
         ],
         source: `${GHAI}, pp. 24, 28–30; ${PAL}, pp. 42–43; ${JAIN}, p. 10`,
         experiment: { view: 'rbc-count', label: 'RBC Count' },
+    },
+    {
+        id: 'langendorff',
+        name: 'Langendorff Apparatus',
+        alsoCalled: 'Isolated mammalian heart perfusion apparatus',
+        summary: 'Keeps an isolated mammalian heart beating by perfusing its coronary vessels through the aorta with warm, oxygenated fluid.',
+        usedFor: [
+            'Recording the beat of an isolated mammalian heart and the effects of ions, drugs and temperature on it.',
+            'Measuring the coronary flow, by collecting the fluid that drips from the heart.',
+        ],
+        // The model follows photographs of the department's own apparatus. How each part is used is written from general
+        // knowledge of the method and has not been checked against the textbooks.
+        parts: [
+            { id: 'reservoirs', name: 'Reservoir bottles', note: 'Two bottles of perfusion fluid held high on the stand, each with an outlet at its foot. With two, the heart can be changed from the plain fluid to one carrying a drug or a different ion.' },
+            { id: 'head-tubes', name: 'Pressure-head tubes', note: 'Tall open glass tubes, one fed by each bottle. The height of the fluid above the heart is the perfusion pressure. A fine glass tube runs down each one to bubble oxygen through the fluid.' },
+            { id: 'y-piece', name: 'Y-piece', note: 'Joins the two columns into the single tube that runs down to the bath. Closing one limb with a clip chooses which fluid reaches the heart.' },
+            { id: 'bath', name: 'Thermostatic bath', note: 'A clear tank of water kept at body temperature. Everything the fluid passes through on its way to the heart stands in it.' },
+            { id: 'inner-tubes', name: 'Inner glass tubes', note: 'Two glass tubes standing in the bath on rubber stoppers (this is a two-unit bath), each with a bent glass tube clamped over it. The left one drains through a tube closed by a clip.' },
+            { id: 'coil', name: 'Warming coil', note: 'A glass spiral lying in the bath. The fluid runs through it and reaches the temperature of the water before it enters the heart.' },
+            { id: 'heater', name: 'Immersion heater', note: 'A U-shaped heating element in the water. The controller switches it on and off to hold the set temperature.' },
+            { id: 'stirrer', name: 'Stirrer pump', note: 'A small pump that keeps the water moving, so the whole bath is at one temperature.' },
+            { id: 'probe', name: 'Temperature probe', note: 'Dips into the water and tells the controller its temperature.' },
+            { id: 'control', name: 'Control panel', note: 'Mains switch, the switch for the heater and stirrer, and a digital controller showing the measured temperature (PV) above the set temperature (SV).' },
+            { id: 'cannula', name: 'Heart cannula', note: 'The glass piece under the bath. The aorta is tied on its tip, so fluid enters the aorta backwards, shuts the aortic valve and passes into the coronary arteries. The hook below takes the apex of the heart.' },
+            { id: 'thermometer', name: 'Thermometer', note: 'Fits into the cannula and shows the temperature of the fluid just before it reaches the heart.' },
+            { id: 'manometer', name: 'Mercury manometer', note: 'A U-tube of mercury with a scale in centimetres. Joined to the side arm of the cannula, it shows the perfusion pressure.' },
+            { id: 'pulleys', name: 'Pulleys and thread', note: 'A thread from the hook in the apex runs under one pulley and round a second, carrying the pull of each beat to the lever.' },
+            { id: 'lever', name: 'Heart lever', note: 'A light brass lever with a notched arm, a return spring and a writing point. It magnifies the heart\'s movement and writes it on a moving drum.' },
+            { id: 'holders', name: 'Brass holders', note: 'Brass clamps on the rim of the bath that carry spring wires for holding a preparation over the bath.' },
+            { id: 'stand', name: 'Stand', note: 'A heavy base plate with two tall uprights for the reservoirs, the frame that carries the bath, and cross bars for the cannula, pulleys and lever.' },
+        ],
+        facts: [
+            'The heart is perfused backwards through the aorta: the fluid cannot enter the ventricle, so it goes down the coronary arteries.',
+            'The fluid must be oxygenated, at body temperature and at a steady pressure.',
+            'The fluid leaves by the coronary sinus and right heart and drips from the heart; the volume collected per minute is the coronary flow.',
+        ],
+        viva: [],
+        source: 'Modelled on photographs of the department\'s apparatus',
     },
 ];
 

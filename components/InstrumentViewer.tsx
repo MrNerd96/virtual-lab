@@ -6,6 +6,7 @@ import { ArrowLeft, Sun, Moon } from 'lucide-react';
 import { LabEnvironment } from './LabEnvironment';
 import { DilutingPipette } from './DilutingPipette';
 import { NeubauerChamber } from './NeubauerChamber';
+import { LangendorffApparatus } from './LangendorffApparatus';
 import { instrumentById, type InstrumentId } from '../instruments';
 
 // One screen for every instrument: a 3D model to turn and explore on the left (top on phones), and the
@@ -17,6 +18,7 @@ const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: st
         case 'rbc-pipette': return <DilutingPipette kind="rbc" {...rest} />;
         case 'wbc-pipette': return <DilutingPipette kind="wbc" {...rest} />;
         case 'neubauer-chamber': return <NeubauerChamber {...rest} />;
+        case 'langendorff': return <LangendorffApparatus {...rest} />;
     }
 };
 
@@ -32,6 +34,28 @@ const VIEWS: Record<InstrumentId, { all: View; closeUp?: Record<string, View> }>
     'neubauer-chamber': {
         all: { center: [0, -1, 0], halfW: 44, halfH: 21, from: [0.15, 1.3, 0.9] },
         closeUp: { grid: { center: [0, -0.1, 7.6], halfW: 1.7, halfH: 1.7, from: [0, 1, 0.3] } },
+    },
+    // A tall apparatus (about 1.2 m): seen whole from the front, with a close-up for each group of parts
+    'langendorff': {
+        all: { center: [2, 59, 0], halfW: 34, halfH: 64, from: [0.35, 0.12, 1] },
+        closeUp: {
+            'reservoirs': { center: [0, 108, -4], halfW: 19, halfH: 13, from: [0.1, 0.1, 1] },
+            'head-tubes': { center: [0, 103, -4], halfW: 10, halfH: 19, from: [0.15, 0.05, 1] },
+            'y-piece': { center: [2, 76, -1], halfW: 9, halfH: 14, from: [0.2, 0.1, 1] },
+            'bath': { center: [0, 50, 0], halfW: 17, halfH: 15, from: [0.4, 0.35, 1] },
+            'inner-tubes': { center: [0, 52, 1], halfW: 15, halfH: 17, from: [0.2, 0.5, 1] },
+            'coil': { center: [0, 44, -3], halfW: 8, halfH: 7, from: [0.3, 0.8, 1] },
+            'heater': { center: [3, 43, 6], halfW: 9, halfH: 7, from: [0.5, 0.7, 1] },
+            'stirrer': { center: [-8, 50, -2], halfW: 8, halfH: 8, from: [-0.5, 0.4, 1] },
+            'probe': { center: [-9.6, 53, 4], halfW: 7, halfH: 12, from: [-0.5, 0.3, 1] },
+            'control': { center: [3, 31, 16], halfW: 10, halfH: 7, from: [0.05, 0.05, 1] },
+            'cannula': { center: [1, 22, 7], halfW: 8, halfH: 7, from: [0.25, -0.3, 1] },
+            'thermometer': { center: [5, 22, 7], halfW: 9, halfH: 5, from: [0.1, 0.1, 1] },
+            'manometer': { center: [-20, 23, 7], halfW: 7, halfH: 12, from: [-0.1, 0.05, 1] },
+            'pulleys': { center: [11, 14, 7], halfW: 16, halfH: 8, from: [0.1, 0.1, 1] },
+            'lever': { center: [28, 21, 7], halfW: 12, halfH: 6, from: [0.1, 0.1, 1] },
+            'holders': { center: [0, 70, -4], halfW: 18, halfH: 10, from: [0.1, 0.25, 1] },
+        },
     },
 };
 
@@ -154,10 +178,12 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
                                 Compare with the {compare.name}
                             </button>
                         )}
-                        <button onClick={() => onOpen(instrument.experiment.view)}
-                            className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl border border-indigo-500/40 transition-colors">
-                            Open the {instrument.experiment.label} experiment
-                        </button>
+                        {instrument.experiment && (
+                            <button onClick={() => onOpen(instrument.experiment!.view)}
+                                className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 rounded-xl border border-indigo-500/40 transition-colors">
+                                Open the {instrument.experiment.label} experiment
+                            </button>
+                        )}
                     </div>
                 </aside>
             </main>

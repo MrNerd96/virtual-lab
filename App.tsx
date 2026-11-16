@@ -88,7 +88,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-langendorff';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -130,6 +130,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'instrument-rbc-pipette': 'RBC Pipette',
   'instrument-wbc-pipette': 'WBC Pipette',
   'instrument-neubauer-chamber': 'Neubauer Chamber',
+  'instrument-langendorff': 'Langendorff Apparatus',
 };
 
 const MODULE_CATEGORIES: Record<ViewState, string> = {
@@ -165,6 +166,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'instrument-rbc-pipette': 'Instruments',
   'instrument-wbc-pipette': 'Instruments',
   'instrument-neubauer-chamber': 'Instruments',
+  'instrument-langendorff': 'Instruments',
 };
 
 let _moduleEntryTime: number | null = null;
@@ -2575,8 +2577,8 @@ const App: React.FC = () => {
                   key={instrument.id}
                   title={instrument.name}
                   description={instrument.summary}
-                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
-                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal' }[instrument.id]}
+                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : instrument.id === 'langendorff' ? <Heart className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
+                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal', 'langendorff': 'pink' }[instrument.id]}
                   onClick={() => navigateTo(`instrument-${instrument.id}`)}
                 />
               ))}
@@ -2611,7 +2613,8 @@ const App: React.FC = () => {
 
     case 'instrument-rbc-pipette':
     case 'instrument-wbc-pipette':
-    case 'instrument-neubauer-chamber': {
+    case 'instrument-neubauer-chamber':
+    case 'instrument-langendorff': {
       const id = currentView.replace('instrument-', '') as InstrumentId;
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Instrument..." />}>
