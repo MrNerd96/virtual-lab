@@ -26,6 +26,7 @@ const EffectOfStimulusStrength = lazy(() => import('./components/EffectOfStimulu
 const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').then(m => ({ default: m.ConductionVelocity })).catch(reloadForNewVersion));
 const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })).catch(reloadForNewVersion));
 const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })).catch(reloadForNewVersion));
+const FrogHeartPerfusion = lazy(() => import('./components/FrogHeartPerfusion').then(m => ({ default: m.FrogHeartPerfusion })).catch(reloadForNewVersion));
 const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })).catch(reloadForNewVersion));
 const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })).catch(reloadForNewVersion));
 const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })).catch(reloadForNewVersion));
@@ -78,7 +79,8 @@ import {
   Disc3,
   TestTube,
   Lock,
-  ChevronDown
+  ChevronDown,
+  HeartPulse
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -90,7 +92,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -130,6 +132,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'normal-cardiogram': 'Normal Cardiogram',
   'properties-cardiac-muscle': 'Properties of Cardiac Muscle',
   'vagus-wcl': 'Vagus & White Crescentic Line',
+  'frog-heart-perfusion': 'Perfusion of Frog\'s Heart',
   'instruments': 'Instruments Menu',
   'instrument-rbc-pipette': 'RBC Pipette',
   'instrument-wbc-pipette': 'WBC Pipette',
@@ -154,6 +157,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'normal-cardiogram': 'Amphibian',
   'properties-cardiac-muscle': 'Amphibian',
   'vagus-wcl': 'Amphibian',
+  'frog-heart-perfusion': 'Amphibian',
   'wbc-count': 'Hematology',
   'rbc-count': 'Hematology',
   'dlc-count': 'Hematology',
@@ -2457,6 +2461,13 @@ const App: React.FC = () => {
                 colorClass="yellow"
                 onClick={() => setCurrentView('vagus-wcl')}
               />
+              <MenuCard
+                title="Perfusion of Frog's Heart"
+                description="Isolated heart on a Syme's cannula: effect of ions, drugs and perfusion pressure."
+                icon={<HeartPulse className="w-8 h-8" />}
+                colorClass="red"
+                onClick={() => setCurrentView('frog-heart-perfusion')}
+              />
             </div>
           </div>
         </div>
@@ -2752,6 +2763,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Vagus & White Crescentic Line..." />}>
           <VagusAndWCL onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'frog-heart-perfusion':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Perfusion of Frog's Heart..." />}>
+          <FrogHeartPerfusion onBack={() => setCurrentView('amphibian')} />
         </Suspense>
       );
     case 'effect-of-load':
