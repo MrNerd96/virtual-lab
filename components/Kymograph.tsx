@@ -273,8 +273,6 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
                 {[-1, 1].map(col => [0, 1, 2, 3, 4, 5].map(i => (
                     <BoxM key={`${col}${i}`} size={[0.35, 0.45, 4.2]} pos={[-BASE.w / 2 - 0.12, BASE.y0 + 5 + i * 1.3, col * 3.2]} rot={[0, 0, 0.5]}><Enamel lit={lit('base')} /></BoxM>
                 )))}
-                {/* A small knurled screw on the top plate */}
-                <Knurled r={0.6} h={0.7} pos={[6.5, BASE_TOP + 0.35, 6]} lit={lit('base')} />
             </group>
 
             {/* Speed lever in its gated slot, on a black plate: eight gear steps and neutral */}
@@ -311,10 +309,9 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
                 </group>
                 <Text font={LABEL_FONT_BOLD} position={[-5.6, 3.95, FRONT + 0.02]} fontSize={0.35} color="#3a3a3a" anchorX="center" anchorY="middle">ON</Text>
                 <BoxM size={[2.2, 1.6, 0.25]} pos={[-5.6, 2.6, FRONT + 0.12]}><Black lit={lit('switch')} /></BoxM>
-                {/* Cable from the socket, out over the front and down to the bench */}
-                <mesh position={[-5.6, 2.6, FRONT + 1.4]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.32, 0.32, 2.5, 12]} /><Paint lit={lit('switch')} color="#f4f4f2" metal={0} rough={0.6} /></mesh>
-                <mesh position={[-5.6, 1.5, FRONT + 3]} rotation={[0.9, 0, 0]}><cylinderGeometry args={[0.3, 0.3, 3, 12]} /><Paint lit={lit('switch')} color="#f4f4f2" metal={0} rough={0.6} /></mesh>
-                <mesh position={[-5.6, 0.32, FRONT + 7.5]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.3, 0.3, 7, 12]} /><Paint lit={lit('switch')} color="#f4f4f2" metal={0} rough={0.6} /></mesh>
+                {/* Plug in the socket, and its cable running down to the bench and away along it */}
+                <BoxM size={[1.6, 1.2, 1.1]} pos={[-5.6, 2.6, FRONT + 0.8]}><Black lit={lit('switch')} /></BoxM>
+                <mesh geometry={MAINS_CABLE}><Paint lit={lit('switch')} color="#2a2b2e" metal={0} rough={0.7} /></mesh>
             </group>
 
             {/* Neutralising clutch on the right side: a lever over a ringed dial, ENG(aged) or DIS ENG(aged) */}
@@ -388,10 +385,10 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
                                 <Cyl r={1.6} h={1} pos={[0, 0, 0]}><Black lit={lit('drum')} /></Cyl>
                             </group>
                         ))}
-                        {/* Clamp sleeve above the top hub, with its lever */}
+                        {/* Clamp sleeve above the top hub, with the screw that locks it on the spindle */}
                         <Cyl r={1.25} h={2} pos={[0, DRUM_H + 0.9, 0]}><Chrome lit={lit('drum')} /></Cyl>
-                        <BoxM size={[0.5, 0.5, 1.6]} pos={[0, DRUM_H + 0.6, 1.9]}><Chrome lit={lit('drum')} /></BoxM>
-                        <Cyl r={0.32} h={2.8} pos={[1.2, DRUM_H + 1.1, 2.6]} rot={[0, 0, -1.1]}><Chrome lit={lit('drum')} /></Cyl>
+                        <Cyl r={0.22} h={0.8} pos={[0, DRUM_H + 1.1, 1.55]} rot={[Math.PI / 2, 0, 0]}><Chrome lit={lit('drum')} /></Cyl>
+                        <Knurled r={0.5} h={0.6} pos={[0, DRUM_H + 1.1, 2.2]} rot={[Math.PI / 2, 0, 0]} lit={lit('drum')} color="#1d1f22" />
                     </group>
                     {/* Smoked glazed paper round the drum */}
                     <mesh position={[0, DRUM_H / 2, 0]} userData={{ part: 'paper' }}>
@@ -406,22 +403,30 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
             <group userData={{ part: 'stand' }}>
                 <TriangleFoot pos={[STAND.x + 1.5, 0, STAND.z - 1]} lit={lit('stand')} />
                 <Cyl r={0.55} h={44} pos={[STAND.x, 22.6, STAND.z]} seg={20}><Chrome lit={lit('stand')} /></Cyl>
-                <BoxM size={[2, 2, 2]} pos={[STAND.x, PIVOT.y, STAND.z]}><Alu lit={lit('stand')} /></BoxM>
-                <Knurled r={0.5} h={1} pos={[STAND.x, PIVOT.y, STAND.z - 1.4]} rot={[Math.PI / 2, 0, 0]} lit={lit('stand')} color="#1d1f22" />
-                <Cyl r={0.4} h={STAND.x - PIVOT.x} pos={[(STAND.x + PIVOT.x) / 2, PIVOT.y, STAND.z]} rot={[0, 0, Math.PI / 2]}><Chrome lit={lit('stand')} /></Cyl>
-                <BoxM size={[2, 2, 2]} pos={[STAND.x, MUSCLE_BOTTOM - 1, STAND.z]}><Alu lit={lit('stand')} /></BoxM>
-                <Knurled r={0.5} h={1} pos={[STAND.x, MUSCLE_BOTTOM - 1, STAND.z - 1.4]} rot={[Math.PI / 2, 0, 0]} lit={lit('stand')} color="#1d1f22" />
-                <Cyl r={0.35} h={STAND.x - MUSCLE_X} pos={[(STAND.x + MUSCLE_X) / 2, MUSCLE_BOTTOM - 1, STAND.z]} rot={[0, 0, Math.PI / 2]}><Chrome lit={lit('stand')} /></Cyl>
-                <BoxM size={[1.2, 1.2, 1.8]} pos={[MUSCLE_X, MUSCLE_BOTTOM - 1, (STAND.z + PIVOT.z) / 2]}><Alu lit={lit('stand')} /></BoxM>
+                {/* Upper boss head and the rod that carries the lever's fork */}
+                <BoxM size={[2, 2, 2]} pos={[STAND.x, FORK_ROD_Y, STAND.z]}><Alu lit={lit('stand')} /></BoxM>
+                <Knurled r={0.5} h={1} pos={[STAND.x, FORK_ROD_Y, STAND.z + 1.4]} rot={[Math.PI / 2, 0, 0]} lit={lit('stand')} color="#1d1f22" />
+                <Cyl r={0.4} h={STAND.x - PIVOT.x - 0.5} pos={[(STAND.x + PIVOT.x + 0.5) / 2, FORK_ROD_Y, STAND.z]} rot={[0, 0, Math.PI / 2]}><Chrome lit={lit('stand')} /></Cyl>
+                {/* Lower boss head and the rod of the femur clamp */}
+                <BoxM size={[2, 2, 2]} pos={[STAND.x, CLAMP_Y, STAND.z]}><Alu lit={lit('stand')} /></BoxM>
+                <Knurled r={0.5} h={1} pos={[STAND.x, CLAMP_Y, STAND.z + 1.4]} rot={[Math.PI / 2, 0, 0]} lit={lit('stand')} color="#1d1f22" />
+                <Cyl r={0.35} h={STAND.x - MUSCLE_X - 0.8} pos={[(STAND.x + MUSCLE_X + 0.8) / 2, CLAMP_Y, STAND.z]} rot={[0, 0, Math.PI / 2]}><Chrome lit={lit('stand')} /></Cyl>
+                {/* Femur clamp: a block on the rod's end, its screw nipping the femur */}
+                <BoxM size={[1.6, 1.2, 1.8]} pos={[MUSCLE_X, CLAMP_Y, STAND.z]}><Alu lit={lit('stand')} /></BoxM>
+                <Cyl r={0.15} h={0.8} pos={[MUSCLE_X, CLAMP_Y, STAND.z + 1.25]} rot={[Math.PI / 2, 0, 0]}><Chrome lit={lit('stand')} /></Cyl>
+                <Knurled r={0.4} h={0.5} pos={[MUSCLE_X, CLAMP_Y, STAND.z + 1.8]} rot={[Math.PI / 2, 0, 0]} lit={lit('stand')} color="#1d1f22" />
             </group>
 
             {/* Writing lever: pivots in a frame on the stand, swings off the drum when not recording */}
             <group ref={swing} position={[PIVOT.x, PIVOT.y, PIVOT.z]}>
                 <group userData={{ part: 'lever' }}>
-                    <BoxM size={[1.2, 2.2, 0.25]} pos={[0.6, 0, -0.9]}><Brass lit={lit('lever')} /></BoxM>
-                    <BoxM size={[1.2, 2.2, 0.25]} pos={[0.6, 0, 0.9]}><Brass lit={lit('lever')} /></BoxM>
-                    <BoxM size={[1.2, 0.3, 2.05]} pos={[0.6, 1.1, 0]}><Brass lit={lit('lever')} /></BoxM>
-                    <Cyl r={0.12} h={2.2} pos={[0, 0, 0]} rot={[Math.PI / 2, 0, 0]}><Chrome lit={lit('lever')} /></Cyl>
+                    {/* Fork: two cheeks either side of the lever, joined by a bridge on top into which the stand's rod is fixed */}
+                    <BoxM size={[1.1, 1.9, 0.22]} pos={[0, 0.25, -0.75]}><Brass lit={lit('lever')} /></BoxM>
+                    <BoxM size={[1.1, 1.9, 0.22]} pos={[0, 0.25, 0.75]}><Brass lit={lit('lever')} /></BoxM>
+                    <BoxM size={[1.1, 0.5, 1.72]} pos={[0, FORK_ROD_Y - PIVOT.y, 0]}><Brass lit={lit('lever')} /></BoxM>
+                    {/* Axle through the cheeks, with a small nut at each end */}
+                    <Cyl r={0.1} h={1.9} pos={[0, 0, 0]} rot={[Math.PI / 2, 0, 0]}><Chrome lit={lit('lever')} /></Cyl>
+                    {[-1, 1].map(sz => <Cyl key={sz} r={0.2} h={0.12} pos={[0, 0, sz * 0.92]} rot={[Math.PI / 2, 0, 0]} seg={6}><Chrome lit={lit('lever')} /></Cyl>)}
                 </group>
                 <group ref={lever}>
                     <group userData={{ part: 'lever' }}>
@@ -445,13 +450,13 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
             </mesh>
             {/* Frog gastrocnemius, its femur held in the clamp below and its tendon tied to the lever */}
             <group userData={{ part: 'muscle' }} position={[MUSCLE_X, MUSCLE_BOTTOM, PIVOT.z]}>
-                <Cyl r={0.25} h={2.2} pos={[0, -0.6, 0]}><Paint lit={lit('muscle')} color="#efe7d6" metal={0} rough={0.6} /></Cyl>
+                {/* Lower end of the femur, from the clamp up to the knee */}
+                <Cyl r={0.2} h={CLAMP_TO_KNEE + 0.8} pos={[0, -(CLAMP_TO_KNEE + 0.8) / 2, 0]} seg={12}><Paint lit={lit('muscle')} color="#efe7d6" metal={0} rough={0.6} /></Cyl>
+                <mesh position={[0, -0.05, 0]} scale={[1.25, 0.8, 1]}><sphereGeometry args={[0.34, 16, 12]} /><Paint lit={lit('muscle')} color="#efe7d6" metal={0} rough={0.6} /></mesh>
                 <group ref={muscle}>
-                    <mesh position={[0, MUSCLE_LEN * 0.42, 0]} scale={[1, 2.6, 0.9]}>
-                        <sphereGeometry args={[MUSCLE_LEN * 0.19, 24, 16]} />
-                        <Paint lit={lit('muscle')} color="#b4485a" metal={0} rough={0.55} />
-                    </mesh>
-                    <Cyl r={0.08} r2={0.05} h={MUSCLE_LEN * 0.32} pos={[0, MUSCLE_LEN * 0.84, 0]} seg={8}><Paint lit={lit('muscle')} color="#efe9df" metal={0} rough={0.4} /></Cyl>
+                    <mesh geometry={MUSCLE_GEO}><Paint lit={lit('muscle')} color="#b4485a" metal={0} rough={0.55} /></mesh>
+                    {/* Tendo Achillis, to which the thread is tied */}
+                    <Cyl r={0.06} r2={0.1} h={MUSCLE_LEN - 3.4} pos={[0, (MUSCLE_LEN + 3.4) / 2, 0]} seg={8}><Paint lit={lit('muscle')} color="#efe9df" metal={0} rough={0.4} /></Cyl>
                 </group>
             </group>
         </group>
@@ -459,10 +464,23 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
 };
 
 const MUSCLE_LEN = 4.5;
-const MUSCLE_BOTTOM = PIVOT.y - 13;
+const MUSCLE_BOTTOM = PIVOT.y - 13;                  // the knee
 const MUSCLE_TOP = MUSCLE_BOTTOM + MUSCLE_LEN;
 const MUSCLE_X = PIVOT.x + SHORT_ARM;
-const STAND = { x: 26, z: PIVOT.z + 1.3 };
+const CLAMP_TO_KNEE = 2.6;                          // femur showing between the clamp and the knee
+const CLAMP_Y = MUSCLE_BOTTOM - CLAMP_TO_KNEE;
+const FORK_ROD_Y = PIVOT.y + 1.35;                   // the rod enters the fork's bridge, clear above the lever
+// The stand rises in the plane of the lever, so both its rods meet their fittings head on
+const STAND = { x: 26, z: PIVOT.z };
+// Gastrocnemius: broad near the knee, tapering upwards into the tendon
+const MUSCLE_GEO = new THREE.LatheGeometry(
+    [[0, 0], [0.4, 0.04], [0.82, 0.5], [0.95, 1.2], [0.85, 2], [0.55, 2.8], [0.2, 3.35], [0.08, 3.5]].map(([r, y]) => new THREE.Vector2(r, y)), 28);
+
+// Mains cable: from the back of the plug, down past the cabinet's foot to the bench and away along it
+const MAINS_CABLE = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    [-5.6, 2.6, FRONT + 1.3], [-5.6, 2.4, FRONT + 2.4], [-5.8, 1.1, FRONT + 3.3], [-6.4, 0.3, FRONT + 4.6],
+    [-9, 0.3, FRONT + 6.4], [-14, 0.3, FRONT + 7.2], [-20, 0.3, FRONT + 7.6],
+].map(([x, y, z]) => new THREE.Vector3(x, y, z))), 80, 0.28, 10, false);
 
 // Heavy triangular cast-iron foot of the lever stand
 const TriangleFoot = ({ pos, lit }: { pos: [number, number, number]; lit: boolean }) => {
