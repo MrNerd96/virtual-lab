@@ -67,6 +67,10 @@ const BOTTLE_X = 11, UPPER_Z = -4, TRAP_X = 1.8;     // reservoirs and the tall 
 const TUBE_X = 5, TUBE_Z = 1;                        // the two inner glass tubes of the bath
 const CAN: V3 = [-1, 23.5, 7];                       // centre of the bulb of the heart cannula
 const FRONT_Z = 7;                                   // plane of the thread, pulleys and lever
+// In the photographs the left pulley sits near the end of the left lower bar, just left of the cannula, and the right
+// one at the far end of the right lower bar, beyond the upright welded on it that carries the lever
+const LEFT_PULLEY_X = -5.6, RIGHT_PULLEY_X = 25.8;
+const CLIP_BOTTOM: V3 = [CAN[0] + 0.45, 16.9, FRONT_Z];
 
 // Profile of a reservoir bottle (radius, height), turned into a solid of revolution
 const bottleGeo = (() => {
@@ -126,8 +130,8 @@ export const LangendorffApparatus: React.FC<{
                 <Label at={[0, 61, TANK.z + 1.46]} size={0.82} bold>LANGENDORFF APPARATUS</Label>
                 {/* Cross bars: one at the level of the cannula, and a lower pair that carries the pulleys and the lever */}
                 <Bar a={[-18.5, 23.4, 6]} b={[18.5, 23.4, 6]} r={0.45}><Steel lit={lit('stand')} /></Bar>
-                <Bar a={[-23, 13, 6]} b={[-2.5, 13, 6]} r={0.45}><Steel lit={lit('stand')} /></Bar>
-                <Bar a={[4, 13, 6]} b={[25, 13, 6]} r={0.45}><Steel lit={lit('stand')} /></Bar>
+                <Bar a={[-23, 13, 6]} b={[LEFT_PULLEY_X + 1, 13, 6]} r={0.45}><Steel lit={lit('stand')} /></Bar>
+                <Bar a={[6.5, 13, 6]} b={[RIGHT_PULLEY_X + 0.9, 13, 6]} r={0.45}><Steel lit={lit('stand')} /></Bar>
                 {([[-17, 23.4], [17, 23.4], [-17, 13], [17, 13]] as [number, number][]).map(([x, y]) => (
                     <Box key={`${x}${y}`} at={[x, y, 6]} size={[1.9, 1.9, 1.9]}><Steel lit={lit('stand')} /></Box>
                 ))}
@@ -218,9 +222,13 @@ export const LangendorffApparatus: React.FC<{
                         <Box at={[s * 10.4, 66.5, 0.4]} size={[2.6, 1.1, 0.3]}><Steel lit={lit('inner-tubes')} /></Box>
                     </React.Fragment>
                 ))}
-                {/* Drain of the left tube, hanging under the bath and closed by a spring clip */}
-                <Pipe pts={[[-TUBE_X, 38.4, TUBE_Z], [-5.4, 30, 0.4], [-6, 16, -1], [-5, 7, -2.5]]} r={0.45}><Rubber lit={lit('inner-tubes')} /></Pipe>
-                <Box at={[-5.3, 9, -2.2]} size={[1.6, 0.5, 0.7]}><Steel lit={lit('inner-tubes')} /></Box>
+                {/* Drains of the two tubes: they run under the bath and hang down at the back on the right, behind the
+                    control panel, their ends lying on the base with wire clips (as in the photographs) */}
+                <Pipe pts={[[-TUBE_X, 38.4, TUBE_Z], [-3, 37, -1], [6.5, 36.6, -2.6], [8.2, 30, -3.6], [8.6, 10, -4.4], [10, 1.6, -6], [14.5, 0.55, -7.5]]} r={0.48} seg={80}><Rubber lit={lit('inner-tubes')} /></Pipe>
+                <Pipe pts={[[TUBE_X, 38.4, TUBE_Z], [7.5, 36.8, -1.2], [9.6, 30, -2.8], [10.2, 10, -3.6], [11.8, 1.6, -4.8], [16.5, 0.55, -5.4]]} r={0.48} seg={80}><Rubber lit={lit('inner-tubes')} /></Pipe>
+                {([[14.5, -7.5], [16.5, -5.4]] as [number, number][]).map(([x, z]) => (
+                    <Pipe key={x} pts={[[x, 0.6, z], [x + 0.9, 0.9, z], [x + 1.5, 0.6, z + 0.25], [x + 1.1, 0.35, z + 0.5], [x + 0.4, 0.6, z + 0.35], [x + 1.8, 0.6, z - 0.1]]} r={0.06} seg={30}><Steel lit={lit('inner-tubes')} /></Pipe>
+                ))}
             </group>
 
             {/* Warming coil: the fluid runs through it on its way to the heart and takes up the heat of the bath */}
@@ -294,8 +302,6 @@ export const LangendorffApparatus: React.FC<{
                 {/* Screw clip that grips it on the cross bar */}
                 <Box at={[CAN[0] + 1.1, 23.6, CAN[2] - 0.6]} size={[1.3, 1.9, 1.1]}><Steel lit={lit('cannula')} /></Box>
                 <mesh position={[CAN[0] + 1.1, 24.9, CAN[2] - 0.4]}><cylinderGeometry args={[0.55, 0.55, 0.5, 14]} /><Steel lit={lit('cannula')} /></mesh>
-                {/* Hook that takes the apex of the heart */}
-                <Pipe pts={[[CAN[0], 18.6, FRONT_Z], [CAN[0] + 0.25, 18.1, FRONT_Z], [CAN[0], 17.6, FRONT_Z], [CAN[0] - 0.25, 18.1, FRONT_Z], [CAN[0], 18.5, FRONT_Z]]} r={0.06} seg={24}><Steel lit={lit('cannula')} /></Pipe>
             </group>
 
             {/* Thermometer, in the stream just before it reaches the heart */}
@@ -327,28 +333,56 @@ export const LangendorffApparatus: React.FC<{
                 <Pipe pts={[[-17.9, 28, 7.4], [-13.5, 27.6, 9], [-10, 18, 12], [-8, 5, 14.5], [-5, 0.6, 16.4], [2, 0.5, 17]]} r={0.45}><Rubber lit={lit('manometer')} /></Pipe>
             </group>
 
-            {/* ---------- Pulleys and thread: carry the pull of the heart to the lever ---------- */}
+            {/* ---------- Heart clip: a small spring clip on an S-hook under the tip of the cannula ---------- */}
+            <group userData={{ part: 'clip' }}>
+                <Pipe pts={[[CAN[0], 20.2, FRONT_Z], [CAN[0] + 0.25, 19.9, FRONT_Z], [CAN[0], 19.6, FRONT_Z], [CAN[0] - 0.2, 19.3, FRONT_Z], [CAN[0], 19.0, FRONT_Z], [CAN[0] + 0.2, 19.2, FRONT_Z]]} r={0.045} seg={30}><Steel lit={lit('clip')} /></Pipe>
+                {/* The clip: two arms joined by a coil at the lower end, like a small safety pin, hanging a little askew */}
+                <group position={[CAN[0] + 0.05, 19.05, FRONT_Z]} rotation={[0, 0, 0.32]}>
+                    <Bar a={[-0.18, 0, 0]} b={[-0.18, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit('clip')} /></Bar>
+                    <Bar a={[0.2, -0.15, 0]} b={[0.2, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit('clip')} /></Bar>
+                    <Box at={[0.01, -0.1, 0]} size={[0.55, 0.3, 0.14]}><Steel lit={lit('clip')} /></Box>
+                    <mesh position={[0.01, -1.95, 0]}><torusGeometry args={[0.24, 0.05, 6, 16]} /><Steel lit={lit('clip')} /></mesh>
+                </group>
+            </group>
+
+            {/* ---------- Pulleys and thread ----------
+                Each pulley is a tapered brass clamp gripping a lower cross bar, with its black screw on top and a clear
+                wheel at the bottom. Threads run from the heart clip down to both pulleys: on the right, under the
+                wheel and up to the lever; on the left, under the wheel and along the bar to be wound on its end. */}
             <group userData={{ part: 'pulleys' }}>
-                {[CAN[0] + 1.1, 23.6].map(x => (
+                {[LEFT_PULLEY_X, RIGHT_PULLEY_X].map(x => (
                     <React.Fragment key={x}>
-                        <Box at={[x, 11.6, 6.3]} size={[0.9, 3, 0.9]}><Brass lit={lit('pulleys')} /></Box>
-                        <mesh position={[x, 13.6, 6.3]}><cylinderGeometry args={[0.5, 0.5, 0.9, 14]} /><Black lit={lit('pulleys')} /></mesh>
-                        <mesh position={[x, 10.4, FRONT_Z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[1.1, 1.1, 0.25, 28]} /><meshStandardMaterial color={lit('pulleys') ? HIGHLIGHT : '#e8edf2'} transparent opacity={0.75} roughness={0.2} /></mesh>
+                        <mesh position={[x, 13.9, 6]}><cylinderGeometry args={[0.42, 0.42, 0.75, 16]} /><Black lit={lit('pulleys')} /></mesh>
+                        <mesh position={[x, 13.6, 6]}><cylinderGeometry args={[0.1, 0.1, 0.5, 8]} /><Steel lit={lit('pulleys')} /></mesh>
+                        <mesh position={[x, 12.1, 6.25]} rotation={[0, Math.PI / 4, 0]}><cylinderGeometry args={[0.62, 0.38, 2.6, 4]} /><meshStandardMaterial color={lit('pulleys') ? HIGHLIGHT : '#c49a3a'} metalness={0.85} roughness={0.3} {...glow(lit('pulleys'))} /></mesh>
+                        <mesh position={[x, 10.4, FRONT_Z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[1, 1, 0.22, 32]} /><meshPhysicalMaterial color={lit('pulleys') ? HIGHLIGHT : '#eef3f7'} transparent opacity={0.6} roughness={0.1} clearcoat={1} /></mesh>
+                        <mesh position={[x, 10.4, FRONT_Z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.16, 0.16, 0.5, 10]} /><Steel lit={lit('pulleys')} /></mesh>
+                        <Bar a={[x, 10.6, 6.3]} b={[x, 10.4, FRONT_Z]} r={0.12} seg={8}><Steel lit={lit('pulleys')} /></Bar>
                     </React.Fragment>
                 ))}
-                <Bar a={[CAN[0], 17.6, FRONT_Z]} b={[CAN[0], 10.4, FRONT_Z]} r={0.05} seg={6}><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></Bar>
-                <Bar a={[CAN[0] + 1.1, 9.3, FRONT_Z]} b={[23.6, 9.3, FRONT_Z]} r={0.05} seg={6}><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></Bar>
-                <Bar a={[24.7, 10.4, FRONT_Z]} b={[24.7, 20.6, FRONT_Z]} r={0.05} seg={6}><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></Bar>
+                {([
+                    [CLIP_BOTTOM, [RIGHT_PULLEY_X - 0.6, 9.45, FRONT_Z]],
+                    [[RIGHT_PULLEY_X + 1, 10.4, FRONT_Z], [RIGHT_PULLEY_X + 1, 20.6, FRONT_Z]],
+                    [CLIP_BOTTOM, [LEFT_PULLEY_X + 0.6, 9.45, FRONT_Z]],
+                    [[LEFT_PULLEY_X - 1, 10.4, FRONT_Z], [-22.6, 12.5, 6.2]],
+                ] as [V3, V3][]).map(([a, b], i) => (
+                    <Bar key={i} a={a} b={b} r={0.035} seg={5}><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></Bar>
+                ))}
+                {/* Thread wound round the end of the left bar */}
+                {[0, 1, 2].map(k => <mesh key={k} position={[-22.4 + k * 0.18, 13, 6]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.47, 0.03, 4, 16]} /><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></mesh>)}
             </group>
 
             {/* ---------- Heart lever: brass arm, notched strip, light spring and the writing point ---------- */}
             <group userData={{ part: 'lever' }}>
-                <Bar a={[20, 13, 6]} b={[20, 27, 6]} r={0.4}><Steel lit={lit('lever')} /></Bar>
+                {/* Short upright welded on the right lower bar */}
+                <Bar a={[20, 13, 6]} b={[20, 28.5, 6]} r={0.4}><Steel lit={lit('lever')} /></Bar>
+                <mesh position={[20, 13.3, 6]}><sphereGeometry args={[0.6, 12, 8]} /><Steel lit={lit('lever')} /></mesh>
                 <Box at={[20.6, 21, FRONT_Z]} size={[4.6, 0.9, 0.9]}><Brass lit={lit('lever')} /></Box>
                 <mesh position={[18, 21, FRONT_Z]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.45, 0.45, 0.9, 12]} /><Brass lit={lit('lever')} /></mesh>
                 <Box at={[25.6, 20.95, FRONT_Z]} size={[5.6, 0.75, 0.16]}><Brass lit={lit('lever')} /></Box>
                 {[0, 1, 2, 3, 4, 5, 6].map(k => <Box key={k} at={[23.3 + k * 0.7, 21.4, FRONT_Z]} size={[0.35, 0.25, 0.16]}><Brass lit={lit('lever')} /></Box>)}
-                <Bar a={[28.4, 20.95, FRONT_Z]} b={[38, 21.6, FRONT_Z]} r={0.08} seg={6}><Steel lit={lit('lever')} /></Bar>
+                <mesh position={[28.7, 20.98, FRONT_Z]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.32, 0.32, 0.8, 12]} /><Black lit={lit('lever')} /></mesh>
+                <Bar a={[29, 21, FRONT_Z]} b={[38, 21.6, FRONT_Z]} r={0.06} seg={6}><Steel lit={lit('lever')} /></Bar>
                 <Box at={[38.4, 21.65, FRONT_Z]} size={[1.3, 0.7, 0.03]} rot={[0, 0, 0.3]}><meshStandardMaterial color={lit('lever') ? HIGHLIGHT : '#f1f5f9'} transparent opacity={0.85} /></Box>
                 {/* Adjusting arm above, and the spring that returns the lever */}
                 <Bar a={[21, 21.4, FRONT_Z]} b={[21, 25.4, FRONT_Z]} r={0.22}><Brass lit={lit('lever')} /></Bar>
