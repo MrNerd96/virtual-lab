@@ -84,6 +84,21 @@ export const Quiz: React.FC<{ set: QuestionSet; onClose: () => void }> = ({ set,
         return () => mq.removeEventListener('change', onChange);
     }, []);
 
+    // The quiz covers the experiment screen. While it is open the page underneath must not scroll: a drag on the quiz
+    // that it cannot use itself would otherwise scroll that page, carrying the Feedback button (placed on the page)
+    // up and down over the quiz.
+    useEffect(() => {
+        const html = document.documentElement, body = document.body;
+        const before = [html.style.overflow, body.style.overflow, html.style.overscrollBehavior];
+        html.style.overflow = body.style.overflow = 'hidden';
+        html.style.overscrollBehavior = 'none';
+        // The Feedback button sits at the top of the page, so the page is shown from its top while the quiz is open,
+        // and put back where it was afterwards
+        const y = window.scrollY;
+        window.scrollTo(0, 0);
+        return () => { [html.style.overflow, body.style.overflow, html.style.overscrollBehavior] = before; window.scrollTo(0, y); };
+    }, []);
+
     const dark = (themeChoice ?? (systemDark ? 'dark' : 'light')) === 'dark';
     const toggleTheme = () => {
         const next: Theme = dark ? 'light' : 'dark';
@@ -164,7 +179,7 @@ export const Quiz: React.FC<{ set: QuestionSet; onClose: () => void }> = ({ set,
     });
 
     return (
-        <div className={`${dark ? 'dark ' : ''}fixed inset-0 z-50 flex flex-col font-sans text-slate-900 dark:text-slate-100 bg-gradient-to-b from-slate-100 dark:from-slate-950 via-slate-50 dark:via-slate-950 to-indigo-100 dark:to-indigo-950`}>
+        <div className={`${dark ? 'dark ' : ''}fixed inset-0 z-50 flex flex-col overscroll-none font-sans text-slate-900 dark:text-slate-100 bg-gradient-to-b from-slate-100 dark:from-slate-950 via-slate-50 dark:via-slate-950 to-indigo-100 dark:to-indigo-950`}>
             {/* Header like the experiment screens: back, title, light/dark switch (Feedback sits to its right) */}
             <header className="flex items-center justify-between gap-3 px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
                 <div className="flex items-center gap-4 min-w-0">
@@ -180,7 +195,7 @@ export const Quiz: React.FC<{ set: QuestionSet; onClose: () => void }> = ({ set,
                 </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overscroll-contain">
             <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6">
                 <div className="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-2xl shadow-slate-300/60 dark:shadow-black/40 overflow-hidden">
                     <div className="flex items-center gap-2 px-4 sm:px-7 pt-4 text-xs text-slate-500 dark:text-slate-400">
