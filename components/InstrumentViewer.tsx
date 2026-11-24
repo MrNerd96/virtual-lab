@@ -8,6 +8,7 @@ import { DilutingPipette } from './DilutingPipette';
 import { NeubauerChamber } from './NeubauerChamber';
 import { KymographModel, KymographControls, useKymograph, type Kymo } from './Kymograph';
 import { LangendorffApparatus } from './LangendorffApparatus';
+import { DalesApparatus } from './DalesApparatus';
 import { instrumentById, type InstrumentId } from '../instruments';
 
 // One screen for every instrument: a 3D model to turn and explore on the left (top on phones), and the
@@ -21,6 +22,7 @@ const Model: React.FC<{ id: InstrumentId; active: string | null; onHover: (p: st
         case 'neubauer-chamber': return <NeubauerChamber {...rest} />;
         case 'kymograph': return <KymographModel kymo={kymo} {...rest} />;
         case 'langendorff': return <LangendorffApparatus {...rest} />;
+        case 'dales-apparatus': return <DalesApparatus {...rest} />;
     }
 };
 
@@ -72,6 +74,20 @@ const VIEWS: Record<InstrumentId, { all: View; closeUp?: Record<string, View> }>
             'holders': { center: [0, 70, -4], halfW: 18, halfH: 10, from: [0.1, 0.25, 1] },
         },
     },
+    // Dale's apparatus from the front right, a little above; close-ups of the organ bath and what is around it
+    'dales-apparatus': {
+        all: { center: [-2, 27, 0], halfW: 22, halfH: 27, from: [0.35, 0.25, 1] },
+        closeUp: {
+            'organ': { center: [0.3, 33, 0], halfW: 5, halfH: 7, from: [0.15, 0.1, 1] },
+            'airtube': { center: [-3, 40, 0], halfW: 8, halfH: 12, from: [0.15, 0.1, 1] },
+            'outlet': { center: [0.5, 12, 0.5], halfW: 6, halfH: 10, from: [0.2, 0.15, 1] },
+            'lever': { center: [-10, 42, 0], halfW: 16, halfH: 6, from: [0.1, 0.12, 1] },
+            'heater': { center: [12, 25, 4], halfW: 8, halfH: 5, from: [0.4, 0.2, 1] },
+            'stirrer': { center: [-10.5, 32, 5], halfW: 6, halfH: 13, from: [0.2, 0.1, 1] },
+            'thermometer': { center: [9, 36, -5], halfW: 5, halfH: 11, from: [0.2, 0.1, 1] },
+            'rods': { center: [0, 38, -6], halfW: 10, halfH: 18, from: [0.4, 0.2, 1] },
+        },
+    },
 };
 
 // Moves the camera to frame the current view: at once for the first view and when the canvas changes shape
@@ -117,7 +133,7 @@ export const InstrumentViewer: React.FC<{ id: InstrumentId; onBack: () => void; 
     const instrument = instrumentById(id);
     const [hovered, setHovered] = useState<string | null>(null);
     const [selected, setSelected] = useState<string | null>(null);
-    const [sceneBg, setSceneBg] = useState(LIGHT_BG);
+    const [sceneBg, setSceneBg] = useState(id === 'langendorff' ? DARK_BG : LIGHT_BG);   // the Langendorff apparatus reads best on the dark background
     const active = hovered ?? selected;
     const activePart = instrument.parts.find(p => p.id === active);
     const compare = instrument.compareWith && instrumentById(instrument.compareWith);

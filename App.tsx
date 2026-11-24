@@ -28,6 +28,7 @@ const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then
 const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })).catch(reloadForNewVersion));
 const FrogHeartPerfusion = lazy(() => import('./components/FrogHeartPerfusion').then(m => ({ default: m.FrogHeartPerfusion })).catch(reloadForNewVersion));
 const LangendorffPerfusion = lazy(() => import('./components/LangendorffPerfusion').then(m => ({ default: m.LangendorffPerfusion })).catch(reloadForNewVersion));
+const IsolatedIntestine = lazy(() => import('./components/IsolatedIntestine').then(m => ({ default: m.IsolatedIntestine })).catch(reloadForNewVersion));
 const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })).catch(reloadForNewVersion));
 const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })).catch(reloadForNewVersion));
 const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })).catch(reloadForNewVersion));
@@ -94,7 +95,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'mammalian' | 'langendorff' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'mammalian' | 'langendorff' | 'intestine' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff' | 'instrument-dales-apparatus';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -109,6 +110,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'hematology': 'Hematology Menu',
   'mammalian': 'Mammalian Menu',
   'langendorff': 'Langendorff Perfused Heart',
+  'intestine': 'Isolated Rabbit Intestine',
   'twitch': 'Simple Muscle Twitch',
   'load': 'Effect of Load',
   'fatigue': 'Genesis of Fatigue',
@@ -143,6 +145,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'instrument-neubauer-chamber': 'Neubauer Chamber',
   'instrument-kymograph': 'Kymograph',
   'instrument-langendorff': 'Langendorff Apparatus',
+  'instrument-dales-apparatus': 'Dale\'s Apparatus',
 };
 
 const MODULE_CATEGORIES: Record<ViewState, string> = {
@@ -151,6 +154,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'hematology': 'Navigation',
   'mammalian': 'Navigation',
   'langendorff': 'Mammalian',
+  'intestine': 'Mammalian',
   'twitch': 'Amphibian',
   'load': 'Amphibian',
   'fatigue': 'Amphibian',
@@ -185,6 +189,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'instrument-neubauer-chamber': 'Instruments',
   'instrument-kymograph': 'Instruments',
   'instrument-langendorff': 'Instruments',
+  'instrument-dales-apparatus': 'Instruments',
 };
 
 let _moduleEntryTime: number | null = null;
@@ -2488,21 +2493,28 @@ const App: React.FC = () => {
     case 'mammalian':
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-start p-6 pt-10 md:p-8 md:pt-16 font-sans relative">
-          {/* One practical so far: the menu is one card wide, centred across and near the top, until more are added */}
-          <div className="max-w-md w-full">
+          {/* Centred across the page and near the top */}
+          <div className="max-w-4xl w-full">
             <div className="flex items-center gap-1 mb-6 -ml-2">
               <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 -ml-1 rounded-full flex items-center justify-center text-slate-200 hover:bg-slate-800 active:bg-slate-700 hover:text-white transition-colors">
                 <ArrowLeft className="w-6 h-6" strokeWidth={2.5} />
               </button>
               <h2 className="text-[clamp(22px,6.4vw,28px)] md:text-3xl font-bold text-white leading-tight">Mammalian Physiology</h2>
             </div>
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MenuCard
                 title="Langendorff Perfused Heart"
                 description="Isolated rabbit heart perfused through the aorta: effect of drugs, ions, pressure and anoxaemia."
                 icon={<HeartPulse className="w-8 h-8" />}
                 colorClass="pink"
                 onClick={() => navigateTo('langendorff')}
+              />
+              <MenuCard
+                title="Isolated Rabbit Intestine"
+                description="Segment of jejunum in an organ bath of Tyrode's solution: effect of drugs and ions on its movements."
+                icon={<Activity className="w-8 h-8" />}
+                colorClass="pink"
+                onClick={() => navigateTo('intestine')}
               />
             </div>
           </div>
@@ -2639,8 +2651,8 @@ const App: React.FC = () => {
                   key={instrument.id}
                   title={instrument.name}
                   description={instrument.summary}
-                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : instrument.id === 'kymograph' ? <Disc3 className="w-8 h-8" /> : instrument.id === 'langendorff' ? <Heart className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
-                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal', 'kymograph': 'yellow', 'langendorff': 'pink' }[instrument.id]}
+                  icon={instrument.id === 'neubauer-chamber' ? <Grid3X3 className="w-8 h-8" /> : instrument.id === 'kymograph' ? <Disc3 className="w-8 h-8" /> : instrument.id === 'langendorff' ? <Heart className="w-8 h-8" /> : instrument.id === 'dales-apparatus' ? <FlaskConical className="w-8 h-8" /> : <Pipette className="w-8 h-8" />}
+                  colorClass={{ 'rbc-pipette': 'red', 'wbc-pipette': 'slate', 'neubauer-chamber': 'teal', 'kymograph': 'yellow', 'langendorff': 'pink', 'dales-apparatus': 'teal' }[instrument.id]}
                   onClick={() => navigateTo(`instrument-${instrument.id}`)}
                 />
               ))}
@@ -2669,7 +2681,8 @@ const App: React.FC = () => {
     case 'instrument-wbc-pipette':
     case 'instrument-neubauer-chamber':
     case 'instrument-kymograph':
-    case 'instrument-langendorff': {
+    case 'instrument-langendorff':
+    case 'instrument-dales-apparatus': {
       const id = currentView.replace('instrument-', '') as InstrumentId;
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Instrument..." />}>
@@ -2805,6 +2818,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Perfusion of Frog's Heart..." />}>
           <FrogHeartPerfusion onBack={() => setCurrentView('amphibian')} />
+        </Suspense>
+      );
+    case 'intestine':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Isolated Rabbit Intestine..." />}>
+          <IsolatedIntestine onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'langendorff':

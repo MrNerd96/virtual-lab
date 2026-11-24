@@ -1,10 +1,10 @@
-import { GHAI, PAL, JAIN } from '../questions/books';
+import { GHAI, PAL, JAIN, RASHMI } from '../questions/books';
 
 // The Instruments module: one entry per instrument. This file is text only (no 3D code), so the instruments
 // menu stays light; the 3D viewer and the models load only when an instrument is opened.
 // Facts from CL Ghai and GK Pal, written in our own words; page numbers are the printed pages of the user's copies.
 
-export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber' | 'kymograph' | 'langendorff';
+export type InstrumentId = 'rbc-pipette' | 'wbc-pipette' | 'neubauer-chamber' | 'kymograph' | 'langendorff' | 'dales-apparatus';
 
 export interface InstrumentPart {
     id: string;   // matches the part's mesh in the 3D model
@@ -218,6 +218,41 @@ export const INSTRUMENTS: Instrument[] = [
         ],
         source: `Modelled on photographs of the department's apparatus; use of the parts from ${JAIN}, Ch 68, pp. 324–326`,
         experiment: { view: 'langendorff', label: 'Langendorff Perfused Heart' },
+    },
+    {
+        id: 'dales-apparatus',
+        name: 'Dale\'s Apparatus',
+        alsoCalled: 'Dale\'s organ bath',
+        summary: 'Keeps an isolated piece of smooth muscle, such as a segment of intestine, alive and moving in warm, aerated Tyrode\'s solution while its movements are recorded.',
+        usedFor: [
+            'Recording the movements of an isolated segment of rabbit intestine, and the effect of drugs and ions on them.',
+        ],
+        // Drawn from AK Jain Fig. 67.1 and GK Pal Fig. 73.1; the exact sizes are our own
+        parts: [
+            { id: 'bath', name: 'Perspex bath', note: 'A large rectangular perspex bath of water, kept at body temperature (37 °C). The organ bath stands in it.' },
+            { id: 'heater', name: 'Heating element with thermostat', note: 'Heats the water and holds it at 37 °C.' },
+            { id: 'stirrer', name: 'Stirrer', note: 'Keeps the water moving, so the whole bath is at one temperature.' },
+            { id: 'thermometer', name: 'Thermometer', note: 'Shows the temperature of the water, which is checked often during the experiment.' },
+            { id: 'organ', name: 'Central glass organ bath', note: 'A glass bath of about 20 mL standing in the warm water. It holds the Tyrode\'s solution and the tissue.' },
+            { id: 'outlet', name: 'Outlet with clip', note: 'At the bottom of the organ bath. After each drug the solution is drained through it and the bath refilled with fresh Tyrode\'s solution.' },
+            { id: 'airtube', name: 'Hollow bent glass tube', note: 'Curved at its lower end, where the lower end of the tissue is tied. Air or oxygen passes down it into the organ bath, slowly, 2–3 bubbles a second.' },
+            { id: 'lever', name: 'Frontal writing lever', note: 'The upper end of the tissue is tied to it by a thread. It magnifies the movements and writes them on a slow kymograph drum.' },
+            { id: 'rods', name: 'Rods and clamps', note: 'Hold the air tube and the frontal lever over the organ bath.' },
+            { id: 'stand', name: 'Stand', note: 'Carries the bath at a convenient height.' },
+        ],
+        facts: [
+            'Tyrode\'s solution (per 100 mL): glucose 0.1 g, NaCl 0.8 g, KCl 0.02 g, CaCl₂ 0.02 g, MgCl₂ 0.01 g, NaHCO₃ 0.01 g and NaH₂PO₄ 0.005 g. Glucose feeds the tissue, the salts keep it isotonic, and the bicarbonate and phosphate hold the pH at 7.4–7.6.',
+            'The tissue is kept at 37 °C and aerated all the time; the solution is used freshly prepared.',
+            'Between drugs the organ bath is drained and refilled with fresh Tyrode\'s solution, and the next drug is given only when the movements are normal again.',
+        ],
+        viva: [
+            { q: 'What is the capacity of the central organ bath?', a: 'About 20 mL.' },
+            { q: 'What happens if the lumen of the segment is obstructed?', a: 'The peristaltic contractions disappear, and only the rhythmic segmental contractions are recorded.' },
+            { q: 'How does stretching the segment affect its movements?', a: 'Stretching raises the tone and the amplitude of contraction up to an optimal length; stretching it further has the opposite effect.' },
+            { q: 'What is the clinical relevance of this experiment?', a: 'It helps explain atonic constipation and the colicky pain of intestinal spasm, and how to preserve intestinal movement during surgical handling.' },
+        ],
+        source: `${JAIN}, Ch 67, pp. 319–321; ${PAL}, Ch 73, pp. 489–490; ${RASHMI}, Ch 64, p. 275`,
+        experiment: { view: 'intestine', label: 'Isolated Rabbit Intestine' },
     },
 ];
 

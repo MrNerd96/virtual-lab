@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import {
@@ -12,6 +12,10 @@ import {
     type LangendorffLive, type LangendorffMotion,
 } from './LangendorffApparatus';
 import { KymographModel, useKymograph, type KymoPen } from './Kymograph';
+import {
+    clamp01, smooth, seg, progressOf, hoverProps, FitCamera, Forceps, PetriDish, RecordGraph, StepList,
+    type Anim, type AnimRef, type Hover, type Choice, type View, type Sample, type Mark,
+} from './perfusionShared';
 import { useHeartbeatSound } from './useHeartbeatSound';
 import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
@@ -145,9 +149,6 @@ const newSim = (): Sim => ({
     arrest: null, beat: null, beats: 0, d: 0, phase: -1, hr: 0,
 });
 
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
-const smooth = (p: number) => (1 - Math.cos(clamp01(p) * Math.PI)) / 2;
-const seg = (p: number, a: number, b: number) => clamp01((p - a) / (b - a));   // 0..1 across [a, b] of the progress
 // One beat: a quick contraction and a slower relaxation, then rest until the next
 function beatShape(phase: number): number {
     if (phase < 0.25) return smooth(phase / 0.25);
@@ -248,22 +249,6 @@ const O2_AT: [number, number, number] = [-33, BENCH_Y, -4];
 const SCREW_CLIP_AT: [number, number, number] = [-0.3, 31, 4.8];
 const NEEDLE_AT: [number, number, number] = [0.15, 33, 3.75];
 
-// --- Animation of the set-up steps ---
-// Each step plays for a few seconds; its progress (0..1) is read every frame from a ref, so the 3D parts move
-// smoothly without waiting for React.
-interface Anim { id: string; t0: number; dur: number }
-type AnimRef = React.MutableRefObject<Anim | null>;
-const progressOf = (a: AnimRef, id: string): number | null => {
-    const x = a.current;
-    return x && x.id === id ? clamp01((performance.now() - x.t0) / x.dur) : null;
-};
-
-type Hover = (label: string | null) => void;
-const hoverProps = (onHover: Hover, label: string) => ({
-    onPointerOver: (e: { stopPropagation: () => void }) => { e.stopPropagation(); onHover(label); },
-    onPointerOut: () => onHover(null),
-});
-
 // --- 3D props: the heart and what handles it ---
 
 const ventricleGeo = (() => {
@@ -304,18 +289,6 @@ const RabbitHeart = ({ shape, color, tied, cut }: { shape: React.MutableRefObjec
         </group>
     );
 };
-
-// Fine forceps, the tips at the origin, the handles rising up and to the right
-const Forceps = () => (
-    <group rotation={[0.35, 0, -0.5]}>
-        {[-1, 1].map(s => (
-            <mesh key={s} position={[s * 0.18, 5.2, 0]} rotation={[0, 0, -s * 0.035]}>
-                <boxGeometry args={[0.14, 10.4, 0.06]} /><meshStandardMaterial color="#d4d9de" metalness={0.9} roughness={0.25} />
-            </mesh>
-        ))}
-        <mesh position={[0, 10.4, 0]}><boxGeometry args={[0.6, 0.4, 0.1]} /><meshStandardMaterial color="#b8bec4" metalness={0.9} roughness={0.3} /></mesh>
-    </group>
-);
 
 // Fine scissors: two blades that open and close about a screw, tips at the origin
 const Scissors = ({ open }: { open: React.MutableRefObject<number> }) => {
@@ -435,17 +408,8 @@ const Drips = ({ shape, pressure }: { shape: React.MutableRefObject<HeartShape>;
         m.visible = p < 0.55;
         m.position.set(CANNULA_AT[0] - 0.35, apex + 0.4 - (apex + 0.4) * Math.min(1, (p / 0.55) ** 2), CANNULA_AT[2] + 0.3);
     });
-    return <mesh ref={drop}><sphereGeometry args={[0.12, 8, 8]} /><meshStandardMaterial color="#d7eef8" transparent opacity={0.85} /></mesh>;
+    return <mesh ref={drop}><sphereGeometry args={[0.12, 8, 8]} /><meshStandardMaterial color="#3b9eea" transparent opacity={0.85} /></mesh>;
 };
-
-// Petri dish of chilled, oxygenated Ringer-Locke on the base plate, where the heart lies before it is cannulated
-const PetriDish = ({ onHover }: { onHover: Hover }) => (
-    <group position={DISH_AT} {...hoverProps(onHover, 'Petri dish of chilled, oxygenated Ringer-Locke')}>
-        <mesh position={[0, 0.6, 0]}><cylinderGeometry args={[4.2, 4.2, 1.2, 40, 1, true]} /><meshPhysicalMaterial color="#eef6fa" transparent opacity={0.3} roughness={0.05} side={THREE.DoubleSide} depthWrite={false} /></mesh>
-        <mesh position={[0, 0.05, 0]}><cylinderGeometry args={[4.2, 4.2, 0.1, 40]} /><meshPhysicalMaterial color="#eef6fa" transparent opacity={0.35} roughness={0.05} /></mesh>
-        <mesh position={[0, 0.45, 0]}><cylinderGeometry args={[4.12, 4.12, 0.7, 40]} /><meshStandardMaterial color="#cfeaf7" transparent opacity={0.45} depthWrite={false} /></mesh>
-    </group>
-);
 
 // Flasks of Ringer-Locke poured into the two reservoir bottles
 const flaskGeo = (() => {
@@ -487,10 +451,10 @@ const PourFlasks = ({ anim }: { anim: AnimRef }) => {
                     <group ref={el => { flasks.current[i] = el; }} position={[s * POUR_AT_X, POUR_AT_Y, -4]}>
                         <group position={[0, -6.3, 0]}>
                             <mesh geometry={geo}><meshPhysicalMaterial color="#eef6fa" transparent opacity={0.35} roughness={0.05} side={THREE.DoubleSide} depthWrite={false} /></mesh>
-                            <mesh position={[0, 1.2, 0]}><cylinderGeometry args={[2.3, 2.9, 2.2, 24]} /><meshStandardMaterial color="#bfe3f5" transparent opacity={0.6} depthWrite={false} /></mesh>
+                            <mesh position={[0, 1.2, 0]}><cylinderGeometry args={[2.3, 2.9, 2.2, 24]} /><meshStandardMaterial color="#3b9eea" transparent opacity={0.6} depthWrite={false} /></mesh>
                         </group>
                     </group>
-                    <mesh ref={el => { streams.current[i] = el; }} visible={false}><cylinderGeometry args={[0.18, 0.18, 1, 8]} /><meshStandardMaterial color="#bfe3f5" transparent opacity={0.8} /></mesh>
+                    <mesh ref={el => { streams.current[i] = el; }} visible={false}><cylinderGeometry args={[0.18, 0.18, 1, 8]} /><meshStandardMaterial color="#3b9eea" transparent opacity={0.8} /></mesh>
                 </React.Fragment>
             ))}
         </group>
@@ -613,76 +577,35 @@ const Bench = () => (
 // --- Camera views (what to frame and from where), as in the Instruments viewer ---
 
 type ViewId = 'top' | 'cylinder' | 'columns' | 'clip' | 'tube' | 'manometer' | 'bath' | 'dish' | 'dishClose' | 'lift' | 'heart' | 'pressure' | 'lever' | 'drum' | 'inject' | 'whole';
-type View = { center: [number, number, number]; halfW: number; halfH: number; from: [number, number, number] };
 const VIEWS: Record<ViewId, View> = {
     top: { center: [0, 110, -4], halfW: 20, halfH: 19, from: [0.15, 0.1, 1] },
-    cylinder: { center: [O2_AT[0], BENCH_Y + 52, O2_AT[2]], halfW: 7, halfH: 7, from: [0.35, 0.25, 1] },
-    columns: { center: [0, 100, -4], halfW: 6, halfH: 6, from: [0.1, 0.05, 1] },
+    cylinder: { center: [O2_AT[0], BENCH_Y + 52, O2_AT[2]], halfW: 11, halfH: 11, from: [0.35, 0.25, 1] },
+    columns: { center: [0, 100, -4], halfW: 11, halfH: 11, from: [0.1, 0.05, 1] },
     bath: { center: [3, 40, 8], halfW: 15, halfH: 17, from: [0.45, 0.18, 1] },
-    dish: { center: [DISH_AT[0], 7, DISH_AT[2]], halfW: 8, halfH: 9, from: [0.2, 0.35, 1] },
-    dishClose: { center: [DISH_AT[0] - 0.5, 1.6, DISH_AT[2] + 0.5], halfW: 3.6, halfH: 3, from: [0.25, 0.9, 1] },
+    dish: { center: [DISH_AT[0], 7, DISH_AT[2]], halfW: 11, halfH: 12, from: [0.2, 0.35, 1] },
+    dishClose: { center: [DISH_AT[0] - 0.5, 1.6, DISH_AT[2] + 0.5], halfW: 7, halfH: 6, from: [0.25, 0.9, 1] },
     lift: { center: [-9, 15, 10], halfW: 15, halfH: 12, from: [0.2, 0.2, 1] },
-    heart: { center: [-0.5, 19, 7], halfW: 7, halfH: 5, from: [0.3, 0.12, 1] },
+    heart: { center: [-0.5, 19, 7], halfW: 10, halfH: 7.5, from: [0.3, 0.12, 1] },
     pressure: { center: [-10.5, 21, 7], halfW: 14, halfH: 8, from: [0.05, 0.05, 1] },
     lever: { center: [17, 18, 7], halfW: 24, halfH: 10, from: [0.08, 0.1, 1] },
     // The E-8 drum turns clockwise seen from above, so the paper under the writing point (on the side of the drum
     // facing the lever) runs towards the back: the fresh record is seen from behind, on the left
-    drum: { center: [43, 22, 3], halfW: 12, halfH: 9, from: [-0.6, 0.18, -1] },
+    drum: { center: [43, 22, 3], halfW: 15, halfH: 11, from: [-0.6, 0.18, -1] },
     // From the right: the control panel of the bath hides the side tube from in front, the manometer's tubes from
     // the left
-    inject: { center: [0, 30.5, 5], halfW: 6, halfH: 6.5, from: [1, 0.1, 0] },
+    inject: { center: [0, 30.5, 5], halfW: 8.5, halfH: 9.5, from: [1, 0.1, 0] },
     // The flow step, also from the right: the screw clip close up, the side tube down to the cannula, and the
     // manometer from the front
-    clip: { center: SCREW_CLIP_AT, halfW: 2.6, halfH: 2.2, from: [1, 0.15, 0.1] },
-    tube: { center: [-0.4, 30.5, 5], halfW: 4.5, halfH: 8, from: [1, 0.1, 0] },
-    manometer: { center: [-21.2, 22.5, 7.2], halfW: 5.5, halfH: 8.5, from: [0, 0.05, 1] },
+    clip: { center: SCREW_CLIP_AT, halfW: 5, halfH: 4.5, from: [1, 0.15, 0.1] },
+    tube: { center: [-0.4, 30.5, 5], halfW: 6.5, halfH: 10, from: [1, 0.1, 0] },
+    manometer: { center: [-21.2, 22.5, 7.2], halfW: 8, halfH: 11, from: [0, 0.05, 1] },
     whole: { center: [8, 55, 2], halfW: 50, halfH: 70, from: [0.3, 0.12, 1] },
 };
 const VIEW_BUTTONS: [ViewId, string][] = [['heart', 'Heart'], ['pressure', 'Manometer'], ['lever', 'Lever'], ['drum', 'Drum'], ['whole', 'Whole set']];
 
-// Flies the camera to a view. As soon as the student drags or zooms, the flight stops and onUserMove is called, so
-// the student keeps the camera instead of being pulled back to the preset view.
-type Controls = THREE.EventDispatcher<{ start: object }> & { target: THREE.Vector3; update: () => void };
-const FitCamera = ({ view, nonce, onUserMove }: { view: View; nonce: number; onUserMove: () => void }) => {
-    const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
-    const aspect = useThree(s => s.size.width / s.size.height);
-    const controls = useThree(s => s.controls) as unknown as Controls | null;
-    const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
-    const placed = useRef(false);
-    useEffect(() => {
-        if (!controls) return;
-        const take = () => { goal.current = null; onUserMove(); };
-        controls.addEventListener('start', take);
-        return () => controls.removeEventListener('start', take);
-    }, [controls, onUserMove]);
-    useEffect(() => {
-        const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-        const dist = 1.15 * Math.max(view.halfH / t, view.halfW / (t * aspect));
-        const target = new THREE.Vector3(...view.center);
-        const pos = target.clone().add(new THREE.Vector3(...view.from).normalize().multiplyScalar(dist));
-        if (!placed.current) {
-            camera.position.copy(pos);
-            camera.lookAt(target);
-            if (controls) { controls.target.copy(target); controls.update(); placed.current = true; }
-        } else {
-            goal.current = { pos, target };
-        }
-    }, [view, nonce, aspect, camera, controls]);
-    useFrame(() => {
-        const g = goal.current;
-        if (!g || !controls) return;
-        camera.position.lerp(g.pos, 0.08);
-        controls.target.lerp(g.target, 0.08);
-        controls.update();
-        if (camera.position.distanceTo(g.pos) < g.pos.distanceTo(g.target) * 0.002) goal.current = null;
-    });
-    return null;
-};
-
 // --- Set-up, in Jain's order (p. 325) ---
 
 type StepId = 'fill' | 'oxygen' | 'bath' | 'excise' | 'transfer' | 'pulmonary' | 'cannulate' | 'flow' | 'thread';
-interface Choice { label: string; ok: boolean; say: string }
 interface Step {
     id: StepId; name: string; title: string; text: string; view: ViewId; choices?: Choice[]; action?: string; done?: string;
     dur: number;                      // ms the animation plays
@@ -770,78 +693,6 @@ const STEPS: Step[] = [
 ];
 const stepIndex = (id: StepId) => STEPS.findIndex(s => s.id === id);
 
-// --- The record, as on the slow drum ---
-
-interface Sample { x: number; y: number }   // paper time (ms), height of the writing point (cm, systole up)
-interface Mark { x: number; text: string; color: string }
-
-const RecordGraph = ({ data, marks, paperT, running, heartRate, arrest }: {
-    data: Sample[]; marks: Mark[]; paperT: number; running: boolean; heartRate: number; arrest: Sim['arrest'];
-}) => {
-    const W = 900, H = 380;
-    const m = { top: 92, right: 20, bottom: 56, left: 44 };
-    const plotW = W - m.left - m.right, plotH = H - m.top - m.bottom;
-    const yMin = -1.2, yMax = 3.3;
-    const x0 = Math.max(0, paperT - WINDOW_MS);
-    const ys = (y: number) => m.top + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
-    const xs = (x: number) => m.left + ((x - x0) / WINDOW_MS) * plotW;
-    // Only the part of the paper in view
-    let lo = 0, hi = data.length;
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (data[mid].x < x0) lo = mid + 1; else hi = mid; }
-    const shown = data.slice(Math.max(0, lo - 1));
-    const path = shown.length > 1 ? `M ${shown.map(p => `${xs(p.x).toFixed(1)},${ys(p.y).toFixed(1)}`).join(' L ')}` : '';
-    const ticks: number[] = [];
-    for (let t = Math.ceil(x0 / 5000) * 5000; t <= x0 + WINDOW_MS; t += 5000) ticks.push(t);
-    const seconds: number[] = [];
-    for (let t = Math.ceil(x0 / 1000) * 1000; t <= Math.min(paperT, x0 + WINDOW_MS); t += 1000) seconds.push(t);
-    const timeY = m.top + plotH + 30;
-    const seen = marks.filter(mk => mk.x >= x0);
-
-    return (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-            <rect x={0} y={0} width={W} height={H} fill="#020617" rx={8} />
-            {[0, 1, 2, 3].map(v => (
-                <g key={v}>
-                    <line x1={m.left} y1={ys(v)} x2={W - m.right} y2={ys(v)} stroke={v === 0 ? '#166534' : '#14532d'} strokeWidth={1} />
-                    <text x={m.left - 6} y={ys(v) + 4} textAnchor="end" fill="#166534" fontSize={12} fontFamily="monospace">{v}</text>
-                </g>
-            ))}
-            <text x={m.left - 30} y={m.top + plotH / 2} fill="#166534" fontSize={11} fontFamily="monospace" transform={`rotate(-90 ${m.left - 30} ${m.top + plotH / 2})`} textAnchor="middle">cm (systole ↑)</text>
-            {ticks.map(t => (
-                <g key={t}>
-                    <line x1={xs(t)} y1={m.top} x2={xs(t)} y2={m.top + plotH} stroke="#14532d" strokeWidth={1} />
-                    <text x={xs(t)} y={m.top + plotH + 16} textAnchor="middle" fill="#166534" fontSize={12} fontFamily="monospace">{t / 1000}s</text>
-                </g>
-            ))}
-            {/* Time marker: one mark a second */}
-            <line x1={m.left} y1={timeY} x2={xs(Math.min(paperT, x0 + WINDOW_MS))} y2={timeY} stroke="#4b5563" strokeWidth={1.5} />
-            {seconds.map(t => <line key={t} x1={xs(t)} y1={timeY - 6} x2={xs(t)} y2={timeY} stroke="#6b7280" strokeWidth={1.5} />)}
-            <text x={W - m.right} y={timeY + 16} textAnchor="end" fill="#4b5563" fontSize={11} fontFamily="monospace">time marker, 1 s</text>
-
-            <path d={path} fill="none" stroke="#4ade80" strokeWidth={1.6} strokeLinejoin="round" />
-
-            {seen.map((mk, i) => {
-                const x = xs(mk.x);
-                const textY = i % 2 === 0 ? 28 : 56;
-                const anchor = x < 110 ? 'start' : x > W - 130 ? 'end' : 'middle';
-                return (
-                    <g key={`${mk.x}-${i}`}>
-                        <text x={x} y={textY} textAnchor={anchor} fill={mk.color} fontSize={16} fontFamily="monospace" fontWeight="bold">{mk.text}</text>
-                        <line x1={x} y1={textY + 6} x2={x} y2={m.top + plotH} stroke={mk.color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
-                    </g>
-                );
-            })}
-            {!data.length && <text x={W / 2} y={m.top + plotH / 2} textAnchor="middle" fill="#166534" fontSize={15} fontFamily="monospace">Drum stopped</text>}
-            {data.length > 0 && (
-                <text x={W - m.right - 10} y={m.top + plotH - 8} textAnchor="end" fill={heartRate > 0 ? '#4ade80' : '#f87171'} fontSize={14} fontFamily="monospace" fontWeight="bold">
-                    {heartRate > 0 ? `HR: ${heartRate} BPM` : arrest === 'systole' ? 'STOPPED IN SYSTOLE' : 'STOPPED IN DIASTOLE'}
-                </text>
-            )}
-            {running && <text x={m.left + 10} y={m.top + plotH - 8} fill="#ef4444" fontSize={14} fontFamily="monospace" fontWeight="bold">● 2.5 mm/s</text>}
-        </svg>
-    );
-};
-
 // --- Main component ---
 
 interface Result { beforeHr: number; beforeForce: number; hr: number; force: number; note?: string }
@@ -870,7 +721,7 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
     const questionSet = questionSetFor('langendorff');
     const [mobileView, setMobileView] = useState<'3d' | 'graph'>('3d');
     const [soundMuted, setSoundMuted] = useState(false);
-    const [sceneBg, setSceneBg] = useState(LIGHT_BG);
+    const [sceneBg, setSceneBg] = useState(DARK_BG);   // the apparatus reads best on the dark background
 
     // Set-up
     const [step, setStep] = useState(0);              // index into STEPS; STEPS.length = the experiment
@@ -881,7 +732,7 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
     const [heaterOn, setHeaterOn] = useState(false);
     const [sv, setSv] = useState(25);
     const [pv, setPv] = useState(25);
-    const [viewId, setViewId] = useState<ViewId>('top');
+    const [viewId, setViewId] = useState<ViewId>('whole');
     const [viewNonce, setViewNonce] = useState(0);
     const setupDone = step >= STEPS.length;
     const doneStep = (id: StepId) => step > stepIndex(id);
@@ -944,14 +795,20 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
         return () => clearTimeout(id);
     }, [pv, sv]);
 
-    const viewRef = useRef<ViewId>('top');
+    const viewRef = useRef<ViewId>('whole');
     const goView = (id: ViewId) => { viewRef.current = id; setViewId(id); setViewNonce(n => n + 1); };
     // Once the student moves the camera during an animation, its remaining preset shots are skipped
     const userCamRef = useRef(false);
     const handleUserMove = useCallback(() => { userCamRef.current = true; }, []);
     const shot = (id: ViewId) => { if (!userCamRef.current) goView(id); };
     // Between steps, the camera shows where the next step happens
-    useEffect(() => { if (!animRef.current) goView(setupDone ? 'heart' : STEPS[step].view); }, [step, setupDone]);
+    // The student first sees the whole apparatus; the camera moves in close once the set-up is under way
+    useEffect(() => {
+        if (step === 0) return;
+        if (!animRef.current) goView(setupDone ? 'heart' : STEPS[step].view);
+    }, [step, setupDone]);
+    // During the set-up: the whole apparatus, or a close view of where the current step happens
+    const viewButtons: [ViewId, string][] = setupDone ? VIEW_BUTTONS : [['whole', 'Whole set'], [STEPS[Math.min(step, STEPS.length - 1)].view, 'This step']];
 
     const addMark = (text: string, color: string) => {
         if (drumOn) setMarks(prev => [...prev, { x: paperRef.current, text, color }]);
@@ -960,7 +817,6 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
     // --- Set-up actions: each correct step plays its animation, then the next step comes up ---
     const runStep = (fb: { ok: boolean; text: string }) => {
         const st = STEPS[step];
-        const s = simRef.current;
         const at = (ms: number, fn: () => void) => { timers.current.push(window.setTimeout(fn, ms)); };
         clearTimers();
         setFeedback(fb);
@@ -1301,7 +1157,7 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
                         <OxygenCylinder anim={animRef} open={o2Started} onHover={handleHover} />
                         <PourFlasks anim={animRef} />
                         <ScrewClip anim={animRef} open={doneStep('flow')} onHover={handleHover} />
-                        <PetriDish onHover={handleHover} />
+                        <PetriDish at={DISH_AT} label="Petri dish of chilled, oxygenated Ringer-Locke" onHover={handleHover} />
                         <HeartRig stage={heartStage} anim={animRef} shape={shapeRef} color={heartColor}
                             tied={heartStage === 'cannula'} cut={doneStep('pulmonary')} onHover={handleHover} />
                         {perfused && pressure > 0 && <Drips shape={shapeRef} pressure={pressure} />}
@@ -1348,10 +1204,10 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
                             )}
                             {frame.arrest && <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/90 text-white">Stopped in {frame.arrest}</span>}
                         </div>
-                        {setupDone && (
+                        {(
                             <div className="flex rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 pointer-events-auto">
-                                {VIEW_BUTTONS.map(([id, label]) => (
-                                    <button key={id} onClick={() => goView(id)}
+                                {viewButtons.map(([id, label]) => (
+                                    <button key={label} onClick={() => { userCamRef.current = true; goView(id); }}
                                         className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewId === id ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
                                         {label}
                                     </button>
@@ -1365,54 +1221,19 @@ export const LangendorffPerfusion: React.FC<{ onBack: () => void }> = ({ onBack 
                 <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col flex-1 lg:flex-none min-h-0">
                     {setupDone && (
                         <div className={`h-[42vh] flex-none lg:h-auto lg:flex-1 p-3 lg:p-4 lg:min-h-0 flex-col border-b border-slate-800 ${mobileView === '3d' ? 'hidden lg:flex' : 'flex'}`}>
-                            <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Record on the slow drum</h3>
+                            <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider">Record on the slow drum</h3>
+                            <p className="text-[11px] text-slate-500 leading-snug mb-2">Systole drawn upward, as in Jain's Fig. 68.3. On this apparatus the thread pulls the lever down, so the smoked drum shows systole downward.</p>
                             <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden relative min-h-[170px]">
-                                <RecordGraph data={dataRef.current} marks={marks} paperT={paperRef.current} running={drumOn} heartRate={heartRate} arrest={frame.arrest} />
+                                <RecordGraph data={dataRef.current} marks={marks} paperT={paperRef.current} running={drumOn} windowMs={WINDOW_MS}
+                                    yMin={-1.2} yMax={3.3} yTicks={[0, 1, 2, 3]} yLabel="cm (systole ↑)" speed="2.5 mm/s"
+                                    status={heartRate > 0 ? { text: `HR: ${heartRate} BPM`, color: '#4ade80' } : { text: frame.arrest === 'systole' ? 'STOPPED IN SYSTOLE' : 'STOPPED IN DIASTOLE', color: '#f87171' }} />
                             </div>
                         </div>
                     )}
 
                     <div className={`p-4 lg:p-5 bg-slate-900 z-10 space-y-3 overflow-y-auto ${setupDone ? 'lg:max-h-[62%]' : 'flex-1'}`}>
                         {/* Steps of the set-up */}
-                        <ol className="grid grid-cols-5 gap-x-1.5 gap-y-1 text-[11px] font-bold" aria-label="Set-up steps">
-                            {STEPS.map((st, i) => {
-                                const state = i < step ? 'done' : i === step ? 'current' : 'later';
-                                const look = `flex items-center gap-1 px-1 py-1 rounded-md ${state === 'done' ? 'text-emerald-400' : state === 'current' ? 'text-white bg-slate-800 ring-1 ring-rose-400' : 'text-slate-500'}`;
-                                const inner = <>
-                                    {state === 'done' ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 text-center shrink-0">{i + 1}</span>}
-                                    <span className="truncate">{st.name}</span>
-                                </>;
-                                return (
-                                    <li key={st.id}>
-                                        {state === 'done' ? (
-                                            // A finished step: go back to it and do it again
-                                            <button onClick={() => goToStep(i)} title={`Go back to step ${i + 1} (${st.title})`}
-                                                className={`w-full text-left hover:bg-slate-800 hover:text-emerald-300 cursor-pointer transition-colors ${look}`}>
-                                                {inner}
-                                            </button>
-                                        ) : state === 'later' ? (
-                                            // A step still to come: jump ahead to it, with the steps before it done
-                                            <button onClick={() => jumpToStep(i)} title={`Skip ahead to step ${i + 1} (${st.title})`}
-                                                className={`w-full text-left hover:bg-slate-800 hover:text-slate-300 cursor-pointer transition-colors ${look}`}>
-                                                {inner}
-                                            </button>
-                                        ) : <div className={look}>{inner}</div>}
-                                    </li>
-                                );
-                            })}
-                            <li>
-                                {setupDone ? (
-                                    <div className="flex items-center gap-1 px-1 py-1 rounded-md text-white bg-slate-800 ring-1 ring-rose-400">
-                                        <span className="w-3.5 text-center shrink-0">10</span><span className="truncate">Record</span>
-                                    </div>
-                                ) : (
-                                    <button onClick={skipSetup} title="Skip ahead to recording, with the set-up done"
-                                        className="w-full text-left flex items-center gap-1 px-1 py-1 rounded-md text-slate-500 hover:bg-slate-800 hover:text-slate-300 cursor-pointer transition-colors">
-                                        <span className="w-3.5 text-center shrink-0">10</span><span className="truncate">Record</span>
-                                    </button>
-                                )}
-                            </li>
-                        </ol>
+                        <StepList steps={STEPS} step={step} onBack={goToStep} onAhead={jumpToStep} onRecord={skipSetup} />
 
                         {feedback && (
                             <div className={`rounded-lg border p-3 text-sm flex gap-2 ${feedback.ok ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-100' : 'bg-red-950/40 border-red-700/60 text-red-100'}`} aria-live="polite">

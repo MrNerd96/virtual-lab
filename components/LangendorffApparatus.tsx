@@ -95,6 +95,8 @@ export const CANNULA_AT = CAN;
 export const NOZZLE_TIP_Y = 20.1;
 export const APEX_REST_Y = 16.8;
 export const PLANE_Z = FRONT_Z;
+// The bath and its two inner glass tubes (each an organ bath for an isolated tissue, as in Dale's apparatus)
+export const BATH = { tank: TANK, tubeX: TUBE_X, tubeZ: TUBE_Z, tubeR: 1.7, tubeBottom: 42, tubeTop: 55, airTubeX: 4.3, airTubeEnd: 44 };
 // The heart lever turns about its fulcrum; the thread from the pulley is tied 4 cm along it, the writing point
 // is 15.6 cm along, so the record magnifies the movement of the apex about 3.9 times
 const LEVER_PIVOT: V3 = [22.8, 20.95, FRONT_Z];
@@ -109,7 +111,7 @@ export const leverTipY = (tilt: number) => rotAbout([16.2, 0.7], tilt)[1];
 // Mercury manometer: level of both limbs at zero pressure. The scale beside the open limb reads mmHg directly:
 // as the open limb rises the other falls as much, so each centimetre of rise is 20 mmHg.
 const HG_ZERO = 21;
-const RINGER = '#bfe3f5';
+const RINGER = '#2f8fe0';   // liquids are a clear blue, to stand out from the glass
 
 // A straight piece of thread whose ends are worked out every frame; drawn (0..1) lays it out from its first end
 const LiveThread = ({ ends, color, drawn }: { ends: () => [V3, V3]; color: string; drawn?: () => number }) => {
@@ -179,12 +181,12 @@ const LiveFlow = ({ motion }: { motion: React.MutableRefObject<LangendorffMotion
     });
     return (
         <group>
-            <mesh ref={sleeve} geometry={geo} visible={false}><meshStandardMaterial color="#7dd3fc" transparent opacity={0.8} roughness={0.25} /></mesh>
+            <mesh ref={sleeve} geometry={geo} visible={false}><meshStandardMaterial color="#2f8fe0" transparent opacity={0.8} roughness={0.25} /></mesh>
             <group ref={drops} visible={false}>
-                {[0, 1, 2, 3].map(i => <mesh key={i}><sphereGeometry args={[0.6, 12, 10]} /><meshStandardMaterial color="#e0f2fe" emissive="#38bdf8" emissiveIntensity={0.6} transparent opacity={0.9} /></mesh>)}
+                {[0, 1, 2, 3].map(i => <mesh key={i}><sphereGeometry args={[0.6, 12, 10]} /><meshStandardMaterial color="#60b4f5" emissive="#1d6fc2" emissiveIntensity={0.6} transparent opacity={0.9} /></mesh>)}
             </group>
-            <mesh ref={bulb} position={CAN} visible={false}><sphereGeometry args={[1.2, 22, 16]} /><meshStandardMaterial color="#7dd3fc" transparent opacity={0.6} depthWrite={false} /></mesh>
-            <mesh ref={nozzle} position={[CAN[0], 21.25, CAN[2]]} visible={false}><cylinderGeometry args={[0.4, 0.12, 2.0, 12]} /><meshStandardMaterial color="#7dd3fc" transparent opacity={0.6} depthWrite={false} /></mesh>
+            <mesh ref={bulb} position={CAN} visible={false}><sphereGeometry args={[1.2, 22, 16]} /><meshStandardMaterial color="#2f8fe0" transparent opacity={0.6} depthWrite={false} /></mesh>
+            <mesh ref={nozzle} position={[CAN[0], 21.25, CAN[2]]} visible={false}><cylinderGeometry args={[0.4, 0.12, 2.0, 12]} /><meshStandardMaterial color="#2f8fe0" transparent opacity={0.6} depthWrite={false} /></mesh>
         </group>
     );
 };
