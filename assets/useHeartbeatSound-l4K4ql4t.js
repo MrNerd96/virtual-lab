@@ -1,0 +1,16 @@
+import{c as y,r as s}from"./index-CXiFHb_3.js";/**
+ * @license lucide-react v0.378.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const d=y("Square",[["rect",{width:"18",height:"18",x:"3",y:"3",rx:"2",key:"afitv7"}]]);/**
+ * @license lucide-react v0.378.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const A=y("Volume2",[["polygon",{points:"11 5 6 9 2 9 2 15 6 15 11 19 11 5",key:"16drj5"}],["path",{d:"M15.54 8.46a5 5 0 0 1 0 7.07",key:"ltjumu"}],["path",{d:"M19.07 4.93a10 10 0 0 1 0 14.14",key:"1kegas"}]]);/**
+ * @license lucide-react v0.378.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const k=y("VolumeX",[["polygon",{points:"11 5 6 9 2 9 2 15 6 15 11 19 11 5",key:"16drj5"}],["line",{x1:"22",x2:"16",y1:"9",y2:"15",key:"1ewh16"}],["line",{x1:"16",x2:"22",y1:"9",y2:"15",key:"5ykzw1"}]]);function V(o,c,l){const e=o.currentTime,T=l==="S1"?55:75,n=l==="S1"?.14:.09,u=.01,f=l==="S1"?1:.75,r=o.createOscillator();r.type="sine",r.frequency.setValueAtTime(T,e),r.frequency.exponentialRampToValueAtTime(T*.6,e+n);const a=o.createGain();a.gain.setValueAtTime(0,e),a.gain.linearRampToValueAtTime(f,e+u),a.gain.exponentialRampToValueAtTime(.001,e+n),r.connect(a),a.connect(c),r.start(e),r.stop(e+n+.02);const t=o.createOscillator();t.type="sine";const m=l==="S1"?110:140;t.frequency.setValueAtTime(m,e),t.frequency.exponentialRampToValueAtTime(m*.5,e+n);const i=o.createGain();i.gain.setValueAtTime(0,e),i.gain.linearRampToValueAtTime(f*.2,e+u),i.gain.exponentialRampToValueAtTime(.001,e+n*.7),t.connect(i),i.connect(c),t.start(e),t.stop(e+n+.02)}function x({isRecording:o,phase:c,volume:l,muted:e,silent:T}){const n=s.useRef(null),u=s.useRef(null),f=s.useRef(!1),r=s.useRef(!1),a=s.useCallback(()=>{n.current||(n.current=new(window.AudioContext||window.webkitAudioContext),u.current=n.current.createGain(),u.current.connect(n.current.destination)),n.current.state==="suspended"&&n.current.resume()},[]);return s.useEffect(()=>{var t;u.current&&u.current.gain.setValueAtTime(e?0:l,((t=n.current)==null?void 0:t.currentTime)||0)},[l,e]),s.useEffect(()=>{if(!o||e){f.current=!1,r.current=!1;return}if(c<0||T){f.current=!1,r.current=!1;return}a();const t=n.current,m=u.current;if(!t||!m)return;const i=c>=.14&&c<.2;i&&!f.current&&V(t,m,"S1"),f.current=i;const p=c>=.54&&c<.6;p&&!r.current&&V(t,m,"S2"),r.current=p},[c,o,e,a]),s.useEffect(()=>()=>{n.current&&(n.current.close(),n.current=null)},[]),{ensureAudioContext:a}}export{d as S,k as V,A as a,x as u};
