@@ -26,6 +26,7 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'properties-cardiac-muscle', title: 'Properties of Cardiac Muscle', section: 'Amphibian', load: () => import('./cardiac-properties').then(m => m.PROPERTIES_QUESTIONS) },
     { id: 'vagus-wcl', title: 'Vagus & White Crescentic Line', section: 'Amphibian', load: () => import('./vagus-wcl').then(m => m.VAGUS_QUESTIONS) },
     { id: 'frog-heart-perfusion', title: 'Perfusion of Frog\'s Heart', section: 'Amphibian', load: () => import('./frog-heart-perfusion').then(m => m.PERFUSION_QUESTIONS) },
+    { id: 'langendorff', title: 'Langendorff Perfused Heart', section: 'Mammalian', load: () => import('./langendorff').then(m => m.LANGENDORFF_QUESTIONS) },
     { id: 'microscope', title: 'Compound Microscope', section: 'Microscope', load: () => import('./microscope').then(m => m.MICROSCOPE_QUESTIONS) },
 ];
 

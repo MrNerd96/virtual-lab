@@ -148,7 +148,11 @@ const SLOT_TOP = 16.9, SLOT_STEP = 0.72;
 const slotY = (i: number) => SLOT_TOP - i * SLOT_STEP;
 
 // --- the instrument -------------------------------------------------------------------------------------------
-export const KymographModel: React.FC<{ active: string | null; onHover: (id: string | null) => void; onSelect: (id: string) => void; kymo: Kymo }> = ({ active, onHover, onSelect, kymo }) => {
+// `bare` leaves out the bench, the lever stand, the writing lever and the muscle, so the drum can stand beside
+// another apparatus; `pen` then gives the height of that apparatus's writing point (cm, in the drum's own frame,
+// resting on the front of the paper) and whether it is on the paper.
+export interface KymoPen { y: number; on: boolean }
+export const KymographModel: React.FC<{ active: string | null; onHover: (id: string | null) => void; onSelect: (id: string) => void; kymo: Kymo; bare?: boolean; pen?: React.MutableRefObject<KymoPen> }> = ({ active, onHover, onSelect, kymo, bare, pen }) => {
     const lit = (id: string) => active === id;
     const { state, stimuli, clock, paperKey } = kymo;
     const live = useRef(state); live.current = state;
@@ -204,10 +208,10 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
                 s.flash = 1;
                 if (st.contactStim) stimuli.current.push(tt);
             }
-            rise = Math.min(stimuli.current.reduce((sum, t0) => sum + twitch(tt - t0), 0), TWITCH_CM * 1.6);
-            if (s.swing > 0.04) { lastPt.current = null; continue; }
+            rise = pen ? 0 : Math.min(stimuli.current.reduce((sum, t0) => sum + twitch(tt - t0), 0), TWITCH_CM * 1.6);
+            if (pen ? !pen.current.on : s.swing > 0.04) { lastPt.current = null; continue; }
             // Where the writing point is on the paper
-            const y = PIVOT.y + rise;
+            const y = pen ? pen.current.y : PIVOT.y + rise;
             const paperTop = DRUM_Y_LOW + s.lift + DRUM_H;
             const v = (paperTop - y) * PX_CM;
             const theta = ((-s.phi) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
@@ -251,10 +255,12 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
             onClick={e => { e.stopPropagation(); const p = pick(e); if (p) onSelect(p); }}
         >
             {/* Bench top */}
-            <mesh position={[7, -0.5, 2]}>
-                <boxGeometry args={[60, 1, 38]} />
-                <meshStandardMaterial color="#8a6a4a" roughness={0.8} />
-            </mesh>
+            {!bare && (
+                <mesh position={[7, -0.5, 2]}>
+                    <boxGeometry args={[60, 1, 38]} />
+                    <meshStandardMaterial color="#8a6a4a" roughness={0.8} />
+                </mesh>
+            )}
 
             {/* Cabinet: white enamelled steel panels screwed to a frame, on rubber feet; the motor and gear box inside */}
             <group userData={{ part: 'base' }}>
@@ -398,6 +404,7 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
                 </group>
             </group>
 
+            {!bare && (<>
             {/* Lever stand: triangular cast foot and upright rod, with boss heads clamping the lever's pivot frame and,
                 lower down, the femur of the muscle */}
             <group userData={{ part: 'stand' }}>
@@ -459,6 +466,7 @@ export const KymographModel: React.FC<{ active: string | null; onHover: (id: str
                     <Cyl r={0.06} r2={0.1} h={MUSCLE_LEN - 3.4} pos={[0, (MUSCLE_LEN + 3.4) / 2, 0]} seg={8}><Paint lit={lit('muscle')} color="#efe9df" metal={0} rough={0.4} /></Cyl>
                 </group>
             </group>
+            </>)}
         </group>
     );
 };

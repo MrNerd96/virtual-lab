@@ -27,6 +27,7 @@ const ConductionVelocity = lazy(() => import('./components/ConductionVelocity').
 const NormalCardiogram = lazy(() => import('./components/NormalCardiogram').then(m => ({ default: m.NormalCardiogram })).catch(reloadForNewVersion));
 const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCardiacMuscle').then(m => ({ default: m.PropertiesOfCardiacMuscle })).catch(reloadForNewVersion));
 const FrogHeartPerfusion = lazy(() => import('./components/FrogHeartPerfusion').then(m => ({ default: m.FrogHeartPerfusion })).catch(reloadForNewVersion));
+const LangendorffPerfusion = lazy(() => import('./components/LangendorffPerfusion').then(m => ({ default: m.LangendorffPerfusion })).catch(reloadForNewVersion));
 const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })).catch(reloadForNewVersion));
 const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })).catch(reloadForNewVersion));
 const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })).catch(reloadForNewVersion));
@@ -80,7 +81,8 @@ import {
   TestTube,
   Lock,
   ChevronDown,
-  HeartPulse
+  HeartPulse,
+  Rabbit
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -92,7 +94,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'mammalian' | 'langendorff' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -105,6 +107,8 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'home': 'Home',
   'amphibian': 'Amphibian Menu',
   'hematology': 'Hematology Menu',
+  'mammalian': 'Mammalian Menu',
+  'langendorff': 'Langendorff Perfused Heart',
   'twitch': 'Simple Muscle Twitch',
   'load': 'Effect of Load',
   'fatigue': 'Genesis of Fatigue',
@@ -145,6 +149,8 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'home': 'Navigation',
   'amphibian': 'Navigation',
   'hematology': 'Navigation',
+  'mammalian': 'Navigation',
+  'langendorff': 'Mammalian',
   'twitch': 'Amphibian',
   'load': 'Amphibian',
   'fatigue': 'Amphibian',
@@ -2123,21 +2129,20 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
 
-  // Sync state with History API
+  // Sync state with History API. A page remembered in the tab's history may no longer exist (a module renamed or
+  // removed since): fall back to home rather than drawing nothing.
   useEffect(() => {
+    const known = (v: unknown): v is ViewState => typeof v === 'string' && v in MODULE_LABELS;
     // Initial state setup
-    if (!window.history.state) {
+    if (!known(window.history.state)) {
       window.history.replaceState('home', '', '');
+      setCurrentView('home');
     } else if (window.history.state !== currentView) {
-      setCurrentView(window.history.state as ViewState);
+      setCurrentView(window.history.state);
     }
 
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state) {
-        setCurrentView(event.state as ViewState);
-      } else {
-        setCurrentView('home');
-      }
+      setCurrentView(known(event.state) ? event.state : 'home');
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -2197,7 +2202,7 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <MenuCard
                 title="Hematology"
                 description="WBC, RBC, and Differential Counts using Virtual Microscopy."
@@ -2211,6 +2216,13 @@ const App: React.FC = () => {
                 icon={<Activity className="w-8 h-8" />}
                 colorClass="green"
                 onClick={() => navigateTo('amphibian')}
+              />
+              <MenuCard
+                title="Mammalian"
+                description="Isolated mammalian heart: Langendorff perfusion, drugs and ions."
+                icon={<Rabbit className="w-8 h-8" />}
+                colorClass="pink"
+                onClick={() => navigateTo('mammalian')}
               />
               <MenuCard
                 title="Instruments"
@@ -2467,6 +2479,30 @@ const App: React.FC = () => {
                 icon={<HeartPulse className="w-8 h-8" />}
                 colorClass="red"
                 onClick={() => setCurrentView('frog-heart-perfusion')}
+              />
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'mammalian':
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-start p-6 pt-10 md:p-8 md:pt-16 font-sans relative">
+          {/* One practical so far: the menu is one card wide, centred across and near the top, until more are added */}
+          <div className="max-w-md w-full">
+            <div className="flex items-center gap-1 mb-6 -ml-2">
+              <button onClick={() => window.history.back()} aria-label="Back" className="shrink-0 w-11 h-11 -ml-1 rounded-full flex items-center justify-center text-slate-200 hover:bg-slate-800 active:bg-slate-700 hover:text-white transition-colors">
+                <ArrowLeft className="w-6 h-6" strokeWidth={2.5} />
+              </button>
+              <h2 className="text-[clamp(22px,6.4vw,28px)] md:text-3xl font-bold text-white leading-tight">Mammalian Physiology</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-6">
+              <MenuCard
+                title="Langendorff Perfused Heart"
+                description="Isolated rabbit heart perfused through the aorta: effect of drugs, ions, pressure and anoxaemia."
+                icon={<HeartPulse className="w-8 h-8" />}
+                colorClass="pink"
+                onClick={() => navigateTo('langendorff')}
               />
             </div>
           </div>
@@ -2771,6 +2807,12 @@ const App: React.FC = () => {
           <FrogHeartPerfusion onBack={() => setCurrentView('amphibian')} />
         </Suspense>
       );
+    case 'langendorff':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading Langendorff Perfused Heart..." />}>
+          <LangendorffPerfusion onBack={() => window.history.back()} />
+        </Suspense>
+      );
     case 'effect-of-load':
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Effect of Load..." />}>
@@ -2793,7 +2835,7 @@ const App: React.FC = () => {
 
   // Home has its own feedback icon and the section menus stay uncluttered; every other screen gets a small
   // "Feedback" button at the top right. The app-has-feedback class lets headers keep room for it (index.css).
-  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology' || currentView === 'instruments') return <>{screen}<ComingSoonToast /></>;
+  if (currentView === 'home' || currentView === 'amphibian' || currentView === 'hematology' || currentView === 'mammalian' || currentView === 'instruments') return <>{screen}<ComingSoonToast /></>;
   return (
     <div className="app-has-feedback contents">
       {screen}

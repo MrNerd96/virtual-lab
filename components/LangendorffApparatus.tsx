@@ -1,8 +1,27 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Text, Edges } from '@react-three/drei';
-import type { ThreeEvent } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { LABEL_FONT, LABEL_FONT_BOLD } from './labelFonts';
+
+// The practical (LangendorffPerfusion) drives the model through `live`; without it the model stands still, as in
+// the Instruments viewer. What moves every frame (the apex of the heart and the lever) is read from a ref inside
+// useFrame, so the model itself is not re-rendered while the heart beats.
+export interface LangendorffMotion {
+    lift: number;     // cm the apex of the heart has risen
+    tilt: number;     // angle of the lever (rad, down)
+    fill: number;     // 0..1, how full the reservoirs and pressure-head tubes are
+    thread: number;   // 0..1, how much of the thread from the apex to the lever has been laid
+    hg: number;       // perfusion pressure shown by the manometer, mmHg (follows the pressure smoothly)
+    perfuse: number;  // 0..1, how far the Ringer-Locke has run down the side tube into the cannula
+}
+export interface LangendorffLive {
+    oxygen: boolean;          // oxygen bubbling through the columns
+    heaterOn: boolean;        // heater and stirrer switched on
+    pv: string; sv: string;   // controller display
+    heart: boolean;           // a heart hangs on the cannula: the clip grips its apex
+    motion: React.MutableRefObject<LangendorffMotion>;
+}
 
 // Langendorff apparatus for the isolated mammalian heart, modelled on photographs of the department's own set
 // (a "two unit bath" with digital temperature control). Units are centimetres; the top of the base plate is y = 0,
@@ -71,6 +90,166 @@ const FRONT_Z = 7;                                   // plane of the thread, pul
 // one at the far end of the right lower bar, beyond the upright welded on it that carries the lever
 const LEFT_PULLEY_X = -5.6, RIGHT_PULLEY_X = 25.8;
 const CLIP_BOTTOM: V3 = [CAN[0] + 0.45, 16.9, FRONT_Z];
+// Where the nozzle of the cannula ends, and where the apex of a heart tied on it hangs at rest
+export const CANNULA_AT = CAN;
+export const NOZZLE_TIP_Y = 20.1;
+export const APEX_REST_Y = 16.8;
+export const PLANE_Z = FRONT_Z;
+// The heart lever turns about its fulcrum; the thread from the pulley is tied 4 cm along it, the writing point
+// is 15.6 cm along, so the record magnifies the movement of the apex about 3.9 times
+const LEVER_PIVOT: V3 = [22.8, 20.95, FRONT_Z];
+const LEVER_TIE: [number, number] = [4.0, -0.35];   // tie point of the thread, from the fulcrum
+const rotAbout = (p: [number, number], tilt: number): [number, number] => {
+    const c = Math.cos(-tilt), s = Math.sin(-tilt);
+    return [LEVER_PIVOT[0] + p[0] * c - p[1] * s, LEVER_PIVOT[1] + p[0] * s + p[1] * c];
+};
+// The writing point of the lever (its tip, 16.2 cm along and 0.7 cm above the fulcrum), for a drum set against it
+export const LEVER_TIP_X = 39.0;
+export const leverTipY = (tilt: number) => rotAbout([16.2, 0.7], tilt)[1];
+// Mercury manometer: level of both limbs at zero pressure. The scale beside the open limb reads mmHg directly:
+// as the open limb rises the other falls as much, so each centimetre of rise is 20 mmHg.
+const HG_ZERO = 21;
+const RINGER = '#bfe3f5';
+
+// A straight piece of thread whose ends are worked out every frame; drawn (0..1) lays it out from its first end
+const LiveThread = ({ ends, color, drawn }: { ends: () => [V3, V3]; color: string; drawn?: () => number }) => {
+    const ref = useRef<THREE.Mesh>(null);
+    const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+    useFrame(() => {
+        const m = ref.current;
+        if (!m) return;
+        const [a, b] = ends();
+        const f = drawn ? Math.max(0, Math.min(1, drawn())) : 1;
+        m.visible = f > 0.01;
+        const va = new THREE.Vector3(...a), vb = va.clone().lerp(new THREE.Vector3(...b), f), d = vb.clone().sub(va);
+        m.position.copy(va.add(vb).multiplyScalar(0.5));
+        m.quaternion.setFromUnitVectors(up, d.clone().normalize());
+        m.scale.set(1, d.length(), 1);
+    });
+    return <mesh ref={ref}><cylinderGeometry args={[0.035, 0.035, 1, 5, 1]} /><meshBasicMaterial color={color} /></mesh>;
+};
+
+// Mercury of the manometer: the bend at the bottom of the U, and a column in each limb. The open (left) limb rises
+// and the limb joined to the cannula falls by the same amount; a red pointer on the scale follows the open limb.
+const HG_BEND: V3[] = [[-23, 15.5, 7.4], [-22.6, 14.4, 7.4], [-21.2, 14, 7.4], [-19.8, 14.4, 7.4], [-19.4, 15.5, 7.4]];
+const Mercury = () => <meshStandardMaterial color="#9aa1a8" metalness={1} roughness={0.15} />;
+const MercuryColumns = ({ motion }: { motion?: React.MutableRefObject<LangendorffMotion> }) => {
+    const left = useRef<THREE.Mesh>(null), right = useRef<THREE.Mesh>(null), pointer = useRef<THREE.Group>(null);
+    useFrame(() => {
+        const rise = (motion?.current.hg ?? 0) / 20;
+        const yL = HG_ZERO + rise, yR = Math.max(15.55, HG_ZERO - rise);
+        if (left.current) { left.current.scale.y = yL - 15.5; left.current.position.y = (yL + 15.5) / 2; }
+        if (right.current) { right.current.scale.y = yR - 15.5; right.current.position.y = (yR + 15.5) / 2; }
+        if (pointer.current) { pointer.current.position.y = yL; pointer.current.visible = !!motion && rise > 0.05; }
+    });
+    return (
+        <>
+            <mesh ref={left} position={[-23, 18, 7.4]}><cylinderGeometry args={[0.2, 0.2, 1, 12]} /><Mercury /></mesh>
+            <mesh ref={right} position={[-19.4, 18, 7.4]}><cylinderGeometry args={[0.2, 0.2, 1, 12]} /><Mercury /></mesh>
+            <group ref={pointer} position={[-22.6, HG_ZERO, 7.05]} visible={false}>
+                <mesh rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[0.22, 0.5, 3]} /><meshBasicMaterial color="#dc2626" /></mesh>
+            </group>
+        </>
+    );
+};
+
+// Ringer-Locke running from the bath down the side tube into the cannula as the screw clip is opened: the tube
+// turns blue as the fluid advances (drops run along it while it fills), then the bulb and the nozzle fill
+const SIDE_TUBE: V3[] = [[0, 37.8, 3], [0, 33, 3.6], [-0.7, 29, 6.2], [-1, 27, 7]];
+const LiveFlow = ({ motion }: { motion: React.MutableRefObject<LangendorffMotion> }) => {
+    const curve = useMemo(() => new THREE.CatmullRomCurve3(SIDE_TUBE.map(p => new THREE.Vector3(...p)), false, 'catmullrom', 0.5), []);
+    const geo = useMemo(() => new THREE.TubeGeometry(curve, 60, 0.53, 10, false), [curve]);
+    const sleeve = useRef<THREE.Mesh>(null), bulb = useRef<THREE.Mesh>(null), nozzle = useRef<THREE.Mesh>(null), drops = useRef<THREE.Group>(null);
+    useFrame(() => {
+        const now = performance.now() / 1000;
+        const f = motion.current.perfuse;
+        const tube = Math.max(0, Math.min(1, f / 0.7)), fill = Math.max(0, Math.min(1, (f - 0.7) / 0.3));
+        const n = geo.index ? geo.index.count : 0;
+        geo.setDrawRange(0, Math.floor((n * tube) / 6) * 6);
+        if (sleeve.current) sleeve.current.visible = tube > 0.01;
+        if (bulb.current) { bulb.current.visible = fill > 0.01; bulb.current.scale.set(fill, 1.15 * fill, fill); }
+        if (nozzle.current) nozzle.current.visible = fill > 0.95;
+        if (drops.current) {
+            drops.current.visible = f > 0.01 && f < 0.99;
+            drops.current.children.forEach((c, i) => {
+                const t = ((now * 0.9 + i / 4) % 1) * Math.max(tube, 0.02);
+                if (Number.isFinite(t)) c.position.copy(curve.getPointAt(Math.max(0, Math.min(1, t))));
+            });
+        }
+    });
+    return (
+        <group>
+            <mesh ref={sleeve} geometry={geo} visible={false}><meshStandardMaterial color="#7dd3fc" transparent opacity={0.8} roughness={0.25} /></mesh>
+            <group ref={drops} visible={false}>
+                {[0, 1, 2, 3].map(i => <mesh key={i}><sphereGeometry args={[0.6, 12, 10]} /><meshStandardMaterial color="#e0f2fe" emissive="#38bdf8" emissiveIntensity={0.6} transparent opacity={0.9} /></mesh>)}
+            </group>
+            <mesh ref={bulb} position={CAN} visible={false}><sphereGeometry args={[1.2, 22, 16]} /><meshStandardMaterial color="#7dd3fc" transparent opacity={0.6} depthWrite={false} /></mesh>
+            <mesh ref={nozzle} position={[CAN[0], 21.25, CAN[2]]} visible={false}><cylinderGeometry args={[0.4, 0.12, 2.0, 12]} /><meshStandardMaterial color="#7dd3fc" transparent opacity={0.6} depthWrite={false} /></mesh>
+        </group>
+    );
+};
+
+// Fluid that rises as the reservoirs are filled: scaled upward from its own base
+const LiveFluid = ({ motion, at, children }: { motion: React.MutableRefObject<LangendorffMotion>; at: V3; children: React.ReactNode }) => {
+    const ref = useRef<THREE.Group>(null);
+    useFrame(() => {
+        const g = ref.current;
+        if (!g) return;
+        const f = motion.current.fill;
+        g.visible = f > 0.01;
+        g.scale.set(1, Math.max(0.01, f), 1);
+    });
+    return <group ref={ref} position={at}>{children}</group>;
+};
+
+// Oxygen bubbles rising up a pressure-head tube from the end of its fine glass tube
+const Bubbles = ({ x }: { x: number }) => {
+    const group = useRef<THREE.Group>(null);
+    const seeds = useMemo(() => Array.from({ length: 7 }, (_, i) => ({ off: i / 7, wob: Math.random() * 6 })), []);
+    useFrame(({ clock }) => {
+        const g = group.current;
+        if (!g) return;
+        g.children.forEach((c, i) => {
+            const s = seeds[i], p = (clock.elapsedTime * 0.55 + s.off) % 1;
+            c.position.set(x + Math.sin(p * 9 + s.wob) * 0.25, 97.4 + p * 6.2, UPPER_Z + Math.cos(p * 7 + s.wob) * 0.2);
+            c.scale.setScalar(0.6 + p * 0.6);
+        });
+    });
+    return (
+        <group ref={group}>
+            {seeds.map((_, i) => <mesh key={i}><sphereGeometry args={[0.2, 8, 6]} /><meshStandardMaterial color="#ffffff" transparent opacity={0.7} roughness={0.1} /></mesh>)}
+        </group>
+    );
+};
+
+// Clip that grips the apex of a heart on the cannula, following the apex as it rises and falls
+const ApexClip = ({ motion, lit }: { motion: React.MutableRefObject<LangendorffMotion>; lit: boolean }) => {
+    const ref = useRef<THREE.Group>(null);
+    useFrame(() => {
+        if (!ref.current) return;
+        ref.current.position.y = APEX_REST_Y + motion.current.lift + 0.15;
+        ref.current.visible = motion.current.thread > 0.001;
+    });
+    return (
+        <group ref={ref} position={[CAN[0] + 0.05, APEX_REST_Y, FRONT_Z]}>
+            <Bar a={[-0.18, 0, 0]} b={[-0.18, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit} /></Bar>
+            <Bar a={[0.2, -0.15, 0]} b={[0.2, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit} /></Bar>
+            <Box at={[0.01, -0.1, 0]} size={[0.55, 0.3, 0.14]}><Steel lit={lit} /></Box>
+            <mesh position={[0.01, -1.95, 0]}><torusGeometry args={[0.24, 0.05, 6, 16]} /><Steel lit={lit} /></mesh>
+        </group>
+    );
+};
+
+// Moving arm of the heart lever, turned about its fulcrum
+const LeverArm = ({ motion, children }: { motion?: React.MutableRefObject<LangendorffMotion>; children: React.ReactNode }) => {
+    const ref = useRef<THREE.Group>(null);
+    useFrame(() => { if (ref.current && motion) ref.current.rotation.z = -motion.current.tilt; });
+    return (
+        <group ref={ref} position={LEVER_PIVOT}>
+            <group position={[-LEVER_PIVOT[0], -LEVER_PIVOT[1], -LEVER_PIVOT[2]]}>{children}</group>
+        </group>
+    );
+};
 
 // Profile of a reservoir bottle (radius, height), turned into a solid of revolution
 const bottleGeo = (() => {
@@ -84,14 +263,25 @@ const coilPts = (() => {
     return pts;
 })();
 
-export const LangendorffApparatus: React.FC<{
+interface ApparatusProps {
     active: string | null;
     onHover: (id: string | null) => void;
     onSelect: (id: string) => void;
-}> = ({ active, onHover, onSelect }) => {
+    live?: LangendorffLive;
+}
+export const LangendorffApparatus = React.memo(({ active, onHover, onSelect, live }: ApparatusProps) => {
     const lit = (id: string) => active === id;
     const bottle = useMemo(bottleGeo, []);
+    const fluidGeo = useMemo(() => new THREE.LatheGeometry(
+        [[0, 0.45], [4.75, 0.45], [4.75, 9.2], [0, 9.2]].map(([r, y]) => new THREE.Vector2(r, y)), 36), []);
     const sides = [-1, 1];
+    const motion = live?.motion;
+    const threadColor = lit('pulleys') ? HIGHLIGHT : '#f8fafc';
+    const laid = () => motion?.current.thread ?? 1;
+    // Ends of the threads: from the clip (on the apex of the heart, or hanging empty) and up to the lever
+    const clipBottom = (): V3 => live?.heart && motion
+        ? [CAN[0] + 0.06, APEX_REST_Y + motion.current.lift + 0.15 - 2.19, FRONT_Z] : CLIP_BOTTOM;
+    const leverTie = (): V3 => { const [x, y] = rotAbout(LEVER_TIE, motion?.current.tilt ?? 0); return [x, y, FRONT_Z]; };
 
     return (
         <group
@@ -143,6 +333,7 @@ export const LangendorffApparatus: React.FC<{
                     <group key={s} position={[s * BOTTLE_X, 102, UPPER_Z]}>
                         <group userData={{ part: 'reservoirs', glass: true }}>
                             <mesh geometry={bottle}><Glass lit={lit('reservoirs')} opacity={0.28} /></mesh>
+                            {motion && <LiveFluid motion={motion} at={[0, 0, 0]}><mesh geometry={fluidGeo}><meshStandardMaterial color={RINGER} transparent opacity={0.55} roughness={0.2} depthWrite={false} /></mesh></LiveFluid>}
                             {/* Outlet at the foot of the bottle, facing the middle */}
                             <Bar a={[-s * 4.8, 1.7, 0]} b={[-s * 6.6, 1.7, 0]} r={1.05}><Glass lit={lit('reservoirs')} /></Bar>
                         </group>
@@ -171,7 +362,14 @@ export const LangendorffApparatus: React.FC<{
                             <Bar a={[s * (TRAP_X + 0.8), 103.7, UPPER_Z]} b={[s * 4.4, 103.7, UPPER_Z]} r={0.3}><Glass lit={lit('head-tubes')} /></Bar>
                             {/* Fine tube that lets gas into the column */}
                             <Bar a={[s * TRAP_X, 97, UPPER_Z]} b={[-s * 1.6, 121 - (s > 0 ? 2 : 0), UPPER_Z + s * 0.6]} r={0.22}><Glass lit={lit('head-tubes')} opacity={0.45} /></Bar>
+                            {/* Ringer-Locke standing in the column, up to the level of the bottle's outlet */}
+                            {motion && (
+                                <LiveFluid motion={motion} at={[s * TRAP_X, 90.2, UPPER_Z]}>
+                                    <mesh position={[0, 6.8, 0]}><cylinderGeometry args={[0.8, 0.8, 13.6, 16]} /><meshStandardMaterial color={RINGER} transparent opacity={0.5} depthWrite={false} /></mesh>
+                                </LiveFluid>
+                            )}
                         </group>
+                        {live?.oxygen && <Bubbles x={s * TRAP_X} />}
                         {/* Clamp holding the tube, on a pin under the ring plate */}
                         <Bar a={[s * 6.5, 93, UPPER_Z]} b={[s * 6.5, 101.5, UPPER_Z]} r={0.35}><Steel lit={lit('head-tubes')} /></Bar>
                         <Bar a={[s * 7.6, 95.5, UPPER_Z]} b={[s * 3.6, 95.5, UPPER_Z]} r={0.3}><Steel lit={lit('head-tubes')} /></Bar>
@@ -268,9 +466,9 @@ export const LangendorffApparatus: React.FC<{
                 <Box at={[0, 0, 4.03]} size={[15.4, 9.9, 0.06]}><meshStandardMaterial color={lit('control') ? HIGHLIGHT : '#a9aeb4'} roughness={0.5} metalness={0.3} /></Box>
                 {[-5.2, 5.2].map(x => (
                     <React.Fragment key={x}>
-                        <mesh position={[x * 0.75, 3.6, 4.3]}><sphereGeometry args={[0.62, 18, 12]} /><meshStandardMaterial color="#d92626" emissive="#7a0c0c" emissiveIntensity={0.6} roughness={0.3} /></mesh>
+                        <mesh position={[x * 0.75, 3.6, 4.3]}><sphereGeometry args={[0.62, 18, 12]} /><meshStandardMaterial color="#d92626" emissive={live && !live.heaterOn ? '#2a0606' : '#7a0c0c'} emissiveIntensity={live ? (live.heaterOn ? 1.4 : 0.2) : 0.6} roughness={0.3} /></mesh>
                         <Box at={[x, -0.4, 4.25]} size={[2.6, 4.6, 0.4]}><Paint lit={false} color="#fafafa" /></Box>
-                        <Box at={[x, -0.4, 4.5]} size={[1.5, 2.8, 0.25]} rot={[0.12, 0, 0]}><Paint lit={false} color="#ffffff" /></Box>
+                        <Box at={[x, -0.4, 4.5]} size={[1.5, 2.8, 0.25]} rot={[live && !live.heaterOn ? -0.12 : 0.12, 0, 0]}><Paint lit={false} color="#ffffff" /></Box>
                         <Label at={[x, -3.5, 4.1]} size={0.5} color="#9b1c1c" bold>ON</Label>
                     </React.Fragment>
                 ))}
@@ -280,8 +478,8 @@ export const LangendorffApparatus: React.FC<{
                 <Label at={[0, -3.9, 4.1]} size={0.5} color="#9b1c1c" bold>DIGITAL PID CONTROL</Label>
                 {/* Controller: measured temperature above, set temperature below */}
                 <Box at={[0, -0.4, 4.3]} size={[5.2, 5.2, 0.6]}><Black lit={false} /></Box>
-                <Label at={[0.3, 0.9, 4.62]} size={1.05} color="#ff3b30" bold>37.0</Label>
-                <Label at={[0.3, -0.5, 4.62]} size={0.85} color="#35d07f" bold>37.0</Label>
+                <Label at={[0.3, 0.9, 4.62]} size={1.05} color="#ff3b30" bold>{live?.pv ?? '37.0'}</Label>
+                <Label at={[0.3, -0.5, 4.62]} size={0.85} color="#35d07f" bold>{live?.sv ?? '37.0'}</Label>
                 <Label at={[-2, 0.9, 4.62]} size={0.34} color="#d1d5db">PV</Label>
                 <Label at={[-2, -0.5, 4.62]} size={0.34} color="#d1d5db">SV</Label>
                 <Box at={[0, -2.1, 4.62]} size={[4.4, 0.9, 0.05]}><meshStandardMaterial color="#cfd3d8" /></Box>
@@ -304,6 +502,8 @@ export const LangendorffApparatus: React.FC<{
                 <mesh position={[CAN[0] + 1.1, 24.9, CAN[2] - 0.4]}><cylinderGeometry args={[0.55, 0.55, 0.5, 14]} /><Steel lit={lit('cannula')} /></mesh>
             </group>
 
+            {motion && <LiveFlow motion={motion} />}
+
             {/* Thermometer, in the stream just before it reaches the heart */}
             <group userData={{ part: 'thermometer' }}>
                 <mesh position={[CAN[0] + 3.8, 22.65, CAN[2]]} rotation={[0, 0, Math.PI / 2 - 0.25]}><cylinderGeometry args={[0.7, 0.55, 1.1, 16]} /><Rubber lit={lit('thermometer')} /></mesh>
@@ -314,19 +514,22 @@ export const LangendorffApparatus: React.FC<{
             <group userData={{ part: 'manometer' }}>
                 <Box at={[-21.2, 23, 6.6]} size={[7, 21, 0.3]}><Steel lit={lit('manometer')} /></Box>
                 {sides.map(s => <Box key={s} at={[-21.2 + s * 3.5, 23, 7.1]} size={[0.3, 21, 1.3]}><Steel lit={lit('manometer')} /></Box>)}
-                <Box at={[-21.2, 22.5, 6.85]} size={[2.5, 11.5, 0.2]}><meshStandardMaterial color="#ffffff" roughness={0.4} /></Box>
-                {[0, 2, 4, 6, 8, 10, 12, 14, 16].map(n => (
-                    <React.Fragment key={n}>
-                        <Box at={[-21.9, 17.6 + n * 0.62, 6.97]} size={[0.9, 0.05, 0.02]}><meshBasicMaterial color="#111827" /></Box>
-                        <Label at={[-20.7, 17.6 + n * 0.62, 6.98]} size={0.48}>{String(n)}</Label>
+                {/* Scale beside the open limb, in mmHg: a long mark every 20 mmHg (1 cm of rise), a short one between */}
+                <Box at={[-21.2, 25.2, 6.85]} size={[2.5, 10.6, 0.2]}><meshStandardMaterial color="#ffffff" roughness={0.4} /></Box>
+                {Array.from({ length: 17 }, (_, k) => k).map(k => (
+                    <React.Fragment key={k}>
+                        <Box at={[k % 2 ? -22.05 : -21.9, HG_ZERO + k * 0.5, 6.97]} size={[k % 2 ? 0.6 : 0.9, 0.05, 0.02]}><meshBasicMaterial color="#111827" /></Box>
+                        {k % 2 === 0 && <Label at={[-20.65, HG_ZERO + k * 0.5, 6.98]} size={0.42}>{String(k * 10)}</Label>}
                     </React.Fragment>
                 ))}
+                <Label at={[-21.2, 29.95, 6.98]} size={0.4} bold>mmHg</Label>
                 <group userData={{ part: 'manometer', glass: true }}>
                     <Pipe pts={[[-23, 32.5, 7.4], [-23, 15.5, 7.4], [-22.6, 14.4, 7.4], [-21.2, 14, 7.4], [-19.8, 14.4, 7.4], [-19.4, 15.5, 7.4], [-19.4, 30.6, 7.4], [-19, 31.6, 7.4], [-17.6, 31.8, 7.4]]} r={0.34} seg={90}><Glass lit={lit('manometer')} opacity={0.4} /></Pipe>
                     <Bar a={[-19.4, 28, 7.4]} b={[-17.6, 28, 7.4]} r={0.3}><Glass lit={lit('manometer')} opacity={0.4} /></Bar>
                 </group>
                 {/* Mercury in the bend */}
-                <Pipe pts={[[-23, 18, 7.4], [-23, 15.5, 7.4], [-22.6, 14.4, 7.4], [-21.2, 14, 7.4], [-19.8, 14.4, 7.4], [-19.4, 15.5, 7.4], [-19.4, 18, 7.4]]} r={0.2} seg={50}><meshStandardMaterial color="#9aa1a8" metalness={1} roughness={0.15} /></Pipe>
+                <Pipe pts={HG_BEND} r={0.2} seg={50}><Mercury /></Pipe>
+                <MercuryColumns motion={motion} />
                 <Box at={[-17.6, 27, 6.4]} size={[1.9, 1.9, 1.5]}><Steel lit={lit('manometer')} /></Box>
                 {/* Its tubes: one to the side arm of the cannula, the other left free */}
                 <Pipe pts={[[-17.9, 31.8, 7.4], [-13, 32.4, 8], [-7, 29.6, 8], [CAN[0] - 2, 27.1, CAN[2]]]} r={0.45}><Rubber lit={lit('manometer')} /></Pipe>
@@ -335,14 +538,18 @@ export const LangendorffApparatus: React.FC<{
 
             {/* ---------- Heart clip: a small spring clip on an S-hook under the tip of the cannula ---------- */}
             <group userData={{ part: 'clip' }}>
-                <Pipe pts={[[CAN[0], 20.2, FRONT_Z], [CAN[0] + 0.25, 19.9, FRONT_Z], [CAN[0], 19.6, FRONT_Z], [CAN[0] - 0.2, 19.3, FRONT_Z], [CAN[0], 19.0, FRONT_Z], [CAN[0] + 0.2, 19.2, FRONT_Z]]} r={0.045} seg={30}><Steel lit={lit('clip')} /></Pipe>
-                {/* The clip: two arms joined by a coil at the lower end, like a small safety pin, hanging a little askew */}
-                <group position={[CAN[0] + 0.05, 19.05, FRONT_Z]} rotation={[0, 0, 0.32]}>
-                    <Bar a={[-0.18, 0, 0]} b={[-0.18, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit('clip')} /></Bar>
-                    <Bar a={[0.2, -0.15, 0]} b={[0.2, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit('clip')} /></Bar>
-                    <Box at={[0.01, -0.1, 0]} size={[0.55, 0.3, 0.14]}><Steel lit={lit('clip')} /></Box>
-                    <mesh position={[0.01, -1.95, 0]}><torusGeometry args={[0.24, 0.05, 6, 16]} /><Steel lit={lit('clip')} /></mesh>
-                </group>
+                {live?.heart && motion ? <ApexClip motion={motion} lit={lit('clip')} /> : (
+                    <>
+                        <Pipe pts={[[CAN[0], 20.2, FRONT_Z], [CAN[0] + 0.25, 19.9, FRONT_Z], [CAN[0], 19.6, FRONT_Z], [CAN[0] - 0.2, 19.3, FRONT_Z], [CAN[0], 19.0, FRONT_Z], [CAN[0] + 0.2, 19.2, FRONT_Z]]} r={0.045} seg={30}><Steel lit={lit('clip')} /></Pipe>
+                        {/* The clip: two arms joined by a coil at the lower end, like a small safety pin, hanging a little askew */}
+                        <group position={[CAN[0] + 0.05, 19.05, FRONT_Z]} rotation={[0, 0, 0.32]}>
+                            <Bar a={[-0.18, 0, 0]} b={[-0.18, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit('clip')} /></Bar>
+                            <Bar a={[0.2, -0.15, 0]} b={[0.2, -1.75, 0]} r={0.05} seg={6}><Steel lit={lit('clip')} /></Bar>
+                            <Box at={[0.01, -0.1, 0]} size={[0.55, 0.3, 0.14]}><Steel lit={lit('clip')} /></Box>
+                            <mesh position={[0.01, -1.95, 0]}><torusGeometry args={[0.24, 0.05, 6, 16]} /><Steel lit={lit('clip')} /></mesh>
+                        </group>
+                    </>
+                )}
             </group>
 
             {/* ---------- Pulleys and thread ----------
@@ -360,16 +567,24 @@ export const LangendorffApparatus: React.FC<{
                         <Bar a={[x, 10.6, 6.3]} b={[x, 10.4, FRONT_Z]} r={0.12} seg={8}><Steel lit={lit('pulleys')} /></Bar>
                     </React.Fragment>
                 ))}
-                {([
+                {!live ? ([
                     [CLIP_BOTTOM, [RIGHT_PULLEY_X - 0.6, 9.45, FRONT_Z]],
                     [[RIGHT_PULLEY_X + 1, 10.4, FRONT_Z], [RIGHT_PULLEY_X + 1, 20.6, FRONT_Z]],
                     [CLIP_BOTTOM, [LEFT_PULLEY_X + 0.6, 9.45, FRONT_Z]],
                     [[LEFT_PULLEY_X - 1, 10.4, FRONT_Z], [-22.6, 12.5, 6.2]],
                 ] as [V3, V3][]).map(([a, b], i) => (
-                    <Bar key={i} a={a} b={b} r={0.035} seg={5}><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></Bar>
-                ))}
+                    <Bar key={i} a={a} b={b} r={0.035} seg={5}><meshBasicMaterial color={threadColor} /></Bar>
+                )) : (
+                    // In the practical the thread is laid once the heart is on, and then moves with every beat
+                    <>
+                        <LiveThread color={threadColor} ends={() => [clipBottom(), [RIGHT_PULLEY_X - 0.6, 9.45, FRONT_Z]]} drawn={() => laid() * 2} />
+                        <LiveThread color={threadColor} ends={() => [[RIGHT_PULLEY_X + 1, 10.4, FRONT_Z], leverTie()]} drawn={() => laid() * 2 - 1} />
+                        <LiveThread color={threadColor} ends={() => [clipBottom(), [LEFT_PULLEY_X + 0.6, 9.45, FRONT_Z]]} drawn={() => laid() * 2} />
+                        <LiveThread color={threadColor} ends={() => [[LEFT_PULLEY_X - 1, 10.4, FRONT_Z], [-22.6, 12.5, 6.2]]} drawn={() => laid() * 2 - 1} />
+                    </>
+                )}
                 {/* Thread wound round the end of the left bar */}
-                {[0, 1, 2].map(k => <mesh key={k} position={[-22.4 + k * 0.18, 13, 6]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.47, 0.03, 4, 16]} /><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></mesh>)}
+                {(!live || live.heart) && [0, 1, 2].map(k => <mesh key={k} position={[-22.4 + k * 0.18, 13, 6]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.47, 0.03, 4, 16]} /><meshBasicMaterial color={lit('pulleys') ? HIGHLIGHT : '#f8fafc'} /></mesh>)}
             </group>
 
             {/* ---------- Heart lever: brass arm, notched strip, light spring and the writing point ---------- */}
@@ -379,11 +594,14 @@ export const LangendorffApparatus: React.FC<{
                 <mesh position={[20, 13.3, 6]}><sphereGeometry args={[0.6, 12, 8]} /><Steel lit={lit('lever')} /></mesh>
                 <Box at={[20.6, 21, FRONT_Z]} size={[4.6, 0.9, 0.9]}><Brass lit={lit('lever')} /></Box>
                 <mesh position={[18, 21, FRONT_Z]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.45, 0.45, 0.9, 12]} /><Brass lit={lit('lever')} /></mesh>
-                <Box at={[25.6, 20.95, FRONT_Z]} size={[5.6, 0.75, 0.16]}><Brass lit={lit('lever')} /></Box>
-                {[0, 1, 2, 3, 4, 5, 6].map(k => <Box key={k} at={[23.3 + k * 0.7, 21.4, FRONT_Z]} size={[0.35, 0.25, 0.16]}><Brass lit={lit('lever')} /></Box>)}
-                <mesh position={[28.7, 20.98, FRONT_Z]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.32, 0.32, 0.8, 12]} /><Black lit={lit('lever')} /></mesh>
-                <Bar a={[29, 21, FRONT_Z]} b={[38, 21.6, FRONT_Z]} r={0.06} seg={6}><Steel lit={lit('lever')} /></Bar>
-                <Box at={[38.4, 21.65, FRONT_Z]} size={[1.3, 0.7, 0.03]} rot={[0, 0, 0.3]}><meshStandardMaterial color={lit('lever') ? HIGHLIGHT : '#f1f5f9'} transparent opacity={0.85} /></Box>
+                {/* The arm that moves: notched strip, counterweight and the writing point */}
+                <LeverArm motion={motion}>
+                    <Box at={[25.6, 20.95, FRONT_Z]} size={[5.6, 0.75, 0.16]}><Brass lit={lit('lever')} /></Box>
+                    {[0, 1, 2, 3, 4, 5, 6].map(k => <Box key={k} at={[23.3 + k * 0.7, 21.4, FRONT_Z]} size={[0.35, 0.25, 0.16]}><Brass lit={lit('lever')} /></Box>)}
+                    <mesh position={[28.7, 20.98, FRONT_Z]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.32, 0.32, 0.8, 12]} /><Black lit={lit('lever')} /></mesh>
+                    <Bar a={[29, 21, FRONT_Z]} b={[38, 21.6, FRONT_Z]} r={0.06} seg={6}><Steel lit={lit('lever')} /></Bar>
+                    <Box at={[38.4, 21.65, FRONT_Z]} size={[1.3, 0.7, 0.03]} rot={[0, 0, 0.3]}><meshStandardMaterial color={lit('lever') ? HIGHLIGHT : '#f1f5f9'} transparent opacity={0.85} /></Box>
+                </LeverArm>
                 {/* Adjusting arm above, and the spring that returns the lever */}
                 <Bar a={[21, 21.4, FRONT_Z]} b={[21, 25.4, FRONT_Z]} r={0.22}><Brass lit={lit('lever')} /></Bar>
                 <Bar a={[19.6, 24.4, FRONT_Z]} b={[24.2, 24.4, FRONT_Z]} r={0.22}><Brass lit={lit('lever')} /></Bar>
@@ -408,4 +626,4 @@ export const LangendorffApparatus: React.FC<{
             </group>
         </group>
     );
-};
+});

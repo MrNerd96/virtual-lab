@@ -10,6 +10,6 @@ export interface MCQ {
 export interface QuestionSet {
     id: string;    // matches the module's view id in App.tsx
     title: string;
-    section: 'Hematology' | 'Amphibian' | 'Microscope';
+    section: 'Hematology' | 'Amphibian' | 'Mammalian' | 'Microscope';
     load: () => Promise<MCQ[]>; // loaded only when the quiz is opened
 }
