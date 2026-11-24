@@ -17,13 +17,14 @@ import { Quiz } from './Quiz';
 import { questionSetFor } from '../questions';
 
 // Movements of the isolated rabbit intestine and the effect of drugs and ions.
-// Follows GK Pal Ch 73 (printed pp. 489–492) and AK Jain Ch 67 (pp. 319–323): the segment of jejunum hangs in an
+// Follows GK Pal Ch 73 (printed pp. 488–492) and AK Jain Ch 67 (pp. 319–323): the segment of jejunum hangs in an
 // organ bath of Tyrode's solution at 37 °C, aerated slowly, tied below to the curved end of the air tube and above
 // to a frontal writing lever that writes on a slow drum: Dale's apparatus, as in Jain Fig. 67.1 and Pal Fig. 73.1.
-// Where the books differ, Pal is followed (doses of acetylcholine and barium chloride, the effect of KCl).
+// Where the books differ, Pal is followed (doses of acetylcholine, adrenaline and barium chloride). The effect of KCl
+// is Pal's alone: Jain gives it a dose but no effect. Histamine is Jain's 50 µg/mL (Pal prints "50 mg").
 // Not from the books: the sizes of the effects.
 
-// --- Agents (Pal p. 490; Jain p. 321 and Table 67.2), in Jain's order ---
+// --- Agents (Pal p. 490; Jain p. 321 and Table 67.2, p. 322), in Jain's order ---
 
 type AgentId = 'ach' | 'eserine' | 'adrenaline' | 'atropine' | 'histamine' | 'kcl' | 'cacl2' | 'bacl2';
 type RowId = AgentId | 'achAtropine';
@@ -41,7 +42,7 @@ interface Agent {
 
 const AGENTS: Record<AgentId, Agent> = {
     ach: { id: 'ach', label: 'Acetylcholine', dose: '1 mL of 1 in 10,00,000', color: '#fbbf24', tone: 1.4, rate: 1.3, amp: 1.4 },
-    eserine: { id: 'eserine', label: 'Eserine', dose: '0.2 mL (physostigmine)', color: '#fb923c', tone: 0.6, rate: 1.15, amp: 1.4 },
+    eserine: { id: 'eserine', label: 'Eserine', dose: '0.2 mL (physostigmine)', color: '#fb923c', tone: 0.15, rate: 1.1, amp: 1.4 },
     adrenaline: { id: 'adrenaline', label: 'Adrenaline', dose: '1 mL of 1 in 1,00,000', color: '#f87171', tone: -0.4, rate: 0.4, amp: 0.15 },
     atropine: { id: 'atropine', label: 'Atropine', dose: '1 mL of 0.01%', color: '#a3e635', tone: -0.2, rate: 0.85, amp: 0.7 },
     histamine: { id: 'histamine', label: 'Histamine', dose: '1 mL of 50 µg/mL', color: '#f472b6', tone: 0.7, rate: 1.3, amp: 1.4 },
@@ -65,8 +66,8 @@ const EXPLAIN: Record<RowId, { seen: string; why: string }> = {
         why: 'Acting on muscarinic receptors it depolarises the smooth muscle, letting in more Na⁺ and Ca²⁺, and through IP₃ it releases calcium inside the cell, so the muscle contracts more.',
     },
     eserine: {
-        seen: 'Larger contractions, with a rise in tone.',
-        why: 'It inhibits acetylcholinesterase, the enzyme that destroys acetylcholine, so acetylcholine lasts longer and its action is potentiated.',
+        seen: 'Larger contractions.',
+        why: 'It inhibits acetylcholinesterase, the enzyme that destroys acetylcholine, so the acetylcholine released in the gut wall lasts longer and its action is potentiated.',
     },
     adrenaline: {
         seen: 'The intestine relaxes: the tone, the rate and the height of contraction all fall.',
@@ -86,7 +87,7 @@ const EXPLAIN: Record<RowId, { seen: string; why: string }> = {
     },
     kcl: {
         seen: 'The movements are stimulated, much as with acetylcholine.',
-        why: 'More K⁺ outside the fibres depolarises the smooth muscle membrane, so it contracts more. (This follows Pal; Jain records little change.)',
+        why: 'Pal: it stimulates the intestine just as acetylcholine does. More K⁺ outside the fibres lowers the membrane potential, so the muscle fires and contracts more.',
     },
     cacl2: {
         seen: 'The height of contraction increases, with a rise in tone.',
@@ -404,7 +405,7 @@ const STEPS: Step[] = [
         id: 'segment', name: 'Segment', title: 'Take out a segment', view: 'dish', dur: 2800, shots: [[0, 'dish']], doing: 'Placing the segment in Tyrode\'s solution…',
         text: 'A rabbit fasted overnight is stunned and the abdomen opened. Which part of the gut is taken?',
         choices: [
-            { label: 'Segments of jejunum, 2–3 cm long, close to the duodenum', ok: true, say: 'Right. Duodenal or jejunal segments work well. They go at once into Tyrode\'s solution in a petri dish.' },
+            { label: 'Segments of jejunum, 2–3 cm long, close to the duodenum', ok: true, say: 'Right (Jain cuts 2–3 cm pieces; Pal takes one piece of about 5 cm). Duodenal or jejunal segments work well. They go at once into Tyrode\'s solution in a petri dish.' },
             { label: 'A piece of the colon', ok: false, say: 'The small intestine is used: segments of jejunum close to the duodenum, which work well.' },
         ],
     },
@@ -716,7 +717,7 @@ export const IsolatedIntestine: React.FC<{ onBack: () => void }> = ({ onBack }) 
     // --- Panel text ---
     const guidance = notice
         ?? (!drumOn ? (dataRef.current.length ? 'Drum stopped. Start it again to go on recording.' : 'Start the drum (2.5 mm/s) and record the normal movements.')
-            : drainRef.current !== null ? 'Draining the organ bath and refilling it with fresh Tyrode\'s solution…'
+            : drainRef.current !== null ? 'Draining the organ bath and refilling it with fresh Tyrode\'s solution… (In the laboratory, wait 5–10 minutes for normal movements.)'
                 : frame.agents.length === 2 ? 'Acetylcholine added after atropine. Note whether the movements change, then drain and refill.'
                     : frame.agents[0] === 'atropine' ? 'Atropine in the bath. Note the movements, then add acetylcholine on top of it, or drain and refill.'
                         : frame.agents.length ? `${AGENTS[frame.agents[0]].label} in the bath. Watch the movements change, then drain and refill with fresh Tyrode's solution.`
