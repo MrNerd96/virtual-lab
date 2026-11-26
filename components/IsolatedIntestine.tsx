@@ -356,7 +356,8 @@ const Bench = () => (
 type ViewId = 'bath' | 'organ' | 'organTop' | 'panel' | 'dish' | 'dishClose' | 'lever' | 'drum' | 'whole';
 const VIEWS: Record<ViewId, View> = {
     bath: { center: [0, 32, 0], halfW: 20, halfH: 16, from: [0.2, 0.15, 1] },
-    organ: { center: [ORGAN.x + 0.3, 33.5, ORGAN.z], halfW: 5, halfH: 6.5, from: [0.12, 0.06, 1] },
+    // The whole organ bath with the air tube, the thread up to the lever's fulcrum and the drug pipette above it
+    organ: { center: [ORGAN.x - 0.5, 35.5, ORGAN.z], halfW: 9, halfH: 8, from: [0.12, 0.06, 1] },
     organTop: { center: [ORGAN.x + 0.3, 36, ORGAN.z + 3], halfW: 10, halfH: 11, from: [0.2, 0.22, 1] },
     panel: { center: [6, 30, 3], halfW: 16, halfH: 14, from: [0.35, 0.2, 1] },
     dish: { center: [DISH_AT[0], 7, DISH_AT[2]], halfW: 11, halfH: 12, from: [0.2, 0.35, 1] },
