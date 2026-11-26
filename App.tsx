@@ -29,6 +29,7 @@ const PropertiesOfCardiacMuscle = lazy(() => import('./components/PropertiesOfCa
 const FrogHeartPerfusion = lazy(() => import('./components/FrogHeartPerfusion').then(m => ({ default: m.FrogHeartPerfusion })).catch(reloadForNewVersion));
 const LangendorffPerfusion = lazy(() => import('./components/LangendorffPerfusion').then(m => ({ default: m.LangendorffPerfusion })).catch(reloadForNewVersion));
 const IsolatedIntestine = lazy(() => import('./components/IsolatedIntestine').then(m => ({ default: m.IsolatedIntestine })).catch(reloadForNewVersion));
+const CardiovascularReflexes = lazy(() => import('./components/CardiovascularReflexes').then(m => ({ default: m.CardiovascularReflexes })).catch(reloadForNewVersion));
 const VagusAndWCL = lazy(() => import('./components/VagusAndWCL').then(m => ({ default: m.VagusAndWCL })).catch(reloadForNewVersion));
 const SpecificGravity = lazy(() => import('./components/SpecificGravity').then(m => ({ default: m.SpecificGravity })).catch(reloadForNewVersion));
 const HaemoglobinEstimation = lazy(() => import('./components/HaemoglobinEstimation').then(m => ({ default: m.HaemoglobinEstimation })).catch(reloadForNewVersion));
@@ -83,7 +84,8 @@ import {
   Lock,
   ChevronDown,
   HeartPulse,
-  Rabbit
+  Rabbit,
+  Gauge
 } from 'lucide-react';
 
 // --- Simulation Constants ---
@@ -95,7 +97,7 @@ const RELAXATION_TIME_BASE = 150; // ms
 const EXPERIMENT_DURATION = 500; // ms
 
 // --- Shared Types ---
-type ViewState = 'home' | 'amphibian' | 'hematology' | 'mammalian' | 'langendorff' | 'intestine' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff' | 'instrument-dales-apparatus';
+type ViewState = 'home' | 'amphibian' | 'hematology' | 'mammalian' | 'langendorff' | 'intestine' | 'bp-respiration' | 'twitch' | 'load' | 'fatigue' | 'two-stimuli' | 'effect-of-load' | 'wbc-count' | 'rbc-count' | 'dlc-count' | 'dlc-quiz' | 'genesis-tetanus' | 'effect-of-temperature' | 'microscope' | 'stimulus-strength' | 'conduction-velocity' | 'normal-cardiogram' | 'properties-cardiac-muscle' | 'vagus-wcl' | 'frog-heart-perfusion' | 'specific-gravity' | 'hb-estimation' | 'osmotic-fragility' | 'esr' | 'blood-grouping' | 'bt-ct' | 'platelet-count' | 'aec-count' | 'reticulocyte-count' | 'question-bank' | 'instruments' | 'instrument-rbc-pipette' | 'instrument-wbc-pipette' | 'instrument-neubauer-chamber' | 'instrument-kymograph' | 'instrument-langendorff' | 'instrument-dales-apparatus';
 
 // --- GA4 Analytics Helpers ---
 declare global {
@@ -111,6 +113,7 @@ const MODULE_LABELS: Record<ViewState, string> = {
   'mammalian': 'Mammalian Menu',
   'langendorff': 'Langendorff Perfused Heart',
   'intestine': 'Isolated Rabbit Intestine',
+  'bp-respiration': 'BP & Respiration: the Reflexes',
   'twitch': 'Simple Muscle Twitch',
   'load': 'Effect of Load',
   'fatigue': 'Genesis of Fatigue',
@@ -155,6 +158,7 @@ const MODULE_CATEGORIES: Record<ViewState, string> = {
   'mammalian': 'Navigation',
   'langendorff': 'Mammalian',
   'intestine': 'Mammalian',
+  'bp-respiration': 'Mammalian',
   'twitch': 'Amphibian',
   'load': 'Amphibian',
   'fatigue': 'Amphibian',
@@ -2516,6 +2520,13 @@ const App: React.FC = () => {
                 colorClass="pink"
                 onClick={() => navigateTo('intestine')}
               />
+              <MenuCard
+                title="BP & Respiration: the Reflexes"
+                description="The record of blood pressure and breathing, and what carotid occlusion, the vagus, drugs, asphyxia and blood loss do to it. Worked out from the reflex arc, with no animal."
+                icon={<Gauge className="w-8 h-8" />}
+                colorClass="purple"
+                onClick={() => navigateTo('bp-respiration')}
+              />
             </div>
           </div>
         </div>
@@ -2824,6 +2835,12 @@ const App: React.FC = () => {
       return (
         <Suspense fallback={<LoadingSpinner message="Loading Isolated Rabbit Intestine..." />}>
           <IsolatedIntestine onBack={() => window.history.back()} />
+        </Suspense>
+      );
+    case 'bp-respiration':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Loading BP & Respiration..." />}>
+          <CardiovascularReflexes onBack={() => window.history.back()} />
         </Suspense>
       );
     case 'langendorff':
