@@ -28,6 +28,8 @@ export const QUESTION_SETS: QuestionSet[] = [
     { id: 'frog-heart-perfusion', title: 'Perfusion of Frog\'s Heart', section: 'Amphibian', load: () => import('./frog-heart-perfusion').then(m => m.PERFUSION_QUESTIONS) },
     { id: 'langendorff', title: 'Langendorff Perfused Heart', section: 'Mammalian', load: () => import('./langendorff').then(m => m.LANGENDORFF_QUESTIONS) },
     { id: 'intestine', title: 'Isolated Rabbit Intestine', section: 'Mammalian', load: () => import('./intestine').then(m => m.INTESTINE_QUESTIONS) },
+    // No practical module for this one yet: the set is reached from the Question Bank
+    { id: 'bp-respiration', title: 'BP & Respiration in the Dog', section: 'Mammalian', load: () => import('./bp-respiration').then(m => m.BP_RESPIRATION_QUESTIONS) },
     { id: 'microscope', title: 'Compound Microscope', section: 'Microscope', load: () => import('./microscope').then(m => m.MICROSCOPE_QUESTIONS) },
 ];
 
